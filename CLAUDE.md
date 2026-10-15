@@ -4,7 +4,7 @@
 
 A small, security-focused Discord alternative. There are no Discord-style servers (guilds): only flat group chats of up to 10 people, each with one drop-in call for up to about 6 people (voice and screen sharing, peer-to-peer mesh). Desktop first, Windows only in version 1 (D73). License: AGPL-3.0-or-later.
 
-Status: the design is complete (decisions D1 to D79, all made by the user). Milestone M1 is in progress: the repository scaffold (#1) is built.
+Status: the design is complete (decisions D1 to D82, all made by the user). Milestone M1 is in progress: the repository scaffold (#1) is built.
 
 The full design lives in `docs/guide/`. `docs/README.md` explains which file to read for what.
 
