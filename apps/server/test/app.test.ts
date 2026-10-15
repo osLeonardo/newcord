@@ -1,15 +1,17 @@
 import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildServerApp } from "../src/app.js";
+import { startTestServer, type TestServer } from "./support/server-test-kit.js";
 
+let server: TestServer;
 let app: FastifyInstance;
 
 beforeEach(async () => {
-  app = await buildServerApp();
+  server = await startTestServer();
+  app = server.app;
 });
 
 afterEach(async () => {
-  await app.close();
+  await server.close();
 });
 
 describe("buildServerApp", () => {
