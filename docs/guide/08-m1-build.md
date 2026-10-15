@@ -35,7 +35,7 @@ Proposed by me and accepted by you on October 14, 2026.
 pnpm --filter server add better-sqlite3 argon2 @fastify/jwt @fastify/rate-limit typebox @fastify/type-provider-typebox
 pnpm --filter server add -D @types/better-sqlite3
 pnpm --filter @your-app/shared add typebox
-pnpm approve-builds
+pnpm approve-builds better-sqlite3 argon2
 ```
 
 2. Create the tables. Refresh tokens are stored only as a SHA-256 hash and kept, marked as used, until they expire, so a reused one can be recognised (D62); each device's identity key is its Ed25519 public key, a device's ID is a random value created by the server (D59), and an identity key can belong to only one account (D60):
@@ -132,4 +132,4 @@ pnpm --filter desktop add better-sqlite3
 
 ## Done when
 
-Two copies of the app on two computers, ideally one Windows and one Linux, sign up, log in and see each other online, and logging one out removes it from the other's list.
+Two copies of the app on two Windows computers sign up, log in and see each other online, and logging one out removes it from the other's list.

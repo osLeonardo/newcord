@@ -8,7 +8,7 @@ The original lives as a Claude Doc, exported on 2026-10-14. From now on, this co
 | --- | --- |
 | `guide/01-requirements.md` | The goals and how each was settled |
 | `guide/02-discord-analysis.md` | How Discord works, what changes peer-to-peer, similar projects worth studying |
-| `guide/03-decisions.md` | Decisions D1 to D68: a summary table, then each decision with its options, pros and cons, recommendation and final choice |
+| `guide/03-decisions.md` | Decisions D1 to D74: a summary table, then each decision with its options, pros and cons, recommendation and final choice |
 | `guide/04-architecture.md` | The client, the backend and the relay, and how messages and calls flow |
 | `guide/05-milestones.md` | The five milestones and the test that closes each |
 | `guide/06-message-formats.md` | Account requests, WebSocket envelopes and encrypted payloads |

@@ -30,7 +30,7 @@ Every message has two layers: an outer envelope the backend reads so it can rout
 | block, unblock | Client | Records or removes a block, so invitations from that person are dropped without telling them (D57) | Who blocks whom |
 | resync | Backend | Asks members' apps to re-add a device that missed a group change before it expired (D24) | Which device lost sync |
 
-Commits are encrypted like every other MLS message. The sender's envelope declares who was added or removed (D41); the backend uses that for delivery and the 10-member limit (D17), and every member's app checks the declaration against the real commit and rejects any mismatch.
+Commits are encrypted like every other MLS message. The sender's envelope declares who was added or removed (D41); the backend uses that for delivery and the 10-member limit (D17), and every member's app checks the declaration against the real commit and shows a notice naming the sender on any mismatch (D71).
 
 ## Encrypted payloads (inside mls.message)
 

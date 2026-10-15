@@ -1,7 +1,7 @@
 # Decision log
 
 
-Every decision so far, D1 to D68, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
+Every decision so far, D1 to D74, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
 
 | Decision | Your choice |
 | --- | --- |
@@ -75,6 +75,12 @@ Every decision so far, D1 to D68, is made and summarized below. Each one records
 | D66 Sessions after a password change | Change closes other devices' WebSockets at once; recovery closes all of them |
 | D67 Deleting an account | Not in version 1 |
 | D68 Checks on pull requests | No CI before M5's release workflow; checks run locally |
+| D69 Interface styling | Tailwind CSS, through its Vite plugin |
+| D70 Identity in MLS credentials | The account's username and the device's ID |
+| D71 Commits that break the rules | Applied, with a notice naming the sender and the real change |
+| D72 Removing a lost device | Not in version 1 |
+| D73 Platforms in version 1 | Windows only; Linux desktop builds later (narrows D4, moves D47 and D50 out of version 1) |
+| D74 Push-to-talk keyboard hook | uiohook-napi |
 
 ## D1 — Architecture: who carries messages and calls?
 
@@ -1124,3 +1130,88 @@ Found while planning M1: D48 covers release builds in M5, and the rules mention 
 Recommendation: A. The app supports both systems, and native modules are where they differ most.
 
 Your choice: C, none until M5 (decided October 14, 2026). Tests, lint and typecheck run locally before each pull request is merged.
+
+## D69 — Styling the interface
+
+Found while planning M1's desktop screens: D21 chose React, but nothing chose how the interface is styled. It must work with the strict Content Security Policy (only the app's own scripts, no eval), ideally without allowing inline styles in release builds.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. Tailwind CSS, through its Vite plugin | The same approach as your other React app; produces a plain CSS file at build time and adds no code that runs in the app; works without inline styles | A build-time dependency; long class lists in the markup |
+| B. CSS Modules, built into Vite | No new dependency; plain CSS scoped per component | Slower to build screens; spacing and colours need conventions of their own |
+| C. A component library (for example Mantine, MUI or shadcn with Radix) | Ready-made accessible components; fastest to build screens | The most dependencies; libraries that inject styles from JavaScript need inline styles allowed, weakening the policy; the look follows the library |
+
+In development, Vite injects styles inline for live reloading with any option, so only the development build's policy allows inline styles.
+
+Recommendation: A. It is familiar, works only at build time, and keeps the release policy strict.
+
+Your choice: A, Tailwind CSS (decided October 14, 2026).
+
+## D70 — What identifies a device inside MLS
+
+Found while planning M2: each device's MLS credential carries an identity that every group member sees, but the guide did not say what it holds. Members' apps rely on it to check each commit against its declared change (D41), to count people rather than devices for the 10-member limit (D17), and to group a person's device keys for safety numbers (D45).
+
+| Option | Credential identity | Pros | Cons |
+| --- | --- | --- | --- |
+| A. Username and device ID | The account's username and the device's ID, in one fixed encoding | Apps count people, match declared changes device by device and group keys per person, all from signed MLS state rather than the server | Usernames become permanent; device IDs are visible to group members, as they already are in new-device notices |
+| B. Username only | The account's username | Simpler | A person's devices differ only by key, so matching device-level changes relies on keys |
+| C. Device ID only | The device's ID | No username inside MLS | Learning whose device it is means asking the server, which D41 exists to distrust |
+
+Recommendation: A. Hard to change later, since credentials live in every group's state, and it keeps every check on the device.
+
+Your choice: A, username and device ID (decided October 14, 2026).
+
+## D71 — What an app does with a commit that breaks the rules
+
+Found while planning M2: the build steps said to reject commits that take a group past 10 people and to warn on a mismatch with the declared change, but an MLS commit cannot be half-applied. A device either moves to the new epoch with everyone else or stays behind and can read nothing after it.
+
+| Option | What the app does | Pros | Cons |
+| --- | --- | --- | --- |
+| A. Refuse and freeze the group | Does not apply the commit; the group becomes read-only on this device, with a notice naming the sender and what the commit really did | A hidden device never receives a key honest members encrypt with; the dishonest side ends up alone | Destructive: the group must be recreated even when the cause was a bug |
+| B. Apply and warn | Applies the commit, stays in step, and shows the same notice | The group keeps working, and people decide what to do | A hidden device reads new messages until someone removes it; the warning comes after the harm |
+| C. Depends on the mismatch | Refuses undeclared additions and growth past 10; applies and warns otherwise | Freezes only when secrecy is at stake | Two paths and a rule that must be exactly right |
+
+Recommendation: A. A mismatch only comes from a faulty or dishonest app, and freezing keeps new messages away from anyone not declared.
+
+Your choice: B, apply and warn (decided October 14, 2026). The remaining risk is listed under Risks you accepted.
+
+## D72 — Removing a lost or stolen device
+
+Found while planning M2: changing the password cuts a lost device's sessions (D66), but nothing removes it from groups or the key directory.
+
+| Option | How it works | Pros | Cons |
+| --- | --- | --- | --- |
+| A. From the account's other devices | A list of your devices; removing one revokes it on the server and removes it from every group | One action does everything | New screens, server revocation and per-group commits |
+| B. Group members remove it by hand | A per-group action to remove one device | Little to build | Devices have no names, so telling them apart needs more design |
+| C. Not in version 1 | Change the password; if needed, members remove the person and invite them again | Nothing to build | A lost device stays in its groups until someone acts |
+
+Recommendation: A at first; the discussion then moved to B and device names.
+
+Your choice: C, not in version 1 (decided October 14, 2026). The app is for a small group of friends on Windows desktops, so the extra design is not worth it now.
+
+## D73 — Windows only in version 1
+
+Raised while planning M3 to M5: the app will be used by a small group of friends, all on Windows desktop computers. D4 targeted Windows and Linux, which brought Wayland screen sharing, Linux trays (D47), four Linux package formats (D50) and a Linux machine in every milestone gate.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. Windows only in version 1 | Removes Wayland, the Linux tray, Linux autostart and Linux packaging; every gate needs only Windows computers | Linux users cannot use version 1; Linux support comes later |
+| B. Keep Windows and Linux | Matches D4 | A large share of M3 to M5's work serves nobody who will use version 1 |
+
+Recommendation: A. Nothing in the code makes Linux hard to add later.
+
+Your choice: A, Windows only (decided October 14, 2026). D47 (Linux without a tray) and D50 (Linux formats) move out of version 1. The server still runs on Linux (D52), since that is the hosting machine rather than a desktop app.
+
+## D74 — Keyboard hook for global push-to-talk
+
+Left open by D44b until M3. Electron's own global shortcuts report key presses but not releases, so holding a key to talk needs a low-level keyboard hook in the main process.
+
+| Option | How it works | Pros | Cons |
+| --- | --- | --- | --- |
+| A. uiohook-napi | A Node-API wrapper around libuiohook, with key-down and key-up events | Maintained; prebuilt Windows binaries; Node-API survives Electron upgrades; small API | A native module with an install script, approved by name; a third-party binary |
+| B. node-global-key-listener | A bundled helper program reports keys to the app | No compiling | A separate process to ship; antivirus tools sometimes flag the helper |
+| C. Our own hook in Rust | About a hundred lines with napi-rs and the Windows hook API | No third-party binary | The most work; a native build for Electron to maintain |
+
+Recommendation: A. The standard tool for the job, wrapped behind the app's own interface so it can be swapped for C later.
+
+Your choice: A, uiohook-napi (decided October 14, 2026).

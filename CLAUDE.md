@@ -2,9 +2,9 @@
 
 ## Project
 
-A small, security-focused Discord alternative. There are no Discord-style servers (guilds): only flat group chats of up to 10 people, each with one drop-in call for up to about 6 people (voice and screen sharing, peer-to-peer mesh). Desktop first, Windows and Linux. License: AGPL-3.0-or-later.
+A small, security-focused Discord alternative. There are no Discord-style servers (guilds): only flat group chats of up to 10 people, each with one drop-in call for up to about 6 people (voice and screen sharing, peer-to-peer mesh). Desktop first, Windows only in version 1 (D73). License: AGPL-3.0-or-later.
 
-Status: the design is complete (decisions D1 to D68, all made by the user). Nothing is built yet. Implementation starts at milestone M1.
+Status: the design is complete (decisions D1 to D74, all made by the user). Nothing is built yet. Implementation starts at milestone M1.
 
 The full design lives in `docs/guide/`. `docs/README.md` explains which file to read for what.
 
@@ -12,7 +12,7 @@ The full design lives in `docs/guide/`. `docs/README.md` explains which file to 
 
 - The user makes every decision. Never choose an architecture, library, protocol, product behavior, security trade-off or default value on your own.
 - When a decision is needed, present at least two options with pros and cons, your recommendation and why, then wait for the user's answer.
-- Record each new decision in `docs/guide/03-decisions.md` using the next number (D69, D70, …) and the same format (context, options table, recommendation, `Your choice: … (decided YYYY-MM-DD)`), and add a row to the summary table at the top of that file.
+- Record each new decision in `docs/guide/03-decisions.md` using the next number (D75, D76, …) and the same format (context, options table, recommendation, `Your choice: … (decided YYYY-MM-DD)`), and add a row to the summary table at the top of that file.
 - The decision log replaces ADRs in this repository: there is no `docs/adr/`. When a workspace skill offers to create an ADR, record a D-entry in `03-decisions.md` instead. The domain glossary is `CONTEXT.md` at the repository root.
 - Values the guide marks as "Settings" were proposed and accepted; use them as written. If a step needs a value the guide does not give, ask.
 - Internal implementation details inside a decided design (function names, file layout inside a package, test structure) do not need a decision.
@@ -42,20 +42,20 @@ Read only the files the current task needs; `03-decisions.md` is large.
 ## Stack (decided)
 
 - Monorepo with pnpm workspaces: `apps/desktop`, `apps/server`, `packages/shared`; later `packages/mls` (Rust).
-- Desktop: Electron, built with electron-vite and packaged with electron-builder; React interface; TypeScript.
+- Desktop: Electron, built with electron-vite and packaged with electron-builder; React interface styled with Tailwind CSS (D69); TypeScript.
 - Server: TypeScript on Node.js, Fastify with `@fastify/websocket`, SQLite through better-sqlite3, Argon2id password hashes, JWT (HS256, 15 minutes) plus refresh tokens stored as hashes.
 - Shared schemas: TypeBox (package `typebox`), validating both HTTP requests and WebSocket envelopes. Wire format: JSON, encrypted payloads in base64.
 - Encryption: MLS (RFC 9420) through OpenMLS compiled to WebAssembly with wasm-bindgen, cipher suite 1 (X25519, AES-128-GCM, SHA-256, Ed25519). The MLS state is saved as one blob after every change.
 - Calls: WebRTC mesh in the main window, Opus voice, screen sharing with VP8, VP9 or H.264 (H.264 by default, chosen in settings), coturn relay with short-lived credentials, a "Hide my IP" setting.
 - Testing: Vitest, plus Rust tests for the MLS crate. Linting and formatting: ESLint (with React hooks and security plugins) and Prettier.
-- Releases: GitHub Actions to GitHub Releases; installers are NSIS per-user on Windows, plus AppImage, .deb, .rpm and pacman on Linux; unsigned automatic updates through electron-updater.
+- Releases: GitHub Actions to GitHub Releases; installers are NSIS per-user on Windows (Linux packages are out of version 1, D73); unsigned automatic updates through electron-updater.
 - Production: one Oracle Cloud Always Free Arm machine, nginx routing port 443 by hostname, two DuckDNS names, Let's Encrypt certificates.
 
 ## Commands
 
 The repository does not exist yet; M1 setup creates it. Once it does:
 
-- `pnpm install`, then `pnpm approve-builds` after adding packages that run install scripts
+- `pnpm install`, then `pnpm approve-builds <package>` after adding a package that runs install scripts; pnpm 11 stops the install until each one is approved or denied, and its settings live in `pnpm-workspace.yaml`, not `.npmrc`
 - `pnpm --filter desktop dev` runs the desktop app
 - `pnpm --filter server dev` runs the server (http://localhost:3000/health should answer `{"ok":true}`)
 - M1 setup installs Vitest, ESLint and Prettier but does not define scripts for them: add root `test`, `lint` and `format` scripts then, and keep this section up to date with the real commands.
@@ -83,7 +83,7 @@ These come from the decisions and the security checklist (`13-security-checklist
 **Protocol**
 - Anything members should read goes inside the MLS payload. Envelopes carry only what the server needs to route, order and delete.
 - Call setup (offers, answers, candidates, fingerprints) travels only as MLS-encrypted messages (D18).
-- Every member's app checks each commit against the change its sender declared, and rejects groups larger than 10 people (D41, D17).
+- Every member's app checks each commit against the change its sender declared and against the 10-person limit; a commit that fails is still applied, and the app shows a notice naming the sender and what the commit really did (D41, D17, D71).
 
 **Dependencies**
 - Ask before adding a dependency that runs install scripts, a native module, or any new third-party network service.
@@ -109,6 +109,4 @@ These come from the decisions and the security checklist (`13-security-checklist
 ## Known pending items
 
 - Before M5 starts: choose the app's final name and replace "newcord" everywhere (D58).
-- When M2 planning starts: removing a lost or stolen device, both from the account and from every group's MLS membership. Nothing in the guide does this yet; cancelling its tokens (D66) only stops the server delivering to it.
-- When M3 starts: choose the Windows keyboard-hook library for global push-to-talk (D44b), as a decision with options.
-- Out of scope for version 1, so do not build them: webcam video, phone apps, macOS, editing or deleting messages, reactions, typing indicators, file sharing and deleting an account (D67).
+- Out of scope for version 1, so do not build them: webcam video, phone apps, macOS, editing or deleting messages, reactions, typing indicators, file sharing, deleting an account (D67) and removing a single lost device (D72), and Linux desktop builds (D73).

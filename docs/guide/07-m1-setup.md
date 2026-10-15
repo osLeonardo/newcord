@@ -10,6 +10,7 @@ Proposed by me and accepted by you on October 14, 2026.
 | Setting | Proposed | Why |
 | --- | --- | --- |
 | Node.js version | 26, pinned with `engines.node` in the root `package.json` and a `.node-version` file | It becomes LTS on October 28, 2026 and is supported until April 2029, so the server needs no major upgrade before or soon after M5's deployment; Node 24 enters maintenance on October 20, 2026. The desktop app is unaffected, since Electron bundles its own Node.js. If better-sqlite3 or argon2 has no prebuilt binary for it, stop and report rather than switching versions |
+| pnpm version | 11, pinned with `"packageManager": "pnpm@11.5.2"` in the root `package.json`; its settings live in `pnpm-workspace.yaml` | pnpm 11 no longer reads its settings from `.npmrc` ([source](https://pnpm.io/blog/releases/11.0)), and it refuses to install while any package's install script is neither approved nor denied, which enforces the rule to ask before a dependency runs install scripts |
 
 ## Repository layout
 
@@ -20,8 +21,7 @@ your-app/
 │   └── server/         Fastify backend
 ├── packages/
 │   └── shared/         Message schemas and types used by both
-├── pnpm-workspace.yaml
-├── .npmrc
+├── pnpm-workspace.yaml   Workspace packages, pnpm settings and build approvals
 ├── eslint.config.js
 ├── .prettierrc
 ├── vitest.config.ts
@@ -53,10 +53,10 @@ packages:
   - "packages/*"
 ```
 
-4. Switch pnpm to the hoisted layout that electron-builder needs, in `.npmrc` ([source](https://github.com/codaline-io/electron-builder)):
+4. Switch pnpm to the hoisted layout that electron-builder needs ([source](https://github.com/codaline-io/electron-builder)), in the same `pnpm-workspace.yaml`. pnpm 11 ignores this setting in `.npmrc` (see Settings):
 
-```
-node-linker=hoisted
+```yaml
+nodeLinker: hoisted
 ```
 
 5. Create the desktop app from electron-vite's React and TypeScript template ([source](https://evite.netlify.app/guide)):
@@ -98,11 +98,11 @@ await app.listen({ port: 3000 });
 pnpm --filter desktop --filter server add @your-app/shared --workspace
 ```
 
-9. Install everything, then choose which packages may run install scripts ([source](https://pnpm.io/fr/cli/approve-builds)). Approve Electron and the build tools it lists, such as esbuild, and leave anything unfamiliar blocked; the approvals are saved in `pnpm-workspace.yaml`:
+9. Install everything, then choose which packages may run install scripts ([source](https://pnpm.io/cli/approve-builds)). pnpm 11 stops the install until every such package is approved or denied. Approve Electron and the build tools it lists, such as esbuild, by name, and ask before approving anything unfamiliar; the choices are saved under `allowBuilds` in `pnpm-workspace.yaml`:
 
 ```bash
 pnpm install
-pnpm approve-builds
+pnpm approve-builds electron esbuild
 ```
 
 10. Add testing (D32) and linting and formatting (D33) at the repository root, then create `vitest.config.ts`, `eslint.config.js` and `.prettierrc`:
