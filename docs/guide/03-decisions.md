@@ -1,7 +1,7 @@
 # Decision log
 
 
-Every decision so far, D1 to D74, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
+Every decision so far, D1 to D79, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
 
 | Decision | Your choice |
 | --- | --- |
@@ -81,6 +81,11 @@ Every decision so far, D1 to D74, is made and summarized below. Each one records
 | D72 Removing a lost device | Not in version 1 |
 | D73 Platforms in version 1 | Windows only; Linux desktop builds later (narrows D4, moves D47 and D50 out of version 1) |
 | D74 Push-to-talk keyboard hook | uiohook-napi |
+| D75 TypeScript version | 6.0.x until `typescript-eslint` supports 7 |
+| D76 Vite | Declared as a root development dependency |
+| D77 Lint and format strictness | Warnings fail lint; type-aware rules plus explicit return types; Markdown not formatted; React hooks plugin only |
+| D78 Electron version | Pinned exactly in the desktop app's `package.json` |
+| D79 electron-winstaller install script | Denied; NSIS does not use it |
 
 ## D1 — Architecture: who carries messages and calls?
 
@@ -1215,3 +1220,70 @@ Left open by D44b until M3. Electron's own global shortcuts report key presses b
 Recommendation: A. The standard tool for the job, wrapped behind the app's own interface so it can be swapped for C later.
 
 Your choice: A, uiohook-napi (decided October 14, 2026).
+
+## D75 — TypeScript version
+
+Raised during M1 setup (#1). The guide installs `typescript` without a version. The newest release is TypeScript 7 (the native compiler), but `typescript-eslint` (D33), at 8.71.2, supports only TypeScript versions below 6.1.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. TypeScript 6.0.x (`~6.0.3`) | Works with `typescript-eslint` today; one compiler for type checking and linting | Not the newest major; a move to 7 later |
+| B. TypeScript 7 | The newest release; much faster type checking | Outside `typescript-eslint`'s supported range, so linting with type information breaks |
+| C. TypeScript 7 for type checking, 6.0.x under an alias for `typescript-eslint` | Fast type checking and working linting | Two compilers that can disagree; extra setup |
+
+Recommendation: A. Everything works without workarounds; revisit once `typescript-eslint` supports TypeScript 7.
+
+Your choice: A, TypeScript `~6.0.3` in every package (decided October 15, 2026). Move to 7 once `typescript-eslint` supports it.
+
+## D76 — Declaring Vite explicitly
+
+Raised during M1 setup (#1). Vitest 5 lists `vite` as a required peer dependency instead of installing it, so pnpm adds a version on its own that no `package.json` names. electron-vite (D27) also depends on Vite.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. Leave Vite implicit | Matches the guide's install command exactly | Vite's version is invisible, floats, and can drift from the version electron-vite uses |
+| B. Add `vite` as a root development dependency | Visible and pinned; kept on the same major as the desktop app's Vite | One more dependency to keep up to date |
+
+Recommendation: B.
+
+Your choice: B, `vite` is a root development dependency, kept compatible with electron-vite's Vite (decided October 15, 2026).
+
+## D77 — How strict linting and formatting are
+
+Raised during M1 setup (#1). With no CI before M5 (D68), `pnpm lint` before each pull request is the only automatic gate. The security plugin's recommended rules are warnings, which do not fail the command, and `typescript-eslint`'s default rules do not use type information, so they miss promises that are never awaited. Prettier with default settings would also rewrite every Markdown file in the design guide.
+
+| Question | Options | Recommendation |
+| --- | --- | --- |
+| Warnings | A. Warnings do not fail lint. B. `eslint . --max-warnings 0`, so any warning fails it | B: there are no warnings today, and security findings would otherwise be easy to miss |
+| Type information | A. `recommended`. B. `recommendedTypeChecked` with the project service. C. `strictTypeChecked` | B, plus `@typescript-eslint/explicit-function-return-type`, which enforces the workspace rule that every function declares its return type |
+| Markdown | A. Prettier skips Markdown. B. Prettier formats Markdown too | A: the design guide stays as written, with no large reformatting diff |
+| React lint plugins | A. Only the React hooks plugin that D33 names. B. Also `eslint-plugin-react-refresh`, which the electron-vite template uses. C. Also `eslint-plugin-react`, which does not support ESLint 10 yet | A: the hooks rules cover the bugs that matter; the template's extra plugins add little |
+
+Your choice: warnings fail lint (`--max-warnings 0`); `recommendedTypeChecked` plus `explicit-function-return-type`; Prettier keeps skipping Markdown; only the React hooks plugin (decided October 15, 2026). Rules are never turned off inline; a false positive is fixed in the code or in the shared configuration.
+
+## D78 — Pinning Electron's version
+
+Raised while adding the desktop app (#1). The template's `postinstall` runs `electron-builder install-app-deps`, which needs Electron's exact version. Under the hoisted layout (`07-m1-setup.md` step 4) electron-builder cannot find Electron inside `apps/desktop/node_modules`, and it refuses a version range such as `^44.7.2`. Packaging in M5 fails the same way.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. Pin the exact version in `apps/desktop/package.json` | One line; the fix electron-builder suggests; also fixes packaging | Each Electron upgrade is a deliberate version change |
+| B. Keep the range and set `electronVersion` in `electron-builder.yml` | Keeps the range | The version lives in two places that can drift |
+| C. Remove `install-app-deps` from `postinstall` | Nothing to pin today | better-sqlite3 in the app (#3) needs it back, and packaging still fails |
+
+Recommendation: A.
+
+Your choice: A, Electron pinned to an exact version, 44.7.2 at the time (decided October 15, 2026).
+
+## D79 — electron-winstaller's install script
+
+Raised while adding the desktop app (#1). electron-builder installs `electron-winstaller` through its optional Squirrel.Windows support, and pnpm 11 stops until its install script is approved or denied. The script only copies a bundled 7-Zip program for the computer's architecture. The app's installer is NSIS, which does not use it.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. Deny it (`electron-winstaller: false` in `allowBuilds`) | Nothing runs; NSIS does not need it | None for NSIS builds |
+| B. Approve it | Harmless | Runs a script for a tool the app does not use |
+
+Recommendation: A.
+
+Your choice: A, denied (decided October 15, 2026).
