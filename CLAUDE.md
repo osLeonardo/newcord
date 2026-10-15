@@ -53,12 +53,18 @@ Read only the files the current task needs; `03-decisions.md` is large.
 
 ## Commands
 
-The repository does not exist yet; M1 setup creates it. Once it does:
+Run every command from the repository root:
 
-- `pnpm install`, then `pnpm approve-builds <package>` after adding a package that runs install scripts; pnpm 11 stops the install until each one is approved or denied, and its settings live in `pnpm-workspace.yaml`, not `.npmrc`
-- `pnpm --filter desktop dev` runs the desktop app
-- `pnpm --filter server dev` runs the server (http://localhost:3000/health should answer `{"ok":true}`)
-- M1 setup installs Vitest, ESLint and Prettier but does not define scripts for them: add root `test`, `lint` and `format` scripts then, and keep this section up to date with the real commands.
+- `pnpm install` installs all packages; after adding a package that runs install scripts, run `pnpm approve-builds <package>`. pnpm 11 stops the install until each one is approved or denied, and its settings live in `pnpm-workspace.yaml`, not `.npmrc`
+- `pnpm --filter desktop dev` runs the desktop app (`apps/desktop` is not created yet)
+- `pnpm --filter server dev` runs the server in watch mode (http://localhost:3000/health should answer `{"ok":true}`)
+- `pnpm test` runs every package's tests once with Vitest; `pnpm exec vitest --project server` runs one package's tests in watch mode
+- `pnpm lint` runs ESLint over the whole repository
+- `pnpm format` rewrites code and configuration files with Prettier (Markdown and the lockfile are excluded in `.prettierignore`)
+- `pnpm typecheck` runs each package's `typecheck` script (`tsc --noEmit`)
+- Before each PR (no CI before M5, D68): `pnpm test`, `pnpm lint`, `pnpm typecheck`, and `pnpm format` leaving no changes
+
+Tooling configuration lives only at the root: `vitest.config.ts` (one entry in `test.projects` per package, tests in each package's `test/` folder), `eslint.config.js` and `.prettierrc`. A package adds only a `typecheck` script and a `tsconfig.json` extending `tsconfig.base.json`. Keep this section up to date with the real commands.
 
 ## Rules that are never broken
 
