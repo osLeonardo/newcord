@@ -1,8 +1,26 @@
-import { app, shell, BrowserWindow, ipcMain } from "electron";
+import { app, shell, BrowserWindow, ipcMain, session } from "electron";
 import { join } from "path";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { APP_NAME } from "@newcord/shared";
 import icon from "../../resources/icon.png?asset";
+import { appPageUrl } from "./app-page";
+import { builtInServerAddress } from "./built-in-server-address";
+import { appIpcChannels } from "./ipc/app-ipc-channels";
+import { isAppIpcSender } from "./ipc/app-ipc-sender";
+import {
+  registerCheckedIpcHandler,
+  type IpcInvocation,
+} from "./ipc/checked-ipc-handler";
+import { refuseEveryPermission } from "./permissions";
+import { hardenWebContents } from "./web-contents-hardening";
+import { hardenedWebPreferences } from "./window-preferences";
+
+const pageUrl = appPageUrl({
+  isDevelopment: is.dev,
+  rendererDevServerUrl: process.env["ELECTRON_RENDERER_URL"],
+  rendererHtmlPath: join(__dirname, "../renderer/index.html"),
+});
+const appWebContentsIds = new Set<number>();
 
 function createWindow(): void {
   // Create the browser window.
@@ -12,36 +30,58 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === "linux" ? { icon } : {}),
-    webPreferences: {
-      preload: join(__dirname, "../preload/index.js"),
-      sandbox: false,
-    },
+    webPreferences: hardenedWebPreferences(
+      join(__dirname, "../preload/index.js"),
+    ),
   });
+  trackAppWebContents(mainWindow);
 
   mainWindow.on("ready-to-show", () => {
     mainWindow.show();
   });
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    void shell.openExternal(details.url);
-    return { action: "deny" };
-  });
+  void mainWindow.loadURL(pageUrl);
+}
 
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
-  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
-    void mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
-  } else {
-    void mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
+function trackAppWebContents(window: BrowserWindow): void {
+  const webContentsId = window.webContents.id;
+  appWebContentsIds.add(webContentsId);
+  window.webContents.once("destroyed", () => {
+    appWebContentsIds.delete(webContentsId);
+  });
+}
+
+function isTrustedIpcSender(invocation: IpcInvocation): boolean {
+  return isAppIpcSender(invocation, {
+    pageUrl,
+    isAppWebContents: (webContentsId) => appWebContentsIds.has(webContentsId),
+  });
+}
+
+function registerAppIpcHandlers(): void {
+  for (const channel of appIpcChannels) {
+    registerCheckedIpcHandler(ipcMain, isTrustedIpcSender, channel);
   }
 }
+
+function openInBrowser(url: string): void {
+  shell.openExternal(url).catch((error: unknown) => {
+    console.error(`Could not open ${url} in the default browser`, error);
+  });
+}
+
+app.enableSandbox();
+app.on("web-contents-created", (_, contents) => {
+  hardenWebContents(contents, { appPageUrl: pageUrl, openInBrowser });
+});
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 void app.whenReady().then(() => {
   // Set app user model id for windows
-  electronApp.setAppUserModelId("com.electron");
+  electronApp.setAppUserModelId("com.newcord.desktop");
+  refuseEveryPermission(session.defaultSession);
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -50,11 +90,9 @@ void app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window);
   });
 
-  // IPC test
-  ipcMain.on("ping", () => console.log("pong"));
-
+  registerAppIpcHandlers();
   createWindow();
-  console.log(`${APP_NAME} desktop ready`);
+  console.log(`${APP_NAME} desktop ready, server ${builtInServerAddress}`);
 
   app.on("activate", function () {
     // On macOS it's common to re-create a window in the app when the
