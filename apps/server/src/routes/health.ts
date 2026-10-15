@@ -7,5 +7,5 @@ type HealthResponse = { ok: true };
  * Example: `registerHealthRoute(app);`
  */
 export function registerHealthRoute(app: FastifyInstance): void {
-  app.get("/health", async (): Promise<HealthResponse> => ({ ok: true }));
+  app.get("/health", (): HealthResponse => ({ ok: true }));
 }
