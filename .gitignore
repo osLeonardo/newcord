@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# Environment files (secrets)
+.env
+.env.*
+!.env.example
+
+# SQLite databases and their journal, WAL and shared-memory files
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
