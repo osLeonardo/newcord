@@ -3,8 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   DeviceId,
   IdentityKey,
+  LoginRequest,
+  LoginResponse,
   Password,
-  RefreshToken,
   RegisterRequest,
   RegisterResponse,
   Username,
@@ -78,17 +79,6 @@ describe("DeviceId", () => {
   });
 });
 
-describe("RefreshToken", () => {
-  it("accepts 32 bytes in base64url", () => {
-    expect(Value.Check(RefreshToken, "a".repeat(43))).toBe(true);
-  });
-
-  it("rejects other lengths and padding", () => {
-    expect(Value.Check(RefreshToken, "a".repeat(42))).toBe(false);
-    expect(Value.Check(RefreshToken, `${"a".repeat(43)}=`)).toBe(false);
-  });
-});
-
 describe("RegisterRequest", () => {
   const request = {
     username: "alice",
@@ -129,5 +119,62 @@ describe("RegisterResponse", () => {
     expect(Value.Check(RegisterResponse, { ...response, userId: 1 })).toBe(
       false,
     );
+  });
+});
+
+describe("LoginRequest", () => {
+  const request = {
+    username: "alice",
+    password: "correct horse battery",
+    identityKey: RFC_8032_TEST_PUBLIC_KEY,
+  };
+
+  it("accepts a username, a password and an identity key", () => {
+    expect(Value.Check(LoginRequest, request)).toBe(true);
+  });
+
+  it("requires the identity key, so the server can recognise the Device (D59)", () => {
+    const withoutKey = {
+      username: request.username,
+      password: request.password,
+    };
+
+    expect(Value.Check(LoginRequest, withoutKey)).toBe(false);
+  });
+
+  it("rejects a field not in the schema", () => {
+    expect(
+      Value.Check(LoginRequest, { ...request, deviceId: "a".repeat(22) }),
+    ).toBe(false);
+  });
+
+  it("applies the username, password and identity key rules", () => {
+    expect(Value.Check(LoginRequest, { ...request, username: "Alice" })).toBe(
+      false,
+    );
+    expect(
+      Value.Check(LoginRequest, { ...request, password: "p".repeat(11) }),
+    ).toBe(false);
+    expect(
+      Value.Check(LoginRequest, { ...request, identityKey: "A".repeat(43) }),
+    ).toBe(false);
+  });
+});
+
+describe("LoginResponse", () => {
+  const response = {
+    accessToken: "header.payload.signature",
+    refreshToken: "a".repeat(43),
+    deviceId: "a".repeat(22),
+  };
+
+  it("accepts an access token, a refresh token and a device ID", () => {
+    expect(Value.Check(LoginResponse, response)).toBe(true);
+  });
+
+  it("never carries a Recovery code, which is shown only at sign-up and recovery", () => {
+    expect(
+      Value.Check(LoginResponse, { ...response, recoveryCode: "0".repeat(24) }),
+    ).toBe(false);
   });
 });

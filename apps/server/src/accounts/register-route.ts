@@ -6,6 +6,7 @@ import {
 import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import type { FastifyInstance } from "fastify";
 import { ApiError } from "../api-error.js";
+import { identityKeyTakenError } from "../devices/identity-key-taken.js";
 import { SIGN_UP_RATE_LIMIT } from "../rate-limits.js";
 import type { SignUpConflict } from "./account-store.js";
 import type { SignUp } from "./sign-up.js";
@@ -45,9 +46,5 @@ function signUpConflictError(
       `Username "${username}" is already taken; choose another`,
     );
   }
-  return new ApiError(
-    409,
-    ApiErrorCode.IdentityKeyTaken,
-    "This identity key is already registered to an Account; a key belongs to one Account only",
-  );
+  return identityKeyTakenError();
 }

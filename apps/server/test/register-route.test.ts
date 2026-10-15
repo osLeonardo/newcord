@@ -315,7 +315,9 @@ describe("POST /register body size", () => {
 
   beforeEach(async () => {
     hash.mockClear();
-    server = await startTestServer({ passwordHasher: { hash } });
+    server = await startTestServer({
+      passwordHasher: { ...fastFakeHasher, hash },
+    });
   });
 
   function jsonOfExactly(bytes: number): string {

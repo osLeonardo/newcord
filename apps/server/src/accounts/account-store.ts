@@ -1,4 +1,8 @@
 import type Database from "better-sqlite3";
+import {
+  createDeviceStore,
+  type DeviceStore,
+} from "../devices/device-store.js";
 
 export interface NewAccount {
   username: string;
@@ -9,22 +13,28 @@ export interface NewAccount {
   createdAt: number;
 }
 
+/** An Account as login needs it: its ID and password hash. */
+export interface StoredAccount {
+  userId: number;
+  passwordHash: string;
+}
+
 export type SignUpConflict = "username-taken" | "identity-key-taken";
 
 export type CreateAccountOutcome =
   | { created: true; userId: number }
   | { created: false; conflict: SignUpConflict };
 
-/** Creates Accounts together with their first Device. */
+/** Creates Accounts together with their first Device, and finds them by username. */
 export interface AccountStore {
   createAccount(account: NewAccount): CreateAccountOutcome;
+  findByUsername(username: string): StoredAccount | undefined;
 }
 
 interface AccountStatements {
-  findUsername: Database.Statement<[string]>;
-  findIdentityKey: Database.Statement<[Buffer]>;
+  findAccount: Database.Statement<[string], StoredAccount>;
   insertUser: Database.Statement<NewAccount>;
-  insertDevice: Database.Statement<NewAccount & { userId: number }>;
+  devices: DeviceStore;
 }
 
 /**
@@ -38,6 +48,8 @@ export function createAccountStore(database: Database.Database): AccountStore {
       (account: NewAccount): CreateAccountOutcome =>
         insertAccountWithDevice(statements, account),
     ),
+    findByUsername: (username: string): StoredAccount | undefined =>
+      statements.findAccount.get(username),
   };
 }
 
@@ -45,16 +57,13 @@ function prepareAccountStatements(
   database: Database.Database,
 ): AccountStatements {
   return {
-    findUsername: database.prepare("SELECT 1 FROM users WHERE username = ?"),
-    findIdentityKey: database.prepare(
-      "SELECT 1 FROM devices WHERE identity_key = ?",
+    findAccount: database.prepare(
+      "SELECT id AS userId, password_hash AS passwordHash FROM users WHERE username = ?",
     ),
     insertUser: database.prepare(
       "INSERT INTO users (username, password_hash, recovery_hash, created_at) VALUES (@username, @passwordHash, @recoveryHash, @createdAt)",
     ),
-    insertDevice: database.prepare(
-      "INSERT INTO devices (id, user_id, identity_key, created_at) VALUES (@deviceId, @userId, @identityKey, @createdAt)",
-    ),
+    devices: createDeviceStore(database),
   };
 }
 
@@ -62,13 +71,13 @@ function insertAccountWithDevice(
   statements: AccountStatements,
   account: NewAccount,
 ): CreateAccountOutcome {
-  if (statements.findUsername.get(account.username) !== undefined) {
+  if (statements.findAccount.get(account.username) !== undefined) {
     return { created: false, conflict: "username-taken" };
   }
-  if (statements.findIdentityKey.get(account.identityKey) !== undefined) {
+  if (statements.devices.findByIdentityKey(account.identityKey) !== undefined) {
     return { created: false, conflict: "identity-key-taken" };
   }
   const userId = Number(statements.insertUser.run(account).lastInsertRowid);
-  statements.insertDevice.run({ ...account, userId });
+  statements.devices.insert({ ...account, userId });
   return { created: true, userId };
 }

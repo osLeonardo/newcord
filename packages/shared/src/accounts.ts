@@ -1,5 +1,6 @@
 import { Type, type Static } from "typebox";
 import { RecoveryCode } from "./recovery-code.js";
+import { AccessToken, RefreshToken } from "./sessions.js";
 
 /** An Account's username: 3 to 32 lowercase letters, digits or underscores (08-m1-build Settings). */
 export const Username = Type.String({
@@ -21,12 +22,6 @@ export const IdentityKey = Type.String({
 /** A Device ID created by the server: 16 random bytes in base64url, so never a ":" (D70). */
 export const DeviceId = Type.String({ pattern: "^[A-Za-z0-9_-]{22}$" });
 
-/** A refresh token: 32 random bytes in base64url (D37b). */
-export const RefreshToken = Type.String({ pattern: "^[A-Za-z0-9_-]{43}$" });
-
-/** An access token: a JWT signed with HS256 that expires after 15 minutes (D37b, D37c). */
-export const AccessToken = Type.String();
-
 /** The body of `POST /register`. */
 export const RegisterRequest = Type.Object(
   { username: Username, password: Password, identityKey: IdentityKey },
@@ -45,3 +40,17 @@ export const RegisterResponse = Type.Object(
   { additionalProperties: false },
 );
 export type RegisterResponse = Static<typeof RegisterResponse>;
+
+/** The body of `POST /login`: the identity key finds this Device or adds it to the Account (D59, D60). */
+export const LoginRequest = Type.Object(
+  { username: Username, password: Password, identityKey: IdentityKey },
+  { additionalProperties: false },
+);
+export type LoginRequest = Static<typeof LoginRequest>;
+
+/** The `200` body of `POST /login`; `deviceId` stays the same each time this Device logs in. */
+export const LoginResponse = Type.Object(
+  { accessToken: AccessToken, refreshToken: RefreshToken, deviceId: DeviceId },
+  { additionalProperties: false },
+);
+export type LoginResponse = Static<typeof LoginResponse>;

@@ -5,22 +5,48 @@ import type Database from "better-sqlite3";
 import Fastify, {
   type FastifyInstance,
   type FastifyServerOptions,
+  type onRequestHookHandler,
 } from "fastify";
-import { createAccountStore } from "./accounts/account-store.js";
+import {
+  createAccountStore,
+  type AccountStore,
+} from "./accounts/account-store.js";
+import { createLogin } from "./accounts/login.js";
+import { registerLoginRoute } from "./accounts/login-route.js";
 import {
   createArgon2idHasher,
   type PasswordHasher,
 } from "./accounts/password-hasher.js";
 import { registerSignUpRoute } from "./accounts/register-route.js";
-import { createSignUp, type SignUp } from "./accounts/sign-up.js";
+import { createSignUp } from "./accounts/sign-up.js";
+import { createDeviceStore, type DeviceStore } from "./devices/device-store.js";
 import { createLoggerOptions, type ServerLogOptions } from "./logging.js";
+import { RATE_LIMIT_PLUGIN_OPTIONS } from "./rate-limits.js";
 import { registerHealthRoute } from "./routes/health.js";
+import { registerAccessTokenCheck } from "./sessions/access-token-check.js";
 import {
   accessTokenPluginOptions,
   createAccessTokenSigner,
+  createAccessTokenVerifier,
+  type AccessTokenVerifier,
 } from "./sessions/access-tokens.js";
-import { createRefreshTokenStore } from "./sessions/refresh-token-store.js";
-import { createSessionTokenIssuer } from "./sessions/session-tokens.js";
+import {
+  createDeviceLogout,
+  type DeviceLogout,
+  type DeviceSessionEndedListener,
+} from "./sessions/device-logout.js";
+import { registerLogoutRoute } from "./sessions/logout-route.js";
+import { scheduleRefreshTokenCleanup } from "./sessions/refresh-token-cleanup.js";
+import {
+  createRefreshTokenStore,
+  type RefreshTokenStore,
+} from "./sessions/refresh-token-store.js";
+import { registerRefreshRoute } from "./sessions/refresh-route.js";
+import {
+  createSessionTokenIssuer,
+  type SessionTokenIssuer,
+} from "./sessions/session-tokens.js";
+import { createTokenRefresh } from "./sessions/token-refresh.js";
 
 /** Largest HTTP request body: 64 KiB (08-m1-build Settings). */
 export const MAX_REQUEST_BODY_BYTES = 64 * 1024;
@@ -31,6 +57,27 @@ export interface ServerAppOptions {
   log?: ServerLogOptions;
   passwordHasher?: PasswordHasher;
   clock?: () => number;
+  /** Told when a Device's session ends by logout or a reused refresh token (D62). */
+  onDeviceSessionEnded?: DeviceSessionEndedListener;
+}
+
+/** The session services the routes share; the WebSocket's `hello` reuses the verifier. */
+interface SessionParts {
+  refreshTokenStore: RefreshTokenStore;
+  sessionTokens: SessionTokenIssuer;
+  accessTokenVerifier: AccessTokenVerifier;
+  /** The one `onRequest` hook every authenticated route uses; it decorates requests, so build it once. */
+  checkAccessToken: onRequestHookHandler;
+  logOutDevice: DeviceLogout;
+}
+
+/** The stores and services the routes share, built once per app. */
+interface ServerParts extends SessionParts {
+  database: Database.Database;
+  clock: () => number;
+  passwordHasher: PasswordHasher;
+  accountStore: AccountStore;
+  deviceStore: DeviceStore;
 }
 
 /**
@@ -43,9 +90,12 @@ export async function buildServerApp(
   const app = Fastify(createFastifyOptions(options.log));
   await app.register(websocket);
   await app.register(fastifyJwt, accessTokenPluginOptions(options.jwtSecret));
-  await app.register(rateLimit, { global: false });
+  await app.register(rateLimit, RATE_LIMIT_PLUGIN_OPTIONS);
+  const parts = createServerParts(app, options);
   registerHealthRoute(app);
-  registerSignUpRoute(app, wireSignUp(app, options));
+  registerAccountRoutes(app, parts);
+  registerSessionRoutes(app, parts);
+  scheduleRefreshTokenCleanup(app, parts);
   return app;
 }
 
@@ -60,18 +110,55 @@ function createFastifyOptions(
   };
 }
 
-function wireSignUp(app: FastifyInstance, options: ServerAppOptions): SignUp {
+function createServerParts(
+  app: FastifyInstance,
+  options: ServerAppOptions,
+): ServerParts {
   const clock = options.clock ?? ((): number => Date.now());
-  const sessionTokens = createSessionTokenIssuer({
-    refreshTokenStore: createRefreshTokenStore(options.database),
-    accessTokenSigner: createAccessTokenSigner(app.jwt),
-    clock,
-  });
-  return createSignUp({
+  return {
     database: options.database,
-    accountStore: createAccountStore(options.database),
-    sessionTokens,
-    passwordHasher: options.passwordHasher ?? createArgon2idHasher(),
     clock,
-  });
+    passwordHasher: options.passwordHasher ?? createArgon2idHasher(),
+    accountStore: createAccountStore(options.database),
+    deviceStore: createDeviceStore(options.database),
+    ...createSessionParts(app, options, clock),
+  };
+}
+
+function createSessionParts(
+  app: FastifyInstance,
+  options: ServerAppOptions,
+  clock: () => number,
+): SessionParts {
+  const refreshTokenStore = createRefreshTokenStore(options.database);
+  const accessTokenSigner = createAccessTokenSigner(app.jwt);
+  const accessTokenVerifier = createAccessTokenVerifier(app.jwt);
+  return {
+    refreshTokenStore,
+    sessionTokens: createSessionTokenIssuer({
+      refreshTokenStore,
+      accessTokenSigner,
+      clock,
+    }),
+    accessTokenVerifier,
+    checkAccessToken: registerAccessTokenCheck(app, accessTokenVerifier),
+    logOutDevice: createDeviceLogout({
+      refreshTokenStore,
+      onDeviceSessionEnded: options.onDeviceSessionEnded ?? ignoreSessionEnd,
+    }),
+  };
+}
+
+function ignoreSessionEnd(): void {
+  // No listener given: there are no live connections to close.
+}
+
+function registerAccountRoutes(app: FastifyInstance, parts: ServerParts): void {
+  registerSignUpRoute(app, createSignUp(parts));
+  registerLoginRoute(app, createLogin(parts));
+}
+
+function registerSessionRoutes(app: FastifyInstance, parts: ServerParts): void {
+  registerRefreshRoute(app, createTokenRefresh(parts));
+  registerLogoutRoute(app, parts);
 }

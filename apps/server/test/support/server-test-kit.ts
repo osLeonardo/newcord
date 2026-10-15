@@ -1,7 +1,8 @@
-import { generateKeyPairSync } from "node:crypto";
-import type { RegisterRequest } from "@newcord/shared";
+import { createHash, createHmac, generateKeyPairSync } from "node:crypto";
+import type { RegisterRequest, RegisterResponse } from "@newcord/shared";
 import type Database from "better-sqlite3";
 import type { FastifyInstance, LightMyRequestResponse } from "fastify";
+import type { PasswordHasher } from "../../src/accounts/password-hasher.js";
 import { buildServerApp, type ServerAppOptions } from "../../src/app.js";
 import { openDatabase } from "../../src/database/open-database.js";
 
@@ -96,8 +97,120 @@ export function describeArgon2Hash(hash: string): Argon2HashDescription {
   return { algorithm, cost };
 }
 
+const fakeHashOf = (secret: string): string =>
+  `fake-sha256:${createHash("sha256").update(secret).digest("hex")}`;
+
 /** A password hasher that skips Argon2id, for tests where hashing is not under test. */
 export const fastFakeHasher = {
   hash: (secret: string): Promise<string> =>
-    Promise.resolve(`fake-hash-of-${secret.length}-characters`),
-};
+    Promise.resolve(fakeHashOf(secret)),
+  verify: (hash: string, secret: string): Promise<boolean> =>
+    Promise.resolve(hash === fakeHashOf(secret)),
+} satisfies PasswordHasher;
+
+/** Signs up through `POST /register` and returns the request and its `201` body. */
+export async function signUp(
+  app: FastifyInstance,
+  overrides: Partial<RegisterRequest> = {},
+): Promise<{ request: RegisterRequest; body: RegisterResponse }> {
+  const request = validRegisterRequest(overrides);
+  const response = await register(app, request);
+  if (response.statusCode !== 201) {
+    throw new Error(
+      `sign-up of "${request.username}" answered ${response.statusCode}, expected 201: ${response.body}`,
+    );
+  }
+  return { request, body: response.json<RegisterResponse>() };
+}
+
+/** Sends `POST /login` with `payload`, from `remoteAddress` when given. */
+export function login(
+  app: FastifyInstance,
+  payload: object,
+  remoteAddress = "127.0.0.1",
+): Promise<LightMyRequestResponse> {
+  return app.inject({ method: "POST", url: "/login", payload, remoteAddress });
+}
+
+/** Sends `POST /refresh` with `{ refreshToken }`, from `remoteAddress` when given. */
+export function refresh(
+  app: FastifyInstance,
+  refreshToken: string,
+  remoteAddress = "127.0.0.1",
+): Promise<LightMyRequestResponse> {
+  return app.inject({
+    method: "POST",
+    url: "/refresh",
+    payload: { refreshToken },
+    remoteAddress,
+  });
+}
+
+/** Sends `POST /logout` with `authorization` as the Authorization header, when given. */
+export function logout(
+  app: FastifyInstance,
+  authorization?: string,
+): Promise<LightMyRequestResponse> {
+  return app.inject({
+    method: "POST",
+    url: "/logout",
+    headers: authorization === undefined ? {} : { authorization },
+  });
+}
+
+export interface RefreshTokenRow {
+  token_hash: Buffer;
+  device_id: string;
+  expires_at: number;
+  used_at: number | null;
+}
+
+/** Reads the refresh_tokens row of `refreshToken`, found by its SHA-256 hash. */
+export function refreshTokenRow(
+  database: Database.Database,
+  refreshToken: string,
+): RefreshTokenRow | undefined {
+  const tokenHash = createHash("sha256").update(refreshToken).digest();
+  return database
+    .prepare("SELECT * FROM refresh_tokens WHERE token_hash = ?")
+    .get(tokenHash) as RefreshTokenRow | undefined;
+}
+
+/** Counts the refresh_tokens rows of one Device. */
+export function countRefreshTokensOf(
+  database: Database.Database,
+  deviceId: string,
+): number {
+  return database
+    .prepare("SELECT count(*) FROM refresh_tokens WHERE device_id = ?")
+    .pluck()
+    .get(deviceId) as number;
+}
+
+export interface TestJwt {
+  header: Record<string, unknown>;
+  claims: Record<string, unknown>;
+  sign: (signedPart: string) => Buffer;
+}
+
+/** Builds a JWT by hand, so tests can forge the algorithm, signature and claims. */
+export function buildTestJwt(jwt: TestJwt): string {
+  const encode = (part: object): string =>
+    Buffer.from(JSON.stringify(part)).toString("base64url");
+  const signedPart = `${encode(jwt.header)}.${encode(jwt.claims)}`;
+  return `${signedPart}.${jwt.sign(signedPart).toString("base64url")}`;
+}
+
+/** Signs with HMAC over `hashAlgorithm` (sha256 for HS256), as an HS-family JWT does. */
+export function hmacSignature(
+  secret: string,
+  hashAlgorithm = "sha256",
+): TestJwt["sign"] {
+  return (signedPart: string): Buffer =>
+    createHmac(hashAlgorithm, secret).update(signedPart).digest();
+}
+
+/** Seconds since the epoch, as JWT claims count time. */
+export function nowInSeconds(): number {
+  return Math.floor(Date.now() / 1000);
+}

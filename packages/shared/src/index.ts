@@ -4,3 +4,4 @@ export const APP_NAME = "newcord";
 export * from "./accounts.js";
 export * from "./api-errors.js";
 export * from "./recovery-code.js";
+export * from "./sessions.js";
