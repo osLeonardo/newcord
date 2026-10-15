@@ -1,4 +1,9 @@
 import type { FastifyInstance } from "fastify";
+import {
+  runWhileAppIsUp,
+  startRepeatingTask,
+  type RepeatingTask,
+} from "../repeating-task.js";
 import type { RefreshTokenStore } from "./refresh-token-store.js";
 
 /** How often expired refresh-token rows are deleted. */
@@ -9,9 +14,7 @@ export interface RefreshTokenCleanupDependencies {
   clock: () => number;
 }
 
-export interface RefreshTokenCleanup {
-  stop(): void;
-}
+export type RefreshTokenCleanup = RepeatingTask;
 
 /**
  * Deletes expired refresh-token rows, used or not, at once and then at every interval.
@@ -24,9 +27,7 @@ export function startRefreshTokenCleanup(
     dependencies.refreshTokenStore.deleteExpired(dependencies.clock());
   };
   deleteExpired();
-  const timer = setInterval(deleteExpired, REFRESH_TOKEN_CLEANUP_INTERVAL_MS);
-  timer.unref();
-  return { stop: (): void => clearInterval(timer) };
+  return startRepeatingTask(deleteExpired, REFRESH_TOKEN_CLEANUP_INTERVAL_MS);
 }
 
 /**
@@ -37,13 +38,5 @@ export function scheduleRefreshTokenCleanup(
   app: FastifyInstance,
   dependencies: RefreshTokenCleanupDependencies,
 ): void {
-  let cleanup: RefreshTokenCleanup | undefined;
-  app.addHook("onReady", (done) => {
-    cleanup = startRefreshTokenCleanup(dependencies);
-    done();
-  });
-  app.addHook("onClose", (_instance, done) => {
-    cleanup?.stop();
-    done();
-  });
+  runWhileAppIsUp(app, () => startRefreshTokenCleanup(dependencies));
 }

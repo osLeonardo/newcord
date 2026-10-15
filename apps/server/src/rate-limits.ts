@@ -1,7 +1,14 @@
 import type { RateLimitPluginOptions } from "@fastify/rate-limit";
 import { ApiErrorCode } from "@newcord/shared";
-import type { FastifyInstance, preHandlerAsyncHookHandler } from "fastify";
+import type {
+  FastifyInstance,
+  FastifyReply,
+  FastifyRequest,
+  onRequestAsyncHookHandler,
+  preHandlerAsyncHookHandler,
+} from "fastify";
 import { ApiError } from "./api-error.js";
+import { authenticatedSubject } from "./sessions/access-token-check.js";
 
 const ONE_MINUTE_MS = 60 * 1000;
 const ONE_HOUR_MS = 60 * ONE_MINUTE_MS;
@@ -30,6 +37,12 @@ export const REFRESH_RATE_LIMIT: RateLimitSetting = {
   timeWindow: ONE_MINUTE_MS,
 };
 
+/** Key directory: 60 lookups per minute per Account (08-m1-build Settings, D64). */
+export const KEY_DIRECTORY_RATE_LIMIT: RateLimitSetting = {
+  max: 60,
+  timeWindow: ONE_MINUTE_MS,
+};
+
 /** @fastify/rate-limit settings: only routes naming a limit are limited, and every 429 carries a code. */
 export const RATE_LIMIT_PLUGIN_OPTIONS: RateLimitPluginOptions = {
   global: false,
@@ -46,10 +59,36 @@ export function createUsernameRateLimit(
   app: FastifyInstance,
   setting: RateLimitSetting,
 ): preHandlerAsyncHookHandler {
-  const countAttempt = app.createRateLimit({
-    ...setting,
-    keyGenerator: (request): string => usernameIn(request.body),
-  });
+  return createKeyedRateLimit(app, setting, (request) =>
+    usernameIn(request.body),
+  );
+}
+
+/**
+ * Creates an `onRequest` hook limiting requests per Account, keyed on the verified access token
+ * rather than the IP address; list it after the access-token check, which stores the Account.
+ * Example: `app.get("/users/:username/keys", { onRequest: [checkAccessToken, createAccountRateLimit(app, KEY_DIRECTORY_RATE_LIMIT)] }, handler);`
+ */
+export function createAccountRateLimit(
+  app: FastifyInstance,
+  setting: RateLimitSetting,
+): onRequestAsyncHookHandler {
+  return createKeyedRateLimit(app, setting, (request) =>
+    String(authenticatedSubject(request).userId),
+  );
+}
+
+type RateLimitHook = (
+  request: FastifyRequest,
+  reply: FastifyReply,
+) => Promise<void>;
+
+function createKeyedRateLimit(
+  app: FastifyInstance,
+  setting: RateLimitSetting,
+  keyOf: (request: FastifyRequest) => string,
+): RateLimitHook {
+  const countAttempt = app.createRateLimit({ ...setting, keyGenerator: keyOf });
   return async (request, reply): Promise<void> => {
     const attempt = await countAttempt(request);
     if (attempt.isAllowed || !attempt.isExceeded) return;

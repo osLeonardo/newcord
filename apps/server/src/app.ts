@@ -20,6 +20,8 @@ import {
 import { registerSignUpRoute } from "./accounts/register-route.js";
 import { createSignUp } from "./accounts/sign-up.js";
 import { createDeviceStore, type DeviceStore } from "./devices/device-store.js";
+import { createKeyDirectory } from "./key-directory/key-directory.js";
+import { registerKeyDirectoryRoute } from "./key-directory/key-directory-route.js";
 import { createLoggerOptions, type ServerLogOptions } from "./logging.js";
 import { RATE_LIMIT_PLUGIN_OPTIONS } from "./rate-limits.js";
 import { registerHealthRoute } from "./routes/health.js";
@@ -47,6 +49,16 @@ import {
   type SessionTokenIssuer,
 } from "./sessions/session-tokens.js";
 import { createTokenRefresh } from "./sessions/token-refresh.js";
+import { createLiveHub, type LiveHub } from "./websocket/live-hub.js";
+import { scheduleLiveSessionCheck } from "./websocket/session-check.js";
+import {
+  closeSocketsWhenSessionEnds,
+  type SessionSockets,
+} from "./websocket/session-sockets.js";
+import {
+  WEBSOCKET_PLUGIN_OPTIONS,
+  registerWebSocketRoute,
+} from "./websocket/websocket-route.js";
 
 /** Largest HTTP request body: 64 KiB (08-m1-build Settings). */
 export const MAX_REQUEST_BODY_BYTES = 64 * 1024;
@@ -57,7 +69,7 @@ export interface ServerAppOptions {
   log?: ServerLogOptions;
   passwordHasher?: PasswordHasher;
   clock?: () => number;
-  /** Told when a Device's session ends by logout or a reused refresh token (D62). */
+  /** Told when a Device's session ends by logout or a reused refresh token (D62), after its sockets close. */
   onDeviceSessionEnded?: DeviceSessionEndedListener;
 }
 
@@ -72,7 +84,7 @@ interface SessionParts {
 }
 
 /** The stores and services the routes share, built once per app. */
-interface ServerParts extends SessionParts {
+interface ServerParts extends SessionParts, LiveHub {
   database: Database.Database;
   clock: () => number;
   passwordHasher: PasswordHasher;
@@ -88,14 +100,16 @@ export async function buildServerApp(
   options: ServerAppOptions,
 ): Promise<FastifyInstance> {
   const app = Fastify(createFastifyOptions(options.log));
-  await app.register(websocket);
+  await app.register(websocket, WEBSOCKET_PLUGIN_OPTIONS);
   await app.register(fastifyJwt, accessTokenPluginOptions(options.jwtSecret));
   await app.register(rateLimit, RATE_LIMIT_PLUGIN_OPTIONS);
   const parts = createServerParts(app, options);
   registerHealthRoute(app);
   registerAccountRoutes(app, parts);
   registerSessionRoutes(app, parts);
+  registerWebSocketRoute(app, parts);
   scheduleRefreshTokenCleanup(app, parts);
+  scheduleLiveSessionCheck(app, parts);
   return app;
 }
 
@@ -115,13 +129,15 @@ function createServerParts(
   options: ServerAppOptions,
 ): ServerParts {
   const clock = options.clock ?? ((): number => Date.now());
+  const liveHub = createLiveHub();
   return {
     database: options.database,
     clock,
     passwordHasher: options.passwordHasher ?? createArgon2idHasher(),
     accountStore: createAccountStore(options.database),
     deviceStore: createDeviceStore(options.database),
-    ...createSessionParts(app, options, clock),
+    ...liveHub,
+    ...createSessionParts(app, options, clock, liveHub.sessionSockets),
   };
 }
 
@@ -129,6 +145,7 @@ function createSessionParts(
   app: FastifyInstance,
   options: ServerAppOptions,
   clock: () => number,
+  sessionSockets: SessionSockets,
 ): SessionParts {
   const refreshTokenStore = createRefreshTokenStore(options.database);
   const accessTokenSigner = createAccessTokenSigner(app.jwt);
@@ -144,18 +161,21 @@ function createSessionParts(
     checkAccessToken: registerAccessTokenCheck(app, accessTokenVerifier),
     logOutDevice: createDeviceLogout({
       refreshTokenStore,
-      onDeviceSessionEnded: options.onDeviceSessionEnded ?? ignoreSessionEnd,
+      onDeviceSessionEnded: closeSocketsWhenSessionEnds(
+        sessionSockets,
+        options.onDeviceSessionEnded,
+      ),
     }),
   };
-}
-
-function ignoreSessionEnd(): void {
-  // No listener given: there are no live connections to close.
 }
 
 function registerAccountRoutes(app: FastifyInstance, parts: ServerParts): void {
   registerSignUpRoute(app, createSignUp(parts));
   registerLoginRoute(app, createLogin(parts));
+  registerKeyDirectoryRoute(app, {
+    checkAccessToken: parts.checkAccessToken,
+    keyDirectory: createKeyDirectory(parts.database),
+  });
 }
 
 function registerSessionRoutes(app: FastifyInstance, parts: ServerParts): void {

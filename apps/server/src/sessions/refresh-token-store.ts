@@ -22,6 +22,8 @@ export interface RefreshTokenStore {
   deleteForDevice(deviceId: string): void;
   /** Deletes every token whose expiry is at or before `now`, used or not; returns how many. */
   deleteExpired(now: number): number;
+  /** Whether the Device still holds an unused token that expires after `now`, i.e. is logged in. */
+  hasUsableToken(deviceId: string, now: number): boolean;
 }
 
 /**
@@ -46,7 +48,20 @@ export function createRefreshTokenStore(
     },
     deleteExpired: (now: number): number =>
       statements.deleteExpired.run(now).changes,
+    hasUsableToken: createUsableTokenCheck(database),
   };
+}
+
+function createUsableTokenCheck(
+  database: Database.Database,
+): RefreshTokenStore["hasUsableToken"] {
+  const usableTokenExists = database
+    .prepare<[string, number], number>(
+      "SELECT EXISTS (SELECT 1 FROM refresh_tokens WHERE device_id = ? AND used_at IS NULL AND expires_at > ?)",
+    )
+    .pluck();
+  return (deviceId: string, now: number): boolean =>
+    usableTokenExists.get(deviceId, now) === 1;
 }
 
 function prepareRefreshTokenStatements(database: Database.Database): {

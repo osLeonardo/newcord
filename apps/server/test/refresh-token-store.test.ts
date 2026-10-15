@@ -98,3 +98,39 @@ describe("RefreshTokenStore.deleteExpired", () => {
     expect(store.find(tokenHash("used"))).toMatchObject({ usedAt: 10 });
   });
 });
+
+describe("RefreshTokenStore.hasUsableToken", () => {
+  it("is true while the Device has an unused token that has not expired", () => {
+    insertToken("a", "phone", 1000);
+
+    expect(store.hasUsableToken("phone", 999)).toBe(true);
+  });
+
+  it("is false once the only token expires", () => {
+    insertToken("a", "phone", 1000);
+
+    expect(store.hasUsableToken("phone", 1000)).toBe(false);
+  });
+
+  it("is false when the only token is used", () => {
+    insertToken("a", "phone", 1000);
+    store.markUsed(tokenHash("a"), 10);
+
+    expect(store.hasUsableToken("phone", 500)).toBe(false);
+  });
+
+  it("looks only at that Device's tokens", () => {
+    insertToken("a", "laptop", 1000);
+
+    expect(store.hasUsableToken("phone", 500)).toBe(false);
+  });
+
+  it("is true when one of several tokens is still usable", () => {
+    insertToken("used", "phone", 1000);
+    store.markUsed(tokenHash("used"), 10);
+    insertToken("expired", "phone", 400);
+    insertToken("fresh", "phone", 2000);
+
+    expect(store.hasUsableToken("phone", 500)).toBe(true);
+  });
+});

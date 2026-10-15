@@ -25,10 +25,11 @@ export type CreateAccountOutcome =
   | { created: true; userId: number }
   | { created: false; conflict: SignUpConflict };
 
-/** Creates Accounts together with their first Device, and finds them by username. */
+/** Creates Accounts together with their first Device, finds them by username and names them by ID. */
 export interface AccountStore {
   createAccount(account: NewAccount): CreateAccountOutcome;
   findByUsername(username: string): StoredAccount | undefined;
+  usernameOf(userId: number): string | undefined;
 }
 
 interface AccountStatements {
@@ -50,7 +51,17 @@ export function createAccountStore(database: Database.Database): AccountStore {
     ),
     findByUsername: (username: string): StoredAccount | undefined =>
       statements.findAccount.get(username),
+    usernameOf: createUsernameLookup(database),
   };
+}
+
+function createUsernameLookup(
+  database: Database.Database,
+): AccountStore["usernameOf"] {
+  const findUsername = database
+    .prepare<[number], string>("SELECT username FROM users WHERE id = ?")
+    .pluck();
+  return (userId: number): string | undefined => findUsername.get(userId);
 }
 
 function prepareAccountStatements(

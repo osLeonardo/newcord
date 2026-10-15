@@ -8,6 +8,8 @@ export const ApiErrorCode = {
   InvalidRefreshToken: "INVALID_REFRESH_TOKEN",
   /** Missing, malformed, forged or expired; the Device should refresh and retry. */
   InvalidAccessToken: "INVALID_ACCESS_TOKEN",
+  /** Key directory: no Account has the username asked about. */
+  AccountNotFound: "ACCOUNT_NOT_FOUND",
   RateLimited: "RATE_LIMITED",
 } as const;
 export type ApiErrorCode = (typeof ApiErrorCode)[keyof typeof ApiErrorCode];
