@@ -1,7 +1,7 @@
 # M5 build steps
 
 
-M5 takes the app to release: your security review, hardened packaging, automatic updates, and builds on GitHub Actions published to GitHub Releases. M5 is done when every check in the Security checklist passes and the installers run on a clean machine of each OS. Deploying the server comes after D52 is settled.
+M5 takes the app to release: your security review, hardened packaging, automatic updates, and builds on GitHub Actions published to GitHub Releases. M5 is done when every check in the Security checklist passes and the installer runs on a clean Windows machine. Deploying the server comes after D52 is settled.
 
 Before M5 starts: choose the app's final name and replace the working title "newcord" everywhere, including the `appId`, window titles and DuckDNS names (D58).
 
@@ -25,7 +25,7 @@ Proposed by me and accepted by you on October 14, 2026.
 
 ## Packaging
 
-4. Configure electron-builder in the desktop app's `electron-builder.yml`. The .deb and .rpm targets need an author name and email in `package.json`, and the pacman target is still in beta:
+4. Configure electron-builder in the desktop app's `electron-builder.yml` (Windows only in version 1, D73):
 
 ```yaml
 appId: com.yourapp.desktop
@@ -34,13 +34,6 @@ win:
   target: nsis
 nsis:
   perMachine: false
-linux:
-  target:
-    - AppImage
-    - deb
-    - rpm
-    - pacman
-  category: Network
 publish:
   provider: github
 ```
@@ -72,7 +65,7 @@ autoUpdater.checkForUpdates();
 setInterval(() => autoUpdater.checkForUpdates(), 6 * 60 * 60 * 1000);
 ```
 
-7. Never restart into an update during a call; offer "restart to update" once the call ends. For .deb, .rpm and pacman installs, expect an administrator password prompt when the update installs (D50).
+7. Never restart into an update during a call; offer "restart to update" once the call ends.
 
 ## Builds and publishing (D48, D49)
 
@@ -90,7 +83,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-latest]
+        os: [windows-latest]
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
@@ -99,7 +92,7 @@ jobs:
       - uses: pnpm/action-setup@<pinned commit>
       - uses: actions/setup-node@<pinned commit>
         with:
-          node-version: lts/*
+          node-version: 26
           cache: pnpm
       - run: rustup target add wasm32-unknown-unknown
       - run: cargo install wasm-bindgen-cli --version <same as the crate>
@@ -110,10 +103,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-The Linux job also needs the rpm tool installed, and pacman packages may need extra archive tools; electron-builder's error messages name anything missing. The build step must also build the OpenMLS WebAssembly module (M2).
+The build step must also build the OpenMLS WebAssembly module (M2).
 
 10. After each release, add the SHA-256 checksum of every installer to the release notes.
 
 ## Done when
 
-Every check in the Security checklist is marked done or listed under Risks you accepted, and installers from a tagged release install, run and update themselves on a clean Windows machine and a clean Linux machine.
+Every check in the Security checklist is marked done or listed under Risks you accepted, and installers from a tagged release install, run and update themselves on a clean Windows machine.

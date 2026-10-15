@@ -13,9 +13,9 @@ flowchart TB
 | --- | --- | --- |
 | M1 · Backend and accounts | Electron + React shell; TypeScript backend with SQLite; sign-up, login, password change and recovery, WebSocket, key directory | Two clients sign up, log in and see each other online |
 | M2 · Encrypted group chat | OpenMLS via WebAssembly; groups of up to 10; add by username; new devices; leaving and blocking; queue deleted after delivery | An offline member gets messages later; the server holds only ciphertext; removed members cannot read new messages |
-| M3 · Calls | Voice and screen share (VP8, VP9, H.264); mesh of 6; call setup encrypted with MLS; coturn relay; Hide my IP; push-to-talk and mute hotkey | A 6-person call with screen share works on Windows and Linux (Wayland included); CPU per viewer measured per codec; strict firewalls connect through the relay |
+| M3 · Calls | Voice and screen share (VP8, VP9, H.264); mesh of 6; call setup encrypted with MLS; coturn relay; Hide my IP; push-to-talk and mute hotkey | A 6-person call with screen share works on Windows; CPU per viewer measured per codec; strict firewalls connect through the relay |
 | M4 · Desktop polish | Tray and quit setting; start at login; notifications hidden while sharing; settings screen; safety numbers | Every setting from D11b, D14, D15, D15b, D44 to D44c and D46 behaves as decided |
-| M5 · Security review and release | Security checklist; hardened installers for Windows and Linux; automatic updates; GitHub Actions releases; server deployment | The security checklist passes; installers run and update on a clean machine of each OS |
+| M5 · Security review and release | Security checklist; a hardened Windows installer; automatic updates; GitHub Actions releases; server deployment | The security checklist passes; the installer runs and updates on a clean Windows machine |
 
 No dates yet: each milestone ends at its gate, not on a deadline. The codec and screen-sharing tests from D11 now happen in M3, when calls are built.
 

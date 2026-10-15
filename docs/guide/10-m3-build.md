@@ -1,7 +1,7 @@
 # M3 build steps
 
 
-M3 adds calls: voice for up to 6 people in a mesh, screen sharing without sound (D43) using the codec from settings, call setup encrypted with MLS (D18), the coturn relay and Hide my IP. M3 is done when a 6-person call with a screen share works on Windows and Linux (Wayland included), CPU use per viewer has been measured for each codec, and a client behind a strict firewall connects through the relay.
+M3 adds calls: voice for up to 6 people in a mesh, screen sharing without sound (D43) using the codec from settings, call setup encrypted with MLS (D18), the coturn relay and Hide my IP. M3 is done when a 6-person call with a screen share works on Windows, CPU use per viewer has been measured for each codec, and a client behind a strict firewall connects through the relay.
 
 ## Settings
 
@@ -65,8 +65,8 @@ const pc = new RTCPeerConnection({
 });
 ```
 
-6. Capture the microphone with echo cancellation, noise suppression and automatic gain on. For voice activity, measure the microphone level with the Web Audio API and enable the audio track while it stays above a threshold, with a short delay before switching off. For push-to-talk, enable the track only while the key is held. On Windows, a native keyboard hook in the main process hears the key even while a game is in front; pick the hook library when M3 starts. On Linux, use the window's own key events, so push-to-talk works only while the app is in front (D44b). Register the mute toggle with Electron's globalShortcut, which only needs key presses (D44c).
-7. Screen sharing: in the main process, answer the window's screen-share request with a source the user picks from your own picker, video only (D43). On Linux under Wayland, the system's PipeWire picker chooses instead, and some Electron versions need Chromium's PipeWire capturer feature switched on ([source](https://electronjs.org/fr/docs/latest/api/desktop-capturer)):
+6. Capture the microphone with echo cancellation, noise suppression and automatic gain on. For voice activity, measure the microphone level with the Web Audio API and enable the audio track while it stays above a threshold, with a short delay before switching off. For push-to-talk, enable the track only while the key is held. On Windows, a native keyboard hook in the main process, `uiohook-napi` (D74), hears the key even while a game is in front (D44b). Register the mute toggle with Electron's globalShortcut, which only needs key presses (D44c).
+7. Screen sharing: in the main process, answer the window's screen-share request with a source the user picks from your own picker, video only (D43).:
 
 ```ts
 session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
@@ -98,10 +98,10 @@ The other codecs stay listed after the chosen one, so a connection still works i
 ## Tests
 
 - Unit tests for the negotiation logic and the call-full rule
-- Manual matrix: Windows to Windows, and Windows to Linux on both Wayland and X11, with 6 people and each codec
+- Manual matrix: Windows to Windows, with 6 people and each codec
 - Strict firewall: block outgoing UDP on one computer and confirm it connects through port 443
 - Hide my IP: confirm with getStats() that the connection's selected candidate pair uses the relay
 
 ## Done when
 
-A 6-person call with a screen share works on Windows and Linux (Wayland included), CPU per viewer is recorded for each codec, and a computer with UDP blocked joins through the relay.
+A 6-person call with a screen share works on Windows, CPU per viewer is recorded for each codec, and a computer with UDP blocked joins through the relay.

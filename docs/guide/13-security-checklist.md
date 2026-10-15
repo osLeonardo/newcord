@@ -41,7 +41,7 @@ Based on Electron's official security recommendations ([source](https://www.elec
 | The MLS state saved before anything is sent (D39) | M2 |
 | SQLite's secure\_delete on in the app's database, so deleted keys are erased | M2 |
 | The AES implementation inside WebAssembly confirmed constant-time (D38) | M2 |
-| Every commit checked against its declared change, and commits past 10 people rejected (D41) | M2 |
+| Every commit checked against its declared change and the 10-person limit, with a notice naming the sender when it fails (D41, D71) | M2 |
 | Call setup accepted only as MLS-encrypted messages, never in plain form (D18) | M3 |
 | Safety numbers in the interface, so members can verify each other's keys (D7) | M4 |
 
@@ -74,7 +74,7 @@ Based on Electron's official security recommendations ([source](https://www.elec
 | Metadata on the server | D1 | The server sees who talks to whom, when and how much | Inherent to the hybrid design; keep logs minimal and short-lived |
 | IP addresses visible in calls by default | D14 | Call members learn each other's IP addresses unless they turn on Hide my IP | Making Hide my IP the default |
 | H.264 patents | D11 | Distributing an H.264 encoder may fall under patent pool terms | Checking the current terms before release |
-| Linux package updates without signature checks | D50 | .deb, .rpm and pacman updates install with the package manager's signature checks skipped, after an administrator password prompt | Signing the packages yourself and enforcing checks in the updater, or offering AppImage only (D50, option A) |
 | Review by the author only | D51 | Nobody outside checks the encryption or server code before release | A public beta (D51, option B) or a paid audit later |
 | New devices join groups automatically | D56 | Anyone who steals a password can log in a device that is added to all of that person's groups and reads new messages | Approval from an existing device (D56, option B); members checking the new-device notice |
+| Rule-breaking commits are applied | D71 | A device added without being declared, through a dishonest member's app and a server that lets it pass, reads new messages until someone removes it; members only see a notice | Freezing the group instead (D71, option A) |
 | Recovery code and logged-in password resets | D55 | Anyone holding the recovery code, or using an unlocked logged-in computer, can set a new password and take over the account | Keeping the code offline; a new code after every use; protecting the computer itself |

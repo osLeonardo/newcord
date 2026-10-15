@@ -38,7 +38,7 @@ In its `Cargo.toml`, set `crate-type = ["cdylib"]` and add openmls, openmls\_rus
 | Function | What it does |
 | --- | --- |
 | loadState, saveState | Restore and export the whole MLS state as one blob (D39) |
-| initIdentity | Rebuilds the signature key from M1's Ed25519 key and creates the device's credential |
+| initIdentity | Rebuilds the signature key from M1's Ed25519 key and creates the device's credential, whose identity is the account's username and the device's ID (D70) |
 | createKeyPackages | Creates key packages to upload |
 | createGroup | Starts a group with this device as its only member |
 | addMembers, removeMembers | Return a commit, plus a welcome when adding |
@@ -127,7 +127,7 @@ CREATE TABLE deliveries (
 
 9. On first start after updating, call initIdentity with the key from M1, create 20 key packages and upload them, and top them up whenever the server reports fewer than 5.
 10. After every MLS operation, call saveState and write the blob to the local database before sending anything to the server. Turn on SQLite's secure\_delete setting for that database, so the old state's keys are really erased.
-11. Check every commit received against the change its sender declared, and reject commits that would take the group past 10 people. On a mismatch, warn the group and name the sender.
+11. Check every commit received against the change its sender declared and against the 10-person limit. A commit that fails either check is still applied, so this device stays in step with the group, and the app shows a notice in the group naming the sender and what the commit really did (D71).
 12. Build the screens: group list, create group, group chat, invite by username, accept or decline an invitation, remove a member, leave a group, and block or unblock someone. Show a notice in each shared group when a member adds a new device.
 
 ## Tests

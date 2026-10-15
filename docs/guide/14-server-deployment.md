@@ -112,7 +112,7 @@ pkey=/etc/coturn/certs/privkey.pem
 
 ## Backend service
 
-8. Install Node.js (current LTS) and pnpm, plus the compilers that better-sqlite3 and argon2 may need on Arm (`build-essential` and `python3`). Create a dedicated user, build the server, and keep secrets in a file only that user can read. Generate each secret with `openssl rand -base64 48`.
+8. Install Node.js 26 and pnpm 11 (see the Settings in `07-m1-setup.md`), plus the compilers that better-sqlite3 and argon2 may need on Arm (`build-essential` and `python3`). Create a dedicated user, build the server, and keep secrets in a file only that user can read. Generate each secret with `openssl rand -base64 48`.
 9. Run the backend as a systemd service:
 
 ```ini

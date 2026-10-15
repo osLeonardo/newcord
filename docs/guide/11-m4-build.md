@@ -1,7 +1,7 @@
 # M4 build steps
 
 
-M4 is desktop polish: the tray and closing behavior, starting at login, notifications, the settings screen and safety numbers. M4 is done when every setting decided for these behaves as decided on Windows and Linux, and two members can compare safety numbers on a call.
+M4 is desktop polish: the tray and closing behavior, starting at login, notifications, the settings screen and safety numbers. M4 is done when every setting decided for these behaves as decided on Windows, and two members can compare safety numbers on a call.
 
 ## Settings
 
@@ -34,15 +34,6 @@ app.on("second-instance", () => {
 4. Turn start-at-login on during the first run, and say so on the first screen along with where to turn it off (D46). Started at login, the app opens hidden in the tray.
 
 - Windows: `app.setLoginItemSettings({ openAtLogin: true, args: ["--hidden"] })`
-- Linux: Electron's login setting does not cover Linux, so write an autostart file to `~/.config/autostart/your-app.desktop`, pointing at the AppImage's own path (`process.env.APPIMAGE`):
-
-```ini
-[Desktop Entry]
-Type=Application
-Name=Your App
-Exec=/path/to/YourApp.AppImage --hidden
-X-GNOME-Autostart-enabled=true
-```
 
 ## Notifications
 
@@ -93,11 +84,11 @@ Show it as 12 blocks of 5 digits, with a button to mark the person verified.
 ## Tests
 
 - The safety number is identical on both sides and changes when any device key changes
-- Closing, hiding and quitting on Windows, on a Linux desktop with a tray and on one without
-- Start at login on Windows and Linux, opening hidden in the tray
+- Closing, hiding and quitting on Windows
+- Start at login on Windows, opening hidden in the tray
 - All three notification modes, generic text during a screen share, and clicking through to the group
 - Settings survive a restart
 
 ## Done when
 
-On both Windows and Linux, every setting from D11b, D14, D15, D15b, D44 to D44c and D46 behaves as decided, and two members can read their safety numbers to each other on a call and mark each other verified.
+On Windows, every setting from D11b, D14, D15, D15b, D44 to D44c and D46 behaves as decided, and two members can read their safety numbers to each other on a call and mark each other verified.
