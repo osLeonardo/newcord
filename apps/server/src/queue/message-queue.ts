@@ -36,6 +36,8 @@ export interface MessageQueue {
   enqueue(message: NewQueuedMessage): number;
   /** Deletes the Device's copy, and the message once no copies remain. */
   acknowledge(groupId: Buffer, seq: number, deviceId: string): void;
+  /** Deletes every copy of the Group's messages waiting for these Devices, and messages left with none. */
+  dropDeliveriesTo(groupId: Buffer, deviceIds: readonly string[]): void;
   /** Everything waiting for the Device, in sequence order per Group. */
   pendingFor(deviceId: string): QueuedMessage[];
   queued(groupId: Buffer, seq: number): QueuedMessage | undefined;
@@ -69,6 +71,7 @@ export function createMessageQueue(database: Database.Database): MessageQueue {
   return {
     enqueue: createEnqueue(database),
     acknowledge: createAcknowledge(database),
+    dropDeliveriesTo: createDeliveryDrop(database),
     pendingFor: createPendingList(database),
     queued: createQueuedLookup(database),
   };
@@ -126,6 +129,24 @@ function createAcknowledge(
     (groupId: Buffer, seq: number, deviceId: string): void => {
       deleteDelivery.run(groupId, seq, deviceId);
       deleteUndeliveredMessage.run(groupId, seq, groupId, seq);
+    },
+  );
+}
+
+function createDeliveryDrop(
+  database: Database.Database,
+): MessageQueue["dropDeliveriesTo"] {
+  const deleteDeliveries = database.prepare<[Buffer, string]>(
+    "DELETE FROM deliveries WHERE group_id = ? AND device_id = ?",
+  );
+  const deleteUndelivered = database.prepare<[Buffer]>(
+    `DELETE FROM messages WHERE group_id = ?
+       AND NOT EXISTS (SELECT 1 FROM deliveries WHERE deliveries.group_id = messages.group_id AND deliveries.seq = messages.seq)`,
+  );
+  return database.transaction(
+    (groupId: Buffer, deviceIds: readonly string[]): void => {
+      for (const deviceId of deviceIds) deleteDeliveries.run(groupId, deviceId);
+      deleteUndelivered.run(groupId);
     },
   );
 }

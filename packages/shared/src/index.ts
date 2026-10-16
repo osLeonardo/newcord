@@ -11,6 +11,7 @@ export * from "./key-packages.js";
 export * from "./mls-envelopes.js";
 export * from "./key-directory.js";
 export * from "./passwords.js";
+export * from "./prompts.js";
 export * from "./protocol.js";
 export * from "./recovery-code.js";
 export * from "./replies.js";

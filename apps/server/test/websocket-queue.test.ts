@@ -121,7 +121,7 @@ describe("mls.commit", () => {
       commit(groupId, { epoch: 0, added: [bruno.deviceId], welcome: opaque() }),
     );
 
-    expect(await aliceSocket.nextEnvelope()).toEqual(
+    expect((await replyTo(aliceSocket, requestId)).reply).toEqual(
       doneReply(requestId, { seq: 1, epoch: 1 }),
     );
     expect(groupRow(groupId)).toEqual({ epoch: 1, last_seq: 2 });

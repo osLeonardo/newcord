@@ -32,6 +32,8 @@ export interface GroupStore {
   epochOf(groupId: Buffer): number | undefined;
   /** Every Member Device, leaving or not. */
   membersOf(groupId: Buffer): GroupMember[];
+  /** Marks every Device of the Account in the Group as leaving and returns their IDs (D57). */
+  markAccountLeaving(groupId: Buffer, userId: number): string[];
   /** Applies an accepted commit's change: removes and adds Devices and raises the epoch by one. */
   applyChange(
     groupId: Buffer,
@@ -57,7 +59,21 @@ export function createGroupStore(database: Database.Database): GroupStore {
     epochOf: createEpochLookup(database),
     membersOf: createMemberList(database),
     applyChange: createChangeTransaction(database),
+    markAccountLeaving: createLeavingMark(database),
   };
+}
+
+function createLeavingMark(
+  database: Database.Database,
+): GroupStore["markAccountLeaving"] {
+  const markLeaving = database
+    .prepare<[Buffer, number], string>(
+      `UPDATE group_members SET leaving = 1
+        WHERE group_id = ? AND device_id IN (SELECT id FROM devices WHERE user_id = ?)
+        RETURNING device_id`,
+    )
+    .pluck();
+  return (groupId, userId): string[] => markLeaving.all(groupId, userId);
 }
 
 function createEpochLookup(database: Database.Database): GroupStore["epochOf"] {

@@ -4,6 +4,7 @@ import type { LightMyRequestResponse } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   doneReply,
+  nextBesidesPrompts,
   refusedReply,
   sendRequest,
 } from "./support/hub-request-kit.js";
@@ -176,7 +177,7 @@ describe("keypackage.get", () => {
     const aliceSocket = await online(alice.accessToken);
 
     const first = getKeyPackages(aliceSocket, "bruno");
-    const reply = await aliceSocket.nextEnvelope();
+    const reply = await nextBesidesPrompts(aliceSocket);
     const second = getKeyPackages(aliceSocket, "bruno");
 
     expect(reply).toEqual(
@@ -190,7 +191,7 @@ describe("keypackage.get", () => {
         ],
       }),
     );
-    expect(await aliceSocket.nextEnvelope()).toMatchObject(
+    expect(await nextBesidesPrompts(aliceSocket)).toMatchObject(
       doneReply(second, {
         keyPackages: [
           { deviceId: bruno.deviceId, keyPackage: phonePackages[1] },
@@ -208,7 +209,7 @@ describe("keypackage.get", () => {
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const requestId = getKeyPackages(aliceSocket, "bruno");
-      expect(await aliceSocket.nextEnvelope()).toEqual(
+      expect(await nextBesidesPrompts(aliceSocket)).toEqual(
         doneReply(requestId, {
           keyPackages: [{ deviceId: bruno.deviceId, keyPackage: lastResort }],
         }),
@@ -223,7 +224,7 @@ describe("keypackage.get", () => {
 
     const requestId = getKeyPackages(aliceSocket, "alice");
 
-    expect(await aliceSocket.nextEnvelope()).toMatchObject(
+    expect(await nextBesidesPrompts(aliceSocket)).toMatchObject(
       doneReply(requestId, { keyPackages: [{ deviceId: laptop.deviceId }] }),
     );
   });
@@ -244,7 +245,7 @@ describe("keypackage.get", () => {
 
     const requestId = getKeyPackages(aliceSocket, "bruno");
 
-    expect(await aliceSocket.nextEnvelope()).toEqual(
+    expect(await nextBesidesPrompts(aliceSocket)).toEqual(
       refusedReply(requestId, "NOTHING_TO_ADD"),
     );
   });
@@ -259,7 +260,7 @@ describe("keypackage.get", () => {
 
     const requestId = getKeyPackages(aliceSocket, "bruno");
 
-    expect(await aliceSocket.nextEnvelope()).toEqual(
+    expect(await nextBesidesPrompts(aliceSocket)).toEqual(
       refusedReply(requestId, "NOTHING_TO_ADD"),
     );
   });
@@ -278,12 +279,12 @@ describe("keypackage.get", () => {
     const aliceSocket = await online(alice.accessToken);
     for (let attempt = 0; attempt < 60; attempt += 1) {
       getKeyPackages(aliceSocket, "nobody");
-      await aliceSocket.nextEnvelope();
+      await nextBesidesPrompts(aliceSocket);
     }
 
     const requestId = getKeyPackages(aliceSocket, "bruno");
 
-    expect(await aliceSocket.nextEnvelope()).toEqual(
+    expect(await nextBesidesPrompts(aliceSocket)).toEqual(
       refusedReply(requestId, "RATE_LIMITED"),
     );
   });

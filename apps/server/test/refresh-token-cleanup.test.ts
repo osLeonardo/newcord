@@ -103,8 +103,8 @@ describe("the server's refresh-token cleanup", () => {
     expect(refreshTokenRow(server.database, later.refreshToken)).toBeDefined();
   });
 
-  it("stops its timer, like the live session check's, when the server closes", async () => {
-    expect(vi.getTimerCount()).toBe(2);
+  it("stops its timer, like the live session check's and the queue cleanup's, when the server closes", async () => {
+    expect(vi.getTimerCount()).toBe(3);
 
     await server.app.close();
 

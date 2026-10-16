@@ -23,6 +23,18 @@ export interface LoginDependencies {
   sessionTokens: SessionTokenIssuer;
   passwordHasher: PasswordHasher;
   clock: () => number;
+  /** Told after a login added a new Device to the Account, so its Groups can add it too (D56). */
+  onDeviceCreated?: (userId: number, deviceId: string) => void;
+}
+
+interface SessionStart {
+  result: LoginResult;
+  createdDeviceId?: string;
+}
+
+interface FoundDevice {
+  deviceId: string;
+  created: boolean;
 }
 
 /**
@@ -61,30 +73,46 @@ async function findVerifiedAccount(
 function createSessionTransaction(
   dependencies: LoginDependencies,
 ): (userId: number, identityKey: Buffer) => LoginResult {
-  return dependencies.database.transaction(
-    (userId: number, identityKey: Buffer): LoginResult => {
-      const deviceId = findOrAddDevice(dependencies, userId, identityKey);
-      if (deviceId === undefined) {
-        return { loggedIn: false, refusal: "identity-key-taken" };
+  const startSession = dependencies.database.transaction(
+    (userId: number, identityKey: Buffer): SessionStart => {
+      const device = findOrAddDevice(dependencies, userId, identityKey);
+      if (device === undefined) {
+        return { result: { loggedIn: false, refusal: "identity-key-taken" } };
       }
+      const { deviceId } = device;
       dependencies.refreshTokenStore.deleteForDevice(deviceId);
       const tokens = dependencies.sessionTokens.issue({ userId, deviceId });
-      return { loggedIn: true, response: { ...tokens, deviceId } };
+      const result: LoginResult = {
+        loggedIn: true,
+        response: { ...tokens, deviceId },
+      };
+      return device.created
+        ? { result, createdDeviceId: deviceId }
+        : { result };
     },
   );
+  return (userId, identityKey): LoginResult => {
+    const { result, createdDeviceId } = startSession(userId, identityKey);
+    if (createdDeviceId !== undefined) {
+      dependencies.onDeviceCreated?.(userId, createdDeviceId);
+    }
+    return result;
+  };
 }
 
 function findOrAddDevice(
   dependencies: LoginDependencies,
   userId: number,
   identityKey: Buffer,
-): string | undefined {
+): FoundDevice | undefined {
   const device = dependencies.deviceStore.findByIdentityKey(identityKey);
   if (device !== undefined) {
-    return device.userId === userId ? device.deviceId : undefined;
+    return device.userId === userId
+      ? { deviceId: device.deviceId, created: false }
+      : undefined;
   }
   const deviceId = generateDeviceId();
   const createdAt = dependencies.clock();
   dependencies.deviceStore.insert({ deviceId, userId, identityKey, createdAt });
-  return deviceId;
+  return { deviceId, created: true };
 }

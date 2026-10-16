@@ -4,6 +4,7 @@ import {
   type RefreshResponse,
   type RegisterResponse,
 } from "@newcord/shared";
+import { nextBesidesPrompts } from "./support/hub-request-kit.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   changePassword,
@@ -97,7 +98,7 @@ describe("POST /logout", () => {
     await logout(server.app, bearer(alice.accessToken));
     await aliceSocket.closed;
 
-    expect(await bobSocket.nextEnvelope()).toEqual(
+    expect(await nextBesidesPrompts(bobSocket)).toEqual(
       presenceChange("offline", "alice"),
     );
     expect(bobSocket.isOpen()).toBe(true);
@@ -115,13 +116,13 @@ describe("POST /logout", () => {
     expect(await phone.closed).toMatchObject(sessionEnded);
     await online((await memberSignUp("carol")).accessToken);
 
-    expect(await bobSocket.nextEnvelope()).toEqual(
+    expect(await nextBesidesPrompts(bobSocket)).toEqual(
       presenceChange("online", "carol"),
     );
-    expect(await laptop.nextEnvelope()).toMatchObject(
+    expect(await nextBesidesPrompts(laptop)).toMatchObject(
       presenceChange("online", "bob"),
     );
-    expect(await laptop.nextEnvelope()).toEqual(
+    expect(await nextBesidesPrompts(laptop)).toEqual(
       presenceChange("online", "carol"),
     );
   });
@@ -132,7 +133,7 @@ describe("POST /refresh with a used refresh token (D62)", () => {
     const alice = await memberSignUp("alice");
     const aliceSocket = await online(alice.accessToken);
     const bobSocket = await online((await memberSignUp("bob")).accessToken);
-    await aliceSocket.nextEnvelope();
+    await nextBesidesPrompts(aliceSocket);
     expect((await refresh(server.app, alice.refreshToken)).statusCode).toBe(
       200,
     );
@@ -154,7 +155,7 @@ describe("POST /refresh with a used refresh token (D62)", () => {
     await online((await memberSignUp("bob")).accessToken);
 
     expect(fresh.refreshToken).toBeDefined();
-    expect(await aliceSocket.nextEnvelope()).toEqual(
+    expect(await nextBesidesPrompts(aliceSocket)).toEqual(
       presenceChange("online", "bob"),
     );
   });
@@ -177,13 +178,13 @@ describe("the 15-minute session check", () => {
     const bob = await memberSignUp("bob");
     const aliceSocket = await online(alice.accessToken);
     const bobSocket = await online(bob.accessToken);
-    await aliceSocket.nextEnvelope();
+    await nextBesidesPrompts(aliceSocket);
     now = NOW + 30 * ONE_DAY_MS;
 
     vi.advanceTimersByTime(FIFTEEN_MINUTES_MS);
 
     expect(await aliceSocket.closed).toMatchObject(sessionEnded);
-    expect(await bobSocket.nextEnvelope()).toEqual(
+    expect(await nextBesidesPrompts(bobSocket)).toEqual(
       presenceChange("offline", "alice"),
     );
     expect(bobSocket.isOpen()).toBe(true);
@@ -196,7 +197,7 @@ describe("the 15-minute session check", () => {
 
     vi.advanceTimersByTime(FIFTEEN_MINUTES_MS - 1);
     await online((await memberSignUp("bob")).accessToken);
-    expect(await aliceSocket.nextEnvelope()).toEqual(
+    expect(await nextBesidesPrompts(aliceSocket)).toEqual(
       presenceChange("online", "bob"),
     );
 
@@ -212,7 +213,7 @@ describe("the 15-minute session check", () => {
     vi.advanceTimersByTime(FIFTEEN_MINUTES_MS);
     await online((await memberSignUp("bob")).accessToken);
 
-    expect(await aliceSocket.nextEnvelope()).toEqual(
+    expect(await nextBesidesPrompts(aliceSocket)).toEqual(
       presenceChange("online", "bob"),
     );
     expect(refreshTokenRow(server.database, alice.refreshToken)).toMatchObject({
@@ -232,7 +233,7 @@ describe("POST /password/change (D66)", () => {
     const desktop = await online(
       (await logInOnNewDevice(server.app, "alice")).accessToken,
     );
-    await bobSocket.nextEnvelope();
+    await nextBesidesPrompts(bobSocket);
 
     const response = await changePassword(
       server.app,
@@ -244,10 +245,10 @@ describe("POST /password/change (D66)", () => {
     expect(await laptop.closed).toMatchObject(sessionEnded);
     expect(await desktop.closed).toMatchObject(sessionEnded);
     await online((await memberSignUp("carol")).accessToken);
-    expect(await phone.nextEnvelope()).toEqual(
+    expect(await nextBesidesPrompts(phone)).toEqual(
       presenceChange("online", "carol"),
     );
-    expect(await bobSocket.nextEnvelope()).toEqual(
+    expect(await nextBesidesPrompts(bobSocket)).toEqual(
       presenceChange("online", "carol"),
     );
   });
@@ -261,7 +262,7 @@ describe("POST /password/recover (D66)", () => {
     const laptop = await online(
       (await logInOnNewDevice(server.app, "alice")).accessToken,
     );
-    await bobSocket.nextEnvelope();
+    await nextBesidesPrompts(bobSocket);
 
     const response = await recoverPassword(server.app, {
       username: "alice",
@@ -272,7 +273,7 @@ describe("POST /password/recover (D66)", () => {
     expect(response.statusCode).toBe(200);
     expect(await phone.closed).toMatchObject(sessionEnded);
     expect(await laptop.closed).toMatchObject(sessionEnded);
-    expect(await bobSocket.nextEnvelope()).toEqual(
+    expect(await nextBesidesPrompts(bobSocket)).toEqual(
       presenceChange("offline", "alice"),
     );
     expect(bobSocket.isOpen()).toBe(true);
@@ -290,7 +291,9 @@ describe("POST /password/recover (D66)", () => {
     await online((await memberSignUp("bob")).accessToken);
 
     expect(response.statusCode).toBe(401);
-    expect(await phone.nextEnvelope()).toEqual(presenceChange("online", "bob"));
+    expect(await nextBesidesPrompts(phone)).toEqual(
+      presenceChange("online", "bob"),
+    );
   });
 });
 
@@ -311,6 +314,8 @@ describe("POST /login again on the same Device (D81)", () => {
     await online((await memberSignUp("bob")).accessToken);
 
     expect(again.json<LoginResponse>().deviceId).toBe(alice.body.deviceId);
-    expect(await phone.nextEnvelope()).toEqual(presenceChange("online", "bob"));
+    expect(await nextBesidesPrompts(phone)).toEqual(
+      presenceChange("online", "bob"),
+    );
   });
 });

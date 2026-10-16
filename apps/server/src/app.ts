@@ -100,7 +100,17 @@ import {
   sendBlockListOnHello,
 } from "./blocks/block-requests.js";
 import { createBlockStore, type BlockStore } from "./blocks/block-store.js";
+import {
+  createGroupPrompter,
+  type GroupPrompter,
+} from "./groups/group-prompter.js";
 import { createGroupRequestHandlers } from "./groups/group-requests.js";
+import { createLeaveRequestHandlers } from "./groups/leave-requests.js";
+import { createPromptStore } from "./groups/prompt-store.js";
+import {
+  createQueueCleanup,
+  scheduleQueueCleanup,
+} from "./queue/queue-cleanup.js";
 import { createGroupStore, type GroupStore } from "./groups/group-store.js";
 import { createHubMessenger, type HubMessenger } from "./hub/hub-messenger.js";
 import { createHubEndpoints, type HubEndpoints } from "./hub/hub-requests.js";
@@ -154,6 +164,7 @@ interface ServerParts extends SessionParts, LiveHub {
   keyPackageRateLimit: RequestRateLimit;
   messageQueue: MessageQueue;
   messenger: HubMessenger;
+  prompter: GroupPrompter;
 }
 
 /**
@@ -174,6 +185,11 @@ export async function buildServerApp(
   registerWebSocketRoute(app, { ...parts, hub: createHub(parts) });
   scheduleRefreshTokenCleanup(app, parts);
   scheduleLiveSessionCheck(app, parts);
+  scheduleQueueCleanup(
+    app,
+    createQueueCleanup(parts.database, parts.clock),
+    (groupId) => parts.prompter.promptGroup(groupId),
+  );
   return app;
 }
 
@@ -195,6 +211,7 @@ function createServerParts(
   const clock = options.clock ?? ((): number => Date.now());
   const groupStore = createGroupStore(options.database);
   const liveHub = createLiveHub(groupStore);
+  const messenger = createHubMessenger(liveHub.socketRegistry);
   return {
     database: options.database,
     clock,
@@ -212,7 +229,12 @@ function createServerParts(
       KEY_PACKAGE_REQUEST_RATE_LIMIT,
       clock,
     ),
-    messenger: createHubMessenger(liveHub.socketRegistry),
+    messenger,
+    prompter: createGroupPrompter({
+      promptStore: createPromptStore(options.database),
+      groupStore,
+      messenger,
+    }),
     ...liveHub,
     ...createSessionParts(app, options, clock, liveHub.sessionSockets),
   };
@@ -248,7 +270,13 @@ function createSessionParts(
 
 function registerAccountRoutes(app: FastifyInstance, parts: ServerParts): void {
   registerSignUpRoute(app, createSignUp(parts));
-  registerLoginRoute(app, createLogin(parts));
+  registerLoginRoute(
+    app,
+    createLogin({
+      ...parts,
+      onDeviceCreated: (userId) => parts.prompter.promptAccountGroups(userId),
+    }),
+  );
   registerPasswordRoutes(app, parts);
   registerKeyPackageRoute(app, parts);
   registerKeyDirectoryRoute(app, {
@@ -284,11 +312,16 @@ function createHub(parts: ServerParts): HubEndpoints {
       (context): void => sendKeyPackageCountOnHello(parts, context),
       (context): void => sendInvitationsOnHello(parts, context),
       (context): void => replayQueueOnHello(parts, context),
+      (context): void => parts.prompter.promptOnHello(context),
     ],
     {
       ...createGroupRequestHandlers(parts),
       ...createBlockRequestHandlers(parts),
-      ...createInvitationRequestHandlers(parts),
+      ...createInvitationRequestHandlers({
+        ...parts,
+        onInvitationAccepted: (groupId) => parts.prompter.promptGroup(groupId),
+      }),
+      ...createLeaveRequestHandlers(parts),
       ...createKeyPackageRequestHandlers(parts),
       ...createQueueRequestHandlers(parts),
       ...createCommitRequestHandlers({

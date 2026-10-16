@@ -3,6 +3,7 @@ import {
   WebSocketCloseCode,
   type RegisterResponse,
 } from "@newcord/shared";
+import { nextBesidesPrompts } from "./support/hub-request-kit.js";
 import { Value } from "typebox/value";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -81,14 +82,14 @@ describe("presence changes", () => {
   it("tells every other authenticated socket when an Account's first Device connects", async () => {
     const aliceSocket = (await online(alice.accessToken)).client;
     const carolSocket = (await online(carol.accessToken)).client;
-    expect(await aliceSocket.nextEnvelope()).toEqual(
+    expect(await nextBesidesPrompts(aliceSocket)).toEqual(
       presenceChange("online", "carol"),
     );
 
     const bobSocket = (await online(bob.accessToken)).client;
 
     for (const socket of [aliceSocket, carolSocket]) {
-      const envelope = await socket.nextEnvelope();
+      const envelope = await nextBesidesPrompts(socket);
       expect(envelope).toEqual(presenceChange("online", "bob"));
       expect(Value.Check(ServerEnvelope, envelope)).toBe(true);
     }
@@ -102,17 +103,19 @@ describe("presence changes", () => {
 
     waiting.sendEnvelope(helloEnvelope(alice.accessToken));
 
-    expect(await waiting.nextEnvelope()).toMatchObject({ kind: "snapshot" });
+    expect(await nextBesidesPrompts(waiting)).toMatchObject({
+      kind: "snapshot",
+    });
   });
 
   it("tells the others when an Account's last Device disconnects", async () => {
     const aliceSocket = (await online(alice.accessToken)).client;
     const bobSocket = (await online(bob.accessToken)).client;
-    await aliceSocket.nextEnvelope();
+    await nextBesidesPrompts(aliceSocket);
 
     bobSocket.terminate();
 
-    expect(await aliceSocket.nextEnvelope()).toEqual(
+    expect(await nextBesidesPrompts(aliceSocket)).toEqual(
       presenceChange("offline", "bob"),
     );
   });
@@ -126,7 +129,7 @@ describe("presence changes", () => {
     await laptop.closed;
     await online(carol.accessToken);
 
-    expect(await bobSocket.nextEnvelope()).toEqual(
+    expect(await nextBesidesPrompts(bobSocket)).toEqual(
       presenceChange("online", "carol"),
     );
   });
@@ -170,11 +173,11 @@ describe("Envelopes after hello", () => {
   it("takes the Account offline at once when its only socket is rejected", async () => {
     const aliceSocket = (await online(alice.accessToken)).client;
     const bobSocket = (await online(bob.accessToken)).client;
-    await aliceSocket.nextEnvelope();
+    await nextBesidesPrompts(aliceSocket);
 
     bobSocket.sendEnvelope({ v: 1, type: "group.create", name: "friends" });
 
-    expect(await aliceSocket.nextEnvelope()).toEqual(
+    expect(await nextBesidesPrompts(aliceSocket)).toEqual(
       presenceChange("offline", "bob"),
     );
   });
@@ -189,7 +192,7 @@ describe("presence among Group Members only (09-m2-build step 7)", () => {
     await online(bob.accessToken);
 
     expect(snapshot).toMatchObject({ usernames: ["dora"] });
-    expect(await aliceSocket.nextEnvelope()).toEqual(
+    expect(await nextBesidesPrompts(aliceSocket)).toEqual(
       presenceChange("online", "bob"),
     );
   });

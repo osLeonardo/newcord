@@ -49,6 +49,23 @@ export const MlsMessageEnvelope = Type.Object(
 );
 export type MlsMessageEnvelope = Static<typeof MlsMessageEnvelope>;
 
+/**
+ * A Member's request to leave: an MLS proposal removing its own Device. The server stops delivering
+ * the Group to that Account at once and queues the request for the others, so the next one online
+ * commits the removal (D57).
+ */
+export const MlsProposalEnvelope = Type.Object(
+  {
+    v: ProtocolVersion,
+    type: Type.Literal("mls.proposal"),
+    requestId: RequestId,
+    groupId: GroupId,
+    proposal: MlsPayload,
+  },
+  { additionalProperties: false },
+);
+export type MlsProposalEnvelope = Static<typeof MlsProposalEnvelope>;
+
 /** Confirms a delivery, so the server deletes this Device's copy (D9). */
 export const AckEnvelope = Type.Object(
   {
@@ -103,6 +120,19 @@ export const MlsWelcomeDeliveryEnvelope = Type.Object(
 );
 export type MlsWelcomeDeliveryEnvelope = Static<
   typeof MlsWelcomeDeliveryEnvelope
+>;
+
+/** A queued leave request, for the Group's other Members. */
+export const MlsProposalDeliveryEnvelope = Type.Object(
+  {
+    ...deliveryFields,
+    type: Type.Literal("mls.proposal"),
+    proposal: MlsPayload,
+  },
+  { additionalProperties: false },
+);
+export type MlsProposalDeliveryEnvelope = Static<
+  typeof MlsProposalDeliveryEnvelope
 >;
 
 /** A queued MLS application message. */

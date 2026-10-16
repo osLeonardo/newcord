@@ -2,6 +2,7 @@ import {
   PROTOCOL_VERSION,
   type MlsCommitDeliveryEnvelope,
   type MlsMessageDeliveryEnvelope,
+  type MlsProposalDeliveryEnvelope,
   type MlsWelcomeDeliveryEnvelope,
 } from "@newcord/shared";
 import type { QueuedMessage } from "./message-queue.js";
@@ -10,7 +11,8 @@ import type { QueuedMessage } from "./message-queue.js";
 export type DeliveryEnvelope =
   | MlsCommitDeliveryEnvelope
   | MlsWelcomeDeliveryEnvelope
-  | MlsMessageDeliveryEnvelope;
+  | MlsMessageDeliveryEnvelope
+  | MlsProposalDeliveryEnvelope;
 
 /**
  * The Envelope a queued message reaches its recipients as.
@@ -40,8 +42,9 @@ export function deliveryEnvelope(message: QueuedMessage): DeliveryEnvelope {
         welcome: payload,
       };
     case "message":
-    case "proposal":
       return { ...common, type: "mls.message", message: payload };
+    case "proposal":
+      return { ...common, type: "mls.proposal", proposal: payload };
   }
 }
 

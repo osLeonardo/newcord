@@ -52,3 +52,20 @@ export async function settleRequests(
   });
   return (await replyTo(client, requestId)).before;
 }
+
+const PROMPT_TYPES: ReadonlySet<string> = new Set([
+  "invite.accepted",
+  "device.new",
+  "resync",
+]);
+
+/** The next Envelope that is not a Group prompt, for tests where prompts are not under test. */
+export async function nextBesidesPrompts(
+  client: TestSocketClient,
+): Promise<unknown> {
+  for (;;) {
+    const envelope = await client.nextEnvelope();
+    const { type } = envelope as { type?: string };
+    if (type === undefined || !PROMPT_TYPES.has(type)) return envelope;
+  }
+}
