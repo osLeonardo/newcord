@@ -34,19 +34,43 @@ export type LogInResult =
   | { readonly outcome: "logged-in"; readonly session: SessionState }
   | { readonly outcome: "refused"; readonly refusal: AccountRefusal };
 
-/** The named functions the preload gives the interface as `window.desktopApi`; keys and tokens never cross it. */
-export interface DesktopApi {
+/** Stops a listener from hearing any more changes. */
+export type Unsubscribe = () => void;
+
+/** The desktop API's calls into the main process, each checked there for its sender and arguments. */
+export interface DesktopApiCalls {
   readSessionState(): Promise<SessionState>;
   signUp(credentials: Credentials): Promise<SignUpResult>;
   logIn(credentials: Credentials): Promise<LogInResult>;
   /** Ends the session on the server and on this Device; resolves logged out even when the server is out of reach. */
   logOut(): Promise<SessionState>;
+  /** The other Accounts online now, sorted by username; empty while logged out or disconnected. */
+  readOnlineAccounts(): Promise<readonly string[]>;
 }
 
-/** The IPC channel behind each function of the desktop API. */
+/** The changes the main process tells the interface about. */
+export interface DesktopApiSubscriptions {
+  /** Hears the session state whenever the server ends the session (D62, D66). */
+  onSessionChanged(listener: (session: SessionState) => void): Unsubscribe;
+  onOnlineAccountsChanged(
+    listener: (usernames: readonly string[]) => void,
+  ): Unsubscribe;
+}
+
+/** The named functions the preload gives the interface as `window.desktopApi`; keys and tokens never cross it. */
+export interface DesktopApi extends DesktopApiCalls, DesktopApiSubscriptions {}
+
+/** The IPC channel behind each call of the desktop API. */
 export const desktopApiChannels = {
   readSessionState: "session:read-state",
   signUp: "account:sign-up",
   logIn: "account:log-in",
   logOut: "session:log-out",
-} as const satisfies Record<keyof DesktopApi, string>;
+  readOnlineAccounts: "presence:read-online",
+} as const satisfies Record<keyof DesktopApiCalls, string>;
+
+/** The IPC channel the main process sends each change on. */
+export const desktopApiEventChannels = {
+  onSessionChanged: "session:changed",
+  onOnlineAccountsChanged: "presence:changed",
+} as const satisfies Record<keyof DesktopApiSubscriptions, string>;

@@ -34,6 +34,14 @@ function App({ desktopApi }: AppProps): React.JSX.Element {
     };
   }, [desktopApi]);
 
+  useEffect(
+    () =>
+      desktopApi.onSessionChanged((session) => {
+        setView(viewForSessionState(session));
+      }),
+    [desktopApi],
+  );
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-950 p-6 text-zinc-100">
       <CurrentScreen view={view} desktopApi={desktopApi} show={setView} />

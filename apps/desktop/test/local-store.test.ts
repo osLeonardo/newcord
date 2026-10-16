@@ -127,6 +127,40 @@ describe("a login", () => {
   });
 });
 
+describe("replacing renewed tokens", () => {
+  const renewed: SessionTokens = {
+    accessToken: "renewed.claims.signature",
+    refreshToken: "n".repeat(43),
+  };
+
+  it("stores the new tokens when the renewed refresh token is still stored", () => {
+    const { store } = memoryStore();
+    store.saveLogin(account, tokens);
+
+    expect(store.replaceSessionTokens(tokens.refreshToken, renewed)).toBe(true);
+    expect(store.readSessionTokens()).toEqual(renewed);
+  });
+
+  it("changes nothing after the tokens were deleted", () => {
+    const { store } = memoryStore();
+    store.saveLogin(account, tokens);
+    store.deleteSessionTokens();
+
+    expect(store.replaceSessionTokens(tokens.refreshToken, renewed)).toBe(
+      false,
+    );
+    expect(store.readSessionTokens()).toBeUndefined();
+  });
+
+  it("changes nothing when another login stored other tokens meanwhile", () => {
+    const { store } = memoryStore();
+    store.saveLogin(account, renewed);
+
+    expect(store.replaceSessionTokens(tokens.refreshToken, tokens)).toBe(false);
+    expect(store.readSessionTokens()).toEqual(renewed);
+  });
+});
+
 describe("deleting the session tokens", () => {
   it("keeps the identity key, the username and the deviceId", () => {
     const { store } = memoryStore();

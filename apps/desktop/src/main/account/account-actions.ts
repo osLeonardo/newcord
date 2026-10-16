@@ -2,7 +2,7 @@ import type { LoginRequest, LoginResponse } from "@newcord/shared";
 import type {
   AccountRefusal,
   Credentials,
-  DesktopApi,
+  DesktopApiCalls,
   LogInResult,
   SessionState,
   SignUpResult,
@@ -14,16 +14,19 @@ import {
 } from "../identity/identity-key";
 import type { LocalStore } from "../local-store/local-store";
 import type { ServerApiClient } from "../server-api/server-api-client";
+import type { LiveSession } from "../session/live-session";
 import { endServerSession } from "./server-session-end";
+import { sessionStateOf } from "./session-state";
 
 export interface AccountActionsDependencies {
   readonly store: LocalStore;
   readonly server: ServerApiClient;
   readonly createKeyPair: () => IdentityKeyPair;
+  readonly liveSession: Pick<LiveSession, "start" | "stop" | "onlineAccounts">;
 }
 
-/** What each desktop API function does in the main process. */
-export type AccountActions = DesktopApi;
+/** What each desktop API call does in the main process. */
+export type AccountActions = DesktopApiCalls;
 
 interface Refused {
   readonly outcome: "refused";
@@ -31,8 +34,9 @@ interface Refused {
 }
 
 /**
- * The sign-up, login and logout flows: they call the server and keep the Account, deviceId and tokens in the local store.
- * @example const actions = createAccountActions({ store, server, createKeyPair: createIdentityKeyPair });
+ * The sign-up, login and logout flows: they call the server, keep the Account, deviceId and tokens
+ * in the local store, and start or stop the live session.
+ * @example const actions = createAccountActions({ store, server, createKeyPair: createIdentityKeyPair, liveSession });
  */
 export function createAccountActions(
   dependencies: AccountActionsDependencies,
@@ -42,6 +46,8 @@ export function createAccountActions(
     signUp: (credentials) => signUp(dependencies, credentials),
     logIn: (credentials) => logIn(dependencies, credentials),
     logOut: () => logOut(dependencies),
+    readOnlineAccounts: () =>
+      Promise.resolve(dependencies.liveSession.onlineAccounts()),
   };
 }
 
@@ -57,7 +63,7 @@ async function signUp(
     accountRequest(dependencies, credentials),
   );
   if (!result.ok) return refusedBecause(result.failure);
-  saveLogin(dependencies.store, credentials.username, result.body);
+  startSession(dependencies, credentials.username, result.body);
   return {
     outcome: "signed-up",
     recoveryCode: result.body.recoveryCode,
@@ -77,13 +83,15 @@ async function logIn(
     accountRequest(dependencies, credentials),
   );
   if (!result.ok) return refusedBecause(result.failure);
-  saveLogin(dependencies.store, credentials.username, result.body);
+  startSession(dependencies, credentials.username, result.body);
   return { outcome: "logged-in", session: sessionStateOf(dependencies.store) };
 }
 
 async function logOut(
   dependencies: AccountActionsDependencies,
 ): Promise<SessionState> {
+  // Stopping first lets a renewal under way finish, so the tokens read next are the latest.
+  await dependencies.liveSession.stop();
   const tokens = dependencies.store.readSessionTokens();
   if (tokens !== undefined) {
     await endServerSession(dependencies.server, tokens);
@@ -108,24 +116,16 @@ function accountRequest(
   };
 }
 
-function saveLogin(
-  store: LocalStore,
+function startSession(
+  dependencies: AccountActionsDependencies,
   username: string,
   response: LoginResponse,
 ): void {
-  store.saveLogin(
+  dependencies.store.saveLogin(
     { username, deviceId: response.deviceId },
     { accessToken: response.accessToken, refreshToken: response.refreshToken },
   );
-}
-
-function sessionStateOf(store: LocalStore): SessionState {
-  const account = store.readAccount();
-  if (account === undefined) return { status: "logged-out", username: null };
-  if (store.readSessionTokens() === undefined) {
-    return { status: "logged-out", username: account.username };
-  }
-  return { status: "logged-in", username: account.username };
+  dependencies.liveSession.start();
 }
 
 function refusedBecause(refusal: AccountRefusal): Refused {

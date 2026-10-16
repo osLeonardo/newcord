@@ -13,6 +13,7 @@ import {
 import {
   createAccountActions,
   type AccountActions,
+  type AccountActionsDependencies,
 } from "../src/main/account/account-actions";
 import {
   createIdentityKeyPair,
@@ -46,10 +47,19 @@ const bruno: Credentials = {
   password: "another long enough password",
 };
 
+type LiveSessionControls = AccountActionsDependencies["liveSession"];
+
+interface FakeLiveSession {
+  readonly start: Mock<LiveSessionControls["start"]>;
+  readonly stop: Mock<LiveSessionControls["stop"]>;
+  readonly onlineAccounts: Mock<LiveSessionControls["onlineAccounts"]>;
+}
+
 interface Installation {
   readonly database: Database.Database;
   readonly store: LocalStore;
   readonly posts: Mock<(request: ServerPost) => Promise<ServerReply>>;
+  readonly liveSession: FakeLiveSession;
   readonly actions: AccountActions;
 }
 
@@ -74,18 +84,29 @@ function installApp(
   const store = createSqliteLocalStore(database);
   loadOrCreateIdentityKey(store, createIdentityKeyPair);
   const posts = vi.fn((request: ServerPost) => transport.post(request));
-  const actions = restartApp(store, { post: posts });
-  return { database, store, posts, actions };
+  const liveSession = fakeLiveSession();
+  const actions = restartApp(store, { post: posts }, liveSession);
+  return { database, store, posts, liveSession, actions };
+}
+
+function fakeLiveSession(): FakeLiveSession {
+  return {
+    start: vi.fn<LiveSessionControls["start"]>(),
+    stop: vi.fn<LiveSessionControls["stop"]>(() => Promise.resolve()),
+    onlineAccounts: vi.fn<LiveSessionControls["onlineAccounts"]>(() => []),
+  };
 }
 
 function restartApp(
   store: LocalStore,
   transport: ServerTransport,
+  liveSession: FakeLiveSession = fakeLiveSession(),
 ): AccountActions {
   return createAccountActions({
     store,
     server: createServerApiClient(transport),
     createKeyPair: createIdentityKeyPair,
+    liveSession,
   });
 }
 
@@ -189,6 +210,17 @@ describe("signUp", () => {
     expect(posts).not.toHaveBeenCalled();
   });
 
+  it("starts the live session once the tokens are stored", async () => {
+    const { store, liveSession, actions } = installApp();
+    liveSession.start.mockImplementation(() => {
+      expect(store.readSessionTokens()).toBeDefined();
+    });
+
+    await actions.signUp(alice);
+
+    expect(liveSession.start).toHaveBeenCalledOnce();
+  });
+
   it("reports a server out of reach and stores nothing", async () => {
     const { store, actions } = installApp(unreachableTransport);
 
@@ -226,15 +258,25 @@ describe("logIn", () => {
     expect(serverRowCounts(server.database, deviceId).devices).toBe(1);
   });
 
-  it("reports wrong credentials and stores nothing", async () => {
+  it("starts the live session", async () => {
     await installApp().actions.signUp(alice);
-    const { store, actions } = installApp();
+    const { liveSession, actions } = installApp();
+
+    await actions.logIn(alice);
+
+    expect(liveSession.start).toHaveBeenCalledOnce();
+  });
+
+  it("reports wrong credentials, stores nothing and starts nothing", async () => {
+    await installApp().actions.signUp(alice);
+    const { store, liveSession, actions } = installApp();
 
     await expect(
       actions.logIn({ ...alice, password: "not the right password" }),
     ).resolves.toEqual({ outcome: "refused", refusal: "INVALID_CREDENTIALS" });
     expect(store.readAccount()).toBeUndefined();
     expect(store.readSessionTokens()).toBeUndefined();
+    expect(liveSession.start).not.toHaveBeenCalled();
   });
 
   it("is refused without asking the server for an Account other than the stored one", async () => {
@@ -253,6 +295,21 @@ describe("logIn", () => {
 });
 
 describe("logOut", () => {
+  it("stops the live session before asking the server", async () => {
+    const { posts, liveSession, actions } = installApp();
+    await actions.signUp(alice);
+    posts.mockClear();
+    liveSession.stop.mockImplementation(() => {
+      expect(posts).not.toHaveBeenCalled();
+      return Promise.resolve();
+    });
+
+    await actions.logOut();
+
+    expect(liveSession.stop).toHaveBeenCalledOnce();
+    expect(posts).toHaveBeenCalled();
+  });
+
   it("ends the session on the server and deletes only the local tokens", async () => {
     const { store, actions } = installApp();
     await actions.signUp(alice);
@@ -336,5 +393,17 @@ describe("a restart of the app", () => {
       status: "logged-out",
       username: "alice",
     });
+  });
+});
+
+describe("readOnlineAccounts", () => {
+  it("returns the live session's online list", async () => {
+    const { liveSession, actions } = installApp();
+    liveSession.onlineAccounts.mockReturnValue(["bruno", "carla"]);
+
+    await expect(actions.readOnlineAccounts()).resolves.toEqual([
+      "bruno",
+      "carla",
+    ]);
   });
 });

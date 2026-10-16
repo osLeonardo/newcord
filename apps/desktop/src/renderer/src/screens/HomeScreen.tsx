@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { DesktopApi } from "../../../preload/desktop-api";
 import { UNEXPECTED_FAILURE_MESSAGE } from "../account/account-messages";
 import { viewForSessionState, type AppView } from "../app-view";
@@ -11,7 +11,11 @@ interface HomeScreenProps {
   readonly show: (view: AppView) => void;
 }
 
-/** The logged-in home; Step 03 adds the "online now" list here. */
+interface OnlineNowProps {
+  readonly desktopApi: DesktopApi;
+}
+
+/** The logged-in home: who else is online now, and logging out. */
 export function HomeScreen(props: HomeScreenProps): React.JSX.Element {
   const [loggingOut, setLoggingOut] = useState(false);
   const [message, setMessage] = useState<string>();
@@ -28,9 +32,7 @@ export function HomeScreen(props: HomeScreenProps): React.JSX.Element {
 
   return (
     <ScreenCard title={`Logged in as ${props.username}`}>
-      <p className={screenStyles.hint}>
-        This computer is logged in to your Account.
-      </p>
+      <OnlineNow desktopApi={props.desktopApi} />
       {message !== undefined && (
         <p role="alert" className={screenStyles.errorMessage}>
           {message}
@@ -45,5 +47,48 @@ export function HomeScreen(props: HomeScreenProps): React.JSX.Element {
         Log out
       </button>
     </ScreenCard>
+  );
+}
+
+/** The other Accounts online now, kept up to date by the main process. */
+function OnlineNow({ desktopApi }: OnlineNowProps): React.JSX.Element {
+  const [usernames, setUsernames] = useState<readonly string[]>([]);
+
+  useEffect(() => {
+    let showsThisList = true;
+    const unsubscribe = desktopApi.onOnlineAccountsChanged(setUsernames);
+    desktopApi.readOnlineAccounts().then(
+      (online) => {
+        if (showsThisList) setUsernames(online);
+      },
+      () => undefined,
+    );
+    return (): void => {
+      showsThisList = false;
+      unsubscribe();
+    };
+  }, [desktopApi]);
+
+  return (
+    <section aria-labelledby="online-now" className="flex flex-col gap-2">
+      <h2 id="online-now" className="text-sm font-medium text-zinc-300">
+        Online now
+      </h2>
+      {usernames.length === 0 ? (
+        <p className={screenStyles.hint}>Nobody else is online.</p>
+      ) : (
+        <ul className="flex flex-col gap-1 text-sm">
+          {usernames.map((username) => (
+            <li key={username} className="flex items-center gap-2">
+              <span
+                aria-hidden
+                className="size-2 rounded-full bg-emerald-500"
+              />
+              {username}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

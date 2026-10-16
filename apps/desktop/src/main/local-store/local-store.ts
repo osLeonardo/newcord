@@ -22,6 +22,14 @@ export interface LocalStore extends IdentityKeyStore {
   readSessionTokens(): SessionTokens | undefined;
   /** Stores the Account and the new tokens together, replacing any earlier ones. */
   saveLogin(account: StoredAccount, tokens: SessionTokens): void;
+  /**
+   * Stores renewed tokens only if the stored refresh token is still the one that was renewed,
+   * so a renewal that finishes after a logout or a new login never brings back old tokens.
+   */
+  replaceSessionTokens(
+    renewedRefreshToken: string,
+    tokens: SessionTokens,
+  ): boolean;
   /** Ends the local session, keeping the identity key and the Account. */
   deleteSessionTokens(): void;
 }
@@ -114,9 +122,15 @@ function accountQueries(
 
 function sessionTokenQueries(
   database: Database.Database,
-): Pick<LocalStore, "readSessionTokens" | "deleteSessionTokens"> {
+): Pick<
+  LocalStore,
+  "readSessionTokens" | "replaceSessionTokens" | "deleteSessionTokens"
+> {
   const select = database.prepare<[], SessionTokensRow>(
     "SELECT access_token, refresh_token FROM session_tokens WHERE id = 1",
+  );
+  const replace = database.prepare<[string, string, string]>(
+    "UPDATE session_tokens SET access_token = ?, refresh_token = ? WHERE id = 1 AND refresh_token = ?",
   );
   const remove = database.prepare("DELETE FROM session_tokens");
   return {
@@ -129,6 +143,12 @@ function sessionTokenQueries(
         }
       );
     },
+    replaceSessionTokens: (renewedRefreshToken, newTokens): boolean =>
+      replace.run(
+        newTokens.accessToken,
+        newTokens.refreshToken,
+        renewedRefreshToken,
+      ).changes === 1,
     deleteSessionTokens: (): void => {
       remove.run();
     },

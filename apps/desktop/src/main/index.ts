@@ -4,10 +4,12 @@ import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { APP_NAME } from "@newcord/shared";
 import Database from "better-sqlite3";
 import icon from "../../resources/icon.png?asset";
+import { desktopApiEventChannels } from "../preload/desktop-api";
 import {
   createAccountActions,
   type AccountActions,
 } from "./account/account-actions";
+import { sessionStateOf } from "./account/session-state";
 import { appPageUrl } from "./app-page";
 import { builtInServerAddress } from "./built-in-server-address";
 import {
@@ -20,10 +22,20 @@ import {
   registerCheckedIpcHandler,
   type IpcInvocation,
 } from "./ipc/checked-ipc-handler";
-import { createSqliteLocalStore } from "./local-store/local-store";
+import {
+  createSqliteLocalStore,
+  type LocalStore,
+} from "./local-store/local-store";
 import { refuseEveryPermission } from "./permissions";
 import { createFetchTransport } from "./server-api/fetch-transport";
-import { createServerApiClient } from "./server-api/server-api-client";
+import {
+  createServerApiClient,
+  type ServerApiClient,
+} from "./server-api/server-api-client";
+import { createLiveSession, type LiveSession } from "./session/live-session";
+import { createStandardSocketOpener } from "./session/live-socket";
+import { systemSessionClock } from "./session/session-clock";
+import { createTokenRenewal } from "./session/token-renewal";
 import { hardenWebContents } from "./web-contents-hardening";
 import { hardenedWebPreferences } from "./window-preferences";
 
@@ -72,22 +84,66 @@ function isTrustedIpcSender(invocation: IpcInvocation): boolean {
   });
 }
 
+/** Sends a change to every window of the app, and to nothing else. */
+function sendToAppWindows(channel: string, payload: unknown): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (appWebContentsIds.has(window.webContents.id)) {
+      window.webContents.send(channel, payload);
+    }
+  }
+}
+
+function startLiveSession(
+  store: LocalStore,
+  server: ServerApiClient,
+): LiveSession {
+  const liveSession = createLiveSession({
+    store,
+    renewal: createTokenRenewal({ store, server }),
+    openSocket: createStandardSocketOpener(
+      builtInServerAddress,
+      (url) => new WebSocket(url),
+    ),
+    clock: systemSessionClock,
+    events: {
+      sessionEnded: () => {
+        sendToAppWindows(
+          desktopApiEventChannels.onSessionChanged,
+          sessionStateOf(store),
+        );
+      },
+      onlineAccountsChanged: (usernames) => {
+        sendToAppWindows(
+          desktopApiEventChannels.onOnlineAccountsChanged,
+          usernames,
+        );
+      },
+    },
+  });
+  if (sessionStateOf(store).status === "logged-in") liveSession.start();
+  return liveSession;
+}
+
 /** Opens the local database, creates the identity key on first start, and builds the account flows. */
 function startAccountActions(): AccountActions {
   const database = new Database(
     join(app.getPath("userData"), LOCAL_DATABASE_FILE_NAME),
   );
-  app.once("will-quit", () => {
-    database.close();
-  });
   const store = createSqliteLocalStore(database);
   loadOrCreateIdentityKey(store, createIdentityKeyPair);
+  const server = createServerApiClient(
+    createFetchTransport(builtInServerAddress, fetch),
+  );
+  const liveSession = startLiveSession(store, server);
+  app.once("will-quit", () => {
+    void liveSession.stop();
+    database.close();
+  });
   return createAccountActions({
     store,
-    server: createServerApiClient(
-      createFetchTransport(builtInServerAddress, fetch),
-    ),
+    server,
     createKeyPair: createIdentityKeyPair,
+    liveSession,
   });
 }
 

@@ -27,6 +27,7 @@ const signedUp: SignUpResult = {
   session: loggedIn,
 };
 const logInResult: LogInResult = { outcome: "logged-in", session: loggedIn };
+const onlineAccounts = ["bruno", "carla"];
 const appInvocation: IpcInvocation = {
   sender: { id: 1 },
   senderFrame: { url: "file:///app/index.html", parent: null },
@@ -44,6 +45,9 @@ function fakeActions(): FakeActions {
     signUp: vi.fn<AccountActions["signUp"]>(() => Promise.resolve(signedUp)),
     logIn: vi.fn<AccountActions["logIn"]>(() => Promise.resolve(logInResult)),
     logOut: vi.fn<AccountActions["logOut"]>(() => Promise.resolve(loggedOut)),
+    readOnlineAccounts: vi.fn<AccountActions["readOnlineAccounts"]>(() =>
+      Promise.resolve(onlineAccounts),
+    ),
   };
 }
 
@@ -89,6 +93,11 @@ describe.each([
     name: desktopApiChannels.logOut,
     actionOf: (actions: FakeActions): Mock => actions.logOut,
     result: loggedOut,
+  },
+  {
+    name: desktopApiChannels.readOnlineAccounts,
+    actionOf: (actions: FakeActions): Mock => actions.readOnlineAccounts,
+    result: onlineAccounts,
   },
 ])("the $name channel", ({ name, actionOf, result }) => {
   it("runs its action without arguments and returns its result", async () => {

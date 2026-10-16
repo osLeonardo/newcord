@@ -55,6 +55,12 @@ export function createAppIpcChannels(
       argumentsMatch: argumentsMatching(NoArguments),
       handle: () => actions.logOut(),
     }),
+    checkedChannel<NoArguments, readonly string[]>({
+      name: desktopApiChannels.readOnlineAccounts,
+      expectedArguments: "",
+      argumentsMatch: argumentsMatching(NoArguments),
+      handle: () => actions.readOnlineAccounts(),
+    }),
   ];
 }
 
