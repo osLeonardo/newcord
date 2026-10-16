@@ -7,6 +7,7 @@ import {
 import {
   desktopApiChannels,
   desktopApiEventChannels,
+  type AccountSwitchChoice,
   type Credentials,
   type DesktopApi,
   type Unsubscribe,
@@ -16,6 +17,7 @@ const credentials: Credentials = {
   username: "alice",
   password: "correct horse battery staple",
 };
+const switchConfirmed: AccountSwitchChoice = { switchAccount: true };
 const mainProcessAnswer = { answer: "from the main process" };
 
 function invokeAnswering(): ReturnType<typeof vi.fn<IpcInvoke>> {
@@ -92,22 +94,28 @@ describe("createDesktopApi", () => {
     {
       functionName: "signUp",
       channel: desktopApiChannels.signUp,
-      call: (api: DesktopApi): Promise<unknown> => api.signUp(credentials),
+      call: (api: DesktopApi): Promise<unknown> =>
+        api.signUp(credentials, switchConfirmed),
     },
     {
       functionName: "logIn",
       channel: desktopApiChannels.logIn,
-      call: (api: DesktopApi): Promise<unknown> => api.logIn(credentials),
+      call: (api: DesktopApi): Promise<unknown> =>
+        api.logIn(credentials, switchConfirmed),
     },
   ])(
-    "$functionName invokes $channel with the credentials only",
+    "$functionName invokes $channel with the credentials and the switch choice only",
     async ({ channel, call }) => {
       const invoke = invokeAnswering();
 
       await expect(
         call(createDesktopApi(invoke, noSubscriptions)),
       ).resolves.toBe(mainProcessAnswer);
-      expect(invoke).toHaveBeenCalledExactlyOnceWith(channel, credentials);
+      expect(invoke).toHaveBeenCalledExactlyOnceWith(
+        channel,
+        credentials,
+        switchConfirmed,
+      );
     },
   );
 

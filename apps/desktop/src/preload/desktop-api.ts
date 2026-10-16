@@ -11,9 +11,15 @@ export type SessionState =
   | { readonly status: "logged-in"; readonly username: string }
   | { readonly status: "logged-out"; readonly username: string | null };
 
+/** Whether the person confirmed the warning that entering another Account erases this app's local data (D60). */
+export interface AccountSwitchChoice {
+  readonly switchAccount: boolean;
+}
+
 /**
  * Why a sign-up or login did not happen: the server's error code, the server being out of reach or
- * answering outside its contract, or this installation already belonging to another Account (D60).
+ * answering outside its contract, or this installation belonging to another Account while the
+ * switch was not confirmed (D60).
  */
 export type AccountRefusal =
   | ApiErrorCode
@@ -40,8 +46,14 @@ export type Unsubscribe = () => void;
 /** The desktop API's calls into the main process, each checked there for its sender and arguments. */
 export interface DesktopApiCalls {
   readSessionState(): Promise<SessionState>;
-  signUp(credentials: Credentials): Promise<SignUpResult>;
-  logIn(credentials: Credentials): Promise<LogInResult>;
+  signUp(
+    credentials: Credentials,
+    choice: AccountSwitchChoice,
+  ): Promise<SignUpResult>;
+  logIn(
+    credentials: Credentials,
+    choice: AccountSwitchChoice,
+  ): Promise<LogInResult>;
   /** Ends the session on the server and on this Device; resolves logged out even when the server is out of reach. */
   logOut(): Promise<SessionState>;
   /** The other Accounts online now, sorted by username; empty while logged out or disconnected. */

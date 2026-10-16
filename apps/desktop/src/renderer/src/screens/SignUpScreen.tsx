@@ -1,5 +1,5 @@
 import type { DesktopApi } from "../../../preload/desktop-api";
-import { accountRefusalMessage } from "../account/account-messages";
+import { enterAccount } from "../account/account-entry";
 import type { CredentialsSender } from "../account/credentials-submission";
 import type { AppView } from "../app-view";
 import { CredentialsForm } from "../components/CredentialsForm";
@@ -12,20 +12,15 @@ interface SignUpScreenProps {
   readonly show: (view: AppView) => void;
 }
 
-/** Creates an Account, then shows its Recovery code once. */
+/** Creates an Account, then shows its Recovery code once; another Account stored here first shows the switch warning. */
 export function SignUpScreen(props: SignUpScreenProps): React.JSX.Element {
-  const signUp: CredentialsSender = async (credentials) => {
-    const result = await props.desktopApi.signUp(credentials);
-    if (result.outcome === "refused") {
-      return accountRefusalMessage(result.refusal, props.storedUsername);
-    }
-    props.show({
-      screen: "recovery-code",
-      recoveryCode: result.recoveryCode,
-      session: result.session,
-    });
-    return undefined;
-  };
+  const signUp: CredentialsSender = (credentials) =>
+    enterAccount(
+      props.desktopApi,
+      { kind: "sign-up", credentials },
+      { switchAccount: false },
+      props,
+    );
 
   return (
     <ScreenCard title="Create your Account">

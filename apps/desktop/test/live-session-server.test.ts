@@ -18,7 +18,10 @@ import {
   type LiveSession,
 } from "../src/main/session/live-session";
 import { createTokenRenewal } from "../src/main/session/token-renewal";
-import type { Credentials } from "../src/preload/desktop-api";
+import type {
+  AccountSwitchChoice,
+  Credentials,
+} from "../src/preload/desktop-api";
 import { createInjectedSocketOpener } from "./support/injected-socket-opener";
 import {
   startInProcessServer,
@@ -26,6 +29,7 @@ import {
 } from "./support/in-process-server";
 import { createManualClock, type ManualClock } from "./support/manual-clock";
 
+const stayOnAccount: AccountSwitchChoice = { switchAccount: false };
 const PASSWORD = "correct horse battery staple";
 const FOURTEEN_MINUTES = 14 * 60 * 1000;
 
@@ -86,7 +90,10 @@ function installApp(): Installation {
 
 async function signedUp(username: string): Promise<Installation> {
   const installation = installApp();
-  const result = await installation.actions.signUp(credentialsOf(username));
+  const result = await installation.actions.signUp(
+    credentialsOf(username),
+    stayOnAccount,
+  );
   if (result.outcome !== "signed-up") {
     throw new Error(`sign-up of ${username} was refused: ${result.refusal}`);
   }
@@ -141,7 +148,7 @@ describe("the live session against the real server", () => {
       status: "logged-out",
       username: "alice",
     });
-    await alice.actions.logIn(credentialsOf("alice"));
+    await alice.actions.logIn(credentialsOf("alice"), stayOnAccount);
     expect(alice.store.readAccount()?.deviceId).toBe(deviceId);
   });
 });

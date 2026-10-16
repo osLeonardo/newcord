@@ -184,6 +184,46 @@ describe("deleting the session tokens", () => {
   });
 });
 
+describe("erasing everything", () => {
+  it("deletes the identity key, the Account and the tokens", () => {
+    const { store } = memoryStore();
+    store.saveIdentityKey(createIdentityKeyPair());
+    store.saveLogin(account, tokens);
+
+    store.eraseEverything();
+
+    expect(store.readIdentityKey()).toBeUndefined();
+    expect(store.readAccount()).toBeUndefined();
+    expect(store.readSessionTokens()).toBeUndefined();
+  });
+
+  it("also empties tables added after the store was written", () => {
+    const { store, database } = memoryStore();
+    database.exec('CREATE TABLE "later ""milestone"" table" (value TEXT)');
+    database.exec(`INSERT INTO "later ""milestone"" table" VALUES ('x')`);
+
+    store.eraseEverything();
+
+    expect(
+      database
+        .prepare('SELECT count(*) FROM "later ""milestone"" table"')
+        .pluck()
+        .get(),
+    ).toBe(0);
+  });
+
+  it("lets a new identity key be stored afterwards", () => {
+    const { store } = memoryStore();
+    store.saveIdentityKey(createIdentityKeyPair());
+    store.eraseEverything();
+    const newKey = createIdentityKeyPair();
+
+    store.saveIdentityKey(newKey);
+
+    expect(store.readIdentityKey()).toEqual(newKey);
+  });
+});
+
 describe("a database file", () => {
   it("keeps everything across a restart of the app", () => {
     const path = temporaryDatabasePath();

@@ -1,6 +1,7 @@
 import type { LoginRequest, LoginResponse } from "@newcord/shared";
 import type {
   AccountRefusal,
+  AccountSwitchChoice,
   Credentials,
   DesktopApiCalls,
   LogInResult,
@@ -15,6 +16,11 @@ import {
 import type { LocalStore } from "../local-store/local-store";
 import type { ServerApiClient } from "../server-api/server-api-client";
 import type { LiveSession } from "../session/live-session";
+import {
+  leaveStoredAccount,
+  planAccountEntry,
+  type AccountEntryPlan,
+} from "./account-switch";
 import { endServerSession } from "./server-session-end";
 import { sessionStateOf } from "./session-state";
 
@@ -35,7 +41,7 @@ interface Refused {
 
 /**
  * The sign-up, login and logout flows: they call the server, keep the Account, deviceId and tokens
- * in the local store, and start or stop the live session.
+ * in the local store, start or stop the live session, and switch Accounts once confirmed (D60).
  * @example const actions = createAccountActions({ store, server, createKeyPair: createIdentityKeyPair, liveSession });
  */
 export function createAccountActions(
@@ -43,8 +49,8 @@ export function createAccountActions(
 ): AccountActions {
   return {
     readSessionState: () => Promise.resolve(sessionStateOf(dependencies.store)),
-    signUp: (credentials) => signUp(dependencies, credentials),
-    logIn: (credentials) => logIn(dependencies, credentials),
+    signUp: (credentials, choice) => signUp(dependencies, credentials, choice),
+    logIn: (credentials, choice) => logIn(dependencies, credentials, choice),
     logOut: () => logOut(dependencies),
     readOnlineAccounts: () =>
       Promise.resolve(dependencies.liveSession.onlineAccounts()),
@@ -54,16 +60,25 @@ export function createAccountActions(
 async function signUp(
   dependencies: AccountActionsDependencies,
   credentials: Credentials,
+  choice: AccountSwitchChoice,
 ): Promise<SignUpResult> {
-  // Signing up always makes a new Account, so it needs the D60 switch first (Step 05).
-  if (dependencies.store.readAccount() !== undefined) {
+  const plan = planAccountEntry(
+    dependencies.store,
+    credentials.username,
+    choice,
+  );
+  if (plan === "needs-confirmation") {
     return refusedBecause("ANOTHER_ACCOUNT_STORED");
   }
+  const keyPair = identityKeyFor(dependencies, plan);
   const result = await dependencies.server.register(
-    accountRequest(dependencies, credentials),
+    accountRequest(keyPair, credentials),
   );
   if (!result.ok) return refusedBecause(result.failure);
-  startSession(dependencies, credentials.username, result.body);
+  await enterAccount(dependencies, plan, keyPair, {
+    username: credentials.username,
+    response: result.body,
+  });
   return {
     outcome: "signed-up",
     recoveryCode: result.body.recoveryCode,
@@ -74,16 +89,25 @@ async function signUp(
 async function logIn(
   dependencies: AccountActionsDependencies,
   credentials: Credentials,
+  choice: AccountSwitchChoice,
 ): Promise<LogInResult> {
-  const storedAccount = dependencies.store.readAccount();
-  if (storedAccount && storedAccount.username !== credentials.username) {
+  const plan = planAccountEntry(
+    dependencies.store,
+    credentials.username,
+    choice,
+  );
+  if (plan === "needs-confirmation") {
     return refusedBecause("ANOTHER_ACCOUNT_STORED");
   }
+  const keyPair = identityKeyFor(dependencies, plan);
   const result = await dependencies.server.logIn(
-    accountRequest(dependencies, credentials),
+    accountRequest(keyPair, credentials),
   );
   if (!result.ok) return refusedBecause(result.failure);
-  startSession(dependencies, credentials.username, result.body);
+  await enterAccount(dependencies, plan, keyPair, {
+    username: credentials.username,
+    response: result.body,
+  });
   return { outcome: "logged-in", session: sessionStateOf(dependencies.store) };
 }
 
@@ -100,15 +124,26 @@ async function logOut(
   return sessionStateOf(dependencies.store);
 }
 
-/** Register and login carry the same fields (D59); the identity key always comes from the store. */
-function accountRequest(
+/**
+ * A switch gets a new key that is stored only once the server accepts it, so a refused sign-up or
+ * login leaves this installation as it was.
+ */
+function identityKeyFor(
   dependencies: AccountActionsDependencies,
-  credentials: Credentials,
-): LoginRequest {
-  const keyPair = loadOrCreateIdentityKey(
+  plan: AccountEntryPlan,
+): IdentityKeyPair {
+  if (plan === "switch-account") return dependencies.createKeyPair();
+  return loadOrCreateIdentityKey(
     dependencies.store,
     dependencies.createKeyPair,
   );
+}
+
+/** Register and login carry the same fields (D59). */
+function accountRequest(
+  keyPair: IdentityKeyPair,
+  credentials: Credentials,
+): LoginRequest {
   return {
     username: credentials.username,
     password: credentials.password,
@@ -116,14 +151,26 @@ function accountRequest(
   };
 }
 
-function startSession(
+interface AcceptedAccountEntry {
+  readonly username: string;
+  readonly response: LoginResponse;
+}
+
+async function enterAccount(
   dependencies: AccountActionsDependencies,
-  username: string,
-  response: LoginResponse,
-): void {
+  plan: AccountEntryPlan,
+  keyPair: IdentityKeyPair,
+  entry: AcceptedAccountEntry,
+): Promise<void> {
+  if (plan === "switch-account") {
+    await leaveStoredAccount(dependencies, keyPair);
+  }
   dependencies.store.saveLogin(
-    { username, deviceId: response.deviceId },
-    { accessToken: response.accessToken, refreshToken: response.refreshToken },
+    { username: entry.username, deviceId: entry.response.deviceId },
+    {
+      accessToken: entry.response.accessToken,
+      refreshToken: entry.response.refreshToken,
+    },
   );
   dependencies.liveSession.start();
 }

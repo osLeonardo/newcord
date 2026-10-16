@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { DesktopApi } from "../../preload/desktop-api";
 import { viewForSessionState, type AppView } from "./app-view";
+import { AccountSwitchScreen } from "./screens/AccountSwitchScreen";
 import { HomeScreen } from "./screens/HomeScreen";
 import { LogInScreen } from "./screens/LogInScreen";
 import { RecoveryCodeScreen } from "./screens/RecoveryCodeScreen";
@@ -86,6 +87,15 @@ function CurrentScreen({
           onContinue={() => {
             show(viewForSessionState(view.session));
           }}
+        />
+      );
+    case "account-switch":
+      return (
+        <AccountSwitchScreen
+          desktopApi={desktopApi}
+          storedUsername={view.storedUsername}
+          request={view.request}
+          show={show}
         />
       );
     case "home":

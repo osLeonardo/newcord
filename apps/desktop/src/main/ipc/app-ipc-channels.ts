@@ -16,12 +16,16 @@ const CredentialsArguments = Type.Tuple([
     { username: Username, password: Password },
     { additionalProperties: false },
   ),
+  Type.Object(
+    { switchAccount: Type.Boolean() },
+    { additionalProperties: false },
+  ),
 ]);
 type CredentialsArguments = Static<typeof CredentialsArguments>;
 const NoArguments = Type.Tuple([]);
 type NoArguments = Static<typeof NoArguments>;
 const CREDENTIALS_DESCRIPTION =
-  "credentials: { username: Username, password: Password }";
+  "credentials: { username: Username, password: Password }, choice: { switchAccount: boolean }";
 
 /**
  * Every channel the preload API calls; each one is registered behind the sender and argument checks.
@@ -41,13 +45,13 @@ export function createAppIpcChannels(
       name: desktopApiChannels.signUp,
       expectedArguments: CREDENTIALS_DESCRIPTION,
       argumentsMatch: argumentsMatching(CredentialsArguments),
-      handle: (credentials) => actions.signUp(credentials),
+      handle: (credentials, choice) => actions.signUp(credentials, choice),
     }),
     checkedChannel<CredentialsArguments, LogInResult>({
       name: desktopApiChannels.logIn,
       expectedArguments: CREDENTIALS_DESCRIPTION,
       argumentsMatch: argumentsMatching(CredentialsArguments),
-      handle: (credentials) => actions.logIn(credentials),
+      handle: (credentials, choice) => actions.logIn(credentials, choice),
     }),
     checkedChannel<NoArguments, SessionState>({
       name: desktopApiChannels.logOut,

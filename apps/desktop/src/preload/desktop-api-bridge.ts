@@ -32,10 +32,18 @@ export function createDesktopApi(
   return {
     readSessionState: () =>
       invoke(desktopApiChannels.readSessionState) as Promise<SessionState>,
-    signUp: (credentials) =>
-      invoke(desktopApiChannels.signUp, credentials) as Promise<SignUpResult>,
-    logIn: (credentials) =>
-      invoke(desktopApiChannels.logIn, credentials) as Promise<LogInResult>,
+    signUp: (credentials, choice) =>
+      invoke(
+        desktopApiChannels.signUp,
+        credentials,
+        choice,
+      ) as Promise<SignUpResult>,
+    logIn: (credentials, choice) =>
+      invoke(
+        desktopApiChannels.logIn,
+        credentials,
+        choice,
+      ) as Promise<LogInResult>,
     logOut: () => invoke(desktopApiChannels.logOut) as Promise<SessionState>,
     readOnlineAccounts: () =>
       invoke(desktopApiChannels.readOnlineAccounts) as Promise<

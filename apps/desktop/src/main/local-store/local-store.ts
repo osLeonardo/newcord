@@ -32,6 +32,8 @@ export interface LocalStore extends IdentityKeyStore {
   ): boolean;
   /** Ends the local session, keeping the identity key and the Account. */
   deleteSessionTokens(): void;
+  /** Deletes every row of every table, as switching to another Account requires (D60). */
+  eraseEverything(): void;
 }
 
 // Each table holds at most one row: an installation belongs to one Account at a time (D60).
@@ -84,6 +86,7 @@ export function createSqliteLocalStore(
     ...accountQueries(database),
     ...sessionTokenQueries(database),
     saveLogin: saveLoginTransaction(database),
+    eraseEverything: eraseEverythingTransaction(database),
   };
 }
 
@@ -172,5 +175,24 @@ function saveLoginTransaction(
   );
   return (account, tokens): void => {
     saveLogin(account, tokens);
+  };
+}
+
+function eraseEverythingTransaction(
+  database: Database.Database,
+): LocalStore["eraseEverything"] {
+  // Every table is listed from SQLite itself, so tables added in later milestones are erased too.
+  const tableNames = database
+    .prepare<[], string>(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+    )
+    .pluck();
+  const eraseAll = database.transaction((): void => {
+    for (const name of tableNames.all()) {
+      database.prepare(`DELETE FROM "${name.replaceAll('"', '""')}"`).run();
+    }
+  });
+  return (): void => {
+    eraseAll();
   };
 }

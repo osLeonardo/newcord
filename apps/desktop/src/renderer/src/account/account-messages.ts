@@ -11,6 +11,7 @@ export const UNEXPECTED_FAILURE_MESSAGE =
 
 const refusalMessages: ReadonlyMap<string, string> = new Map(
   Object.entries({
+    ANOTHER_ACCOUNT_STORED: "This app is set up for another Account.",
     USERNAME_TAKEN: "That username is taken. Choose another one.",
     IDENTITY_KEY_TAKEN:
       "This installation's identity key already belongs to another Account.",
@@ -24,27 +25,15 @@ const refusalMessages: ReadonlyMap<string, string> = new Map(
       "Cannot reach the server. Check your connection and try again.",
     UNEXPECTED_RESPONSE:
       "The server gave an unexpected answer. Try again later.",
-  } satisfies Record<
-    Exclude<AccountRefusal, "ANOTHER_ACCOUNT_STORED">,
-    string
-  >),
+  } satisfies Record<AccountRefusal, string>),
 );
 
 /**
  * The sentence a screen shows when the main process refuses a sign-up or login.
- * @example accountRefusalMessage("INVALID_CREDENTIALS", "alice") // "Wrong username or password."
+ * @example accountRefusalMessage("INVALID_CREDENTIALS") // "Wrong username or password."
  */
-export function accountRefusalMessage(
-  refusal: AccountRefusal,
-  storedUsername: string | null,
-): string {
-  if (refusal !== "ANOTHER_ACCOUNT_STORED") {
-    return refusalMessages.get(refusal) ?? UNEXPECTED_FAILURE_MESSAGE;
-  }
-  if (storedUsername === null) {
-    return "This app is set up for another Account: switching Accounts is not available yet.";
-  }
-  return `This app is set up for the Account "${storedUsername}". Log in as ${storedUsername}: switching to another Account is not available yet.`;
+export function accountRefusalMessage(refusal: AccountRefusal): string {
+  return refusalMessages.get(refusal) ?? UNEXPECTED_FAILURE_MESSAGE;
 }
 
 /**

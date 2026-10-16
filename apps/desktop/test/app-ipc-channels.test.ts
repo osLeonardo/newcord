@@ -9,6 +9,7 @@ import {
 } from "../src/main/ipc/checked-ipc-handler";
 import {
   desktopApiChannels,
+  type AccountSwitchChoice,
   type Credentials,
   type LogInResult,
   type SessionState,
@@ -19,6 +20,7 @@ const credentials: Credentials = {
   username: "alice_01",
   password: "correct horse battery staple",
 };
+const choice: AccountSwitchChoice = { switchAccount: false };
 const loggedIn: SessionState = { status: "logged-in", username: "alice_01" };
 const loggedOut: SessionState = { status: "logged-out", username: "alice_01" };
 const signedUp: SignUpResult = {
@@ -131,38 +133,56 @@ describe.each([
     result: logInResult,
   },
 ])("the $name channel", ({ name, actionOf, result }) => {
-  it("passes the credentials to its action and returns its result", async () => {
+  it("passes the credentials and the switch choice to its action and returns its result", async () => {
     const actions = fakeActions();
     const channel = channelNamed(createAppIpcChannels(actions), name);
 
-    expect(channel.argumentsMatch([credentials])).toBe(true);
-    await expect(channel.handle(credentials)).resolves.toEqual(result);
-    expect(actionOf(actions)).toHaveBeenCalledExactlyOnceWith(credentials);
+    expect(channel.argumentsMatch([credentials, choice])).toBe(true);
+    await expect(channel.handle(credentials, choice)).resolves.toEqual(result);
+    expect(actionOf(actions)).toHaveBeenCalledExactlyOnceWith(
+      credentials,
+      choice,
+    );
   });
 
   it.each([
     ["no arguments", []],
-    ["a second argument", [credentials, credentials]],
-    ["a field outside the schema", [{ ...credentials, identityKey: "x" }]],
-    ["a missing password", [{ username: credentials.username }]],
-    ["a username that is not a string", [{ ...credentials, username: 7 }]],
-    ["an upper-case username", [{ ...credentials, username: "Alice" }]],
-    ["a username shorter than 3", [{ ...credentials, username: "al" }]],
+    ["no switch choice", [credentials]],
+    ["a third argument", [credentials, choice, choice]],
+    [
+      "a field outside the schema",
+      [{ ...credentials, identityKey: "x" }, choice],
+    ],
+    ["a missing password", [{ username: credentials.username }, choice]],
+    [
+      "a username that is not a string",
+      [{ ...credentials, username: 7 }, choice],
+    ],
+    ["an upper-case username", [{ ...credentials, username: "Alice" }, choice]],
+    ["a username shorter than 3", [{ ...credentials, username: "al" }, choice]],
     [
       "a username longer than 32",
-      [{ ...credentials, username: "a".repeat(33) }],
+      [{ ...credentials, username: "a".repeat(33) }, choice],
     ],
     [
       "a password shorter than 12",
-      [{ ...credentials, password: "short pass1" }],
+      [{ ...credentials, password: "short pass1" }, choice],
     ],
     [
       "a password longer than 256",
-      [{ ...credentials, password: "p".repeat(257) }],
+      [{ ...credentials, password: "p".repeat(257) }, choice],
     ],
     [
       "an array instead of credentials",
-      [[credentials.username, credentials.password]],
+      [[credentials.username, credentials.password], choice],
+    ],
+    [
+      "a switch choice that is not a boolean",
+      [credentials, { switchAccount: "yes" }],
+    ],
+    [
+      "a switch choice with another field",
+      [credentials, { switchAccount: true, wipe: true }],
     ],
   ])("refuses %s", (_case, args) => {
     const channel = channelNamed(createAppIpcChannels(fakeActions()), name);
@@ -175,10 +195,14 @@ describe.each([
     const listener = registeredListener(
       channelNamed(createAppIpcChannels(actions), name),
     );
-    const call = listener(appInvocation, { ...credentials, password: "short" });
+    const call = listener(
+      appInvocation,
+      { ...credentials, password: "short" },
+      choice,
+    );
 
     await expect(call).rejects.toThrow(
-      /received \(object\), expected \(credentials: \{ username: Username, password: Password \}\)/,
+      /received \(object, object\), expected \(credentials: \{ username: Username, password: Password \}, choice: \{ switchAccount: boolean \}\)/,
     );
     await expect(call).rejects.not.toThrow("short");
     expect(actionOf(actions)).not.toHaveBeenCalled();

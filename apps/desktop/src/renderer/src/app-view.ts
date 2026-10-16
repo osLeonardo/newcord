@@ -1,4 +1,10 @@
-import type { SessionState } from "../../preload/desktop-api";
+import type { Credentials, SessionState } from "../../preload/desktop-api";
+
+/** A sign-up or login the person asked for, kept while the Account-switch warning is shown (D60). */
+export interface AccountRequest {
+  readonly kind: "sign-up" | "log-in";
+  readonly credentials: Credentials;
+}
 
 /** The screen the window shows, chosen with plain React state from the session state (no router). */
 export type AppView =
@@ -10,6 +16,11 @@ export type AppView =
       readonly screen: "recovery-code";
       readonly recoveryCode: string;
       readonly session: SessionState;
+    }
+  | {
+      readonly screen: "account-switch";
+      readonly storedUsername: string;
+      readonly request: AccountRequest;
     }
   | { readonly screen: "home"; readonly username: string };
 

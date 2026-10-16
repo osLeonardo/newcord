@@ -23,24 +23,18 @@ describe("accountRefusalMessage", () => {
       "Cannot reach the server. Check your connection and try again.",
     ],
   ] as const)("explains %s", (refusal, message) => {
-    expect(accountRefusalMessage(refusal, null)).toBe(message);
-  });
-
-  it("names the Account this installation belongs to", () => {
-    expect(accountRefusalMessage("ANOTHER_ACCOUNT_STORED", "alice")).toBe(
-      'This app is set up for the Account "alice". Log in as alice: switching to another Account is not available yet.',
-    );
+    expect(accountRefusalMessage(refusal)).toBe(message);
   });
 
   it("has a sentence for every refusal", () => {
     for (const refusal of everyRefusal) {
-      expect(accountRefusalMessage(refusal, "alice")).toMatch(/^[A-Z].*\.$/);
+      expect(accountRefusalMessage(refusal)).toMatch(/^[A-Z].*\.$/);
     }
   });
 
   it("gives every refusal its own message", () => {
     const messages = everyRefusal.map((refusal) =>
-      accountRefusalMessage(refusal, "alice"),
+      accountRefusalMessage(refusal),
     );
 
     expect(new Set(messages).size).toBe(everyRefusal.length);

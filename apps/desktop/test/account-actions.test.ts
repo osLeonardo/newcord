@@ -30,7 +30,11 @@ import type {
   ServerTransport,
 } from "../src/main/server-api/fetch-transport";
 import { createServerApiClient } from "../src/main/server-api/server-api-client";
-import type { Credentials, SignUpResult } from "../src/preload/desktop-api";
+import type {
+  AccountSwitchChoice,
+  Credentials,
+  SignUpResult,
+} from "../src/preload/desktop-api";
 import {
   serverRowCounts,
   startInProcessServer,
@@ -38,6 +42,8 @@ import {
   type InProcessServer,
 } from "./support/in-process-server";
 
+const stayOnAccount: AccountSwitchChoice = { switchAccount: false };
+const confirmedSwitch: AccountSwitchChoice = { switchAccount: true };
 const alice: Credentials = {
   username: "alice",
   password: "correct horse battery staple",
@@ -134,7 +140,7 @@ describe("a fresh installation", () => {
 
 describe("signUp", () => {
   it("returns only the Recovery code and the logged-in session", async () => {
-    const result = await installApp().actions.signUp(alice);
+    const result = await installApp().actions.signUp(alice, stayOnAccount);
 
     expect(result).toEqual({
       outcome: "signed-up",
@@ -147,7 +153,7 @@ describe("signUp", () => {
   it("creates the Account on the server with this installation's identity key", async () => {
     const { store, actions } = installApp();
 
-    await actions.signUp(alice);
+    await actions.signUp(alice, stayOnAccount);
 
     const deviceRow = server.database
       .prepare<[string], { identity_key: Buffer }>(
@@ -163,7 +169,7 @@ describe("signUp", () => {
   it("stores the username, the deviceId and the tokens", async () => {
     const { store, actions } = installApp();
 
-    await actions.signUp(alice);
+    await actions.signUp(alice, stayOnAccount);
 
     expect(store.readAccount()?.username).toBe("alice");
     expect(serverRowCounts(server.database, deviceIdOf(store))).toEqual({
@@ -180,16 +186,18 @@ describe("signUp", () => {
   it("stores the Recovery code nowhere in the local database", async () => {
     const { database, actions } = installApp();
 
-    const recoveryCode = recoveryCodeOf(await actions.signUp(alice));
+    const recoveryCode = recoveryCodeOf(
+      await actions.signUp(alice, stayOnAccount),
+    );
 
     expect(database.serialize().includes(recoveryCode)).toBe(false);
   });
 
   it("reports a taken username and stores nothing", async () => {
-    await installApp().actions.signUp(alice);
+    await installApp().actions.signUp(alice, stayOnAccount);
     const { store, actions } = installApp();
 
-    await expect(actions.signUp(alice)).resolves.toEqual({
+    await expect(actions.signUp(alice, stayOnAccount)).resolves.toEqual({
       outcome: "refused",
       refusal: "USERNAME_TAKEN",
     });
@@ -199,11 +207,11 @@ describe("signUp", () => {
 
   it("is refused without asking the server once the installation belongs to an Account", async () => {
     const { posts, actions } = installApp();
-    await actions.signUp(alice);
+    await actions.signUp(alice, stayOnAccount);
     await actions.logOut();
     posts.mockClear();
 
-    await expect(actions.signUp(bruno)).resolves.toEqual({
+    await expect(actions.signUp(bruno, stayOnAccount)).resolves.toEqual({
       outcome: "refused",
       refusal: "ANOTHER_ACCOUNT_STORED",
     });
@@ -216,7 +224,7 @@ describe("signUp", () => {
       expect(store.readSessionTokens()).toBeDefined();
     });
 
-    await actions.signUp(alice);
+    await actions.signUp(alice, stayOnAccount);
 
     expect(liveSession.start).toHaveBeenCalledOnce();
   });
@@ -224,7 +232,7 @@ describe("signUp", () => {
   it("reports a server out of reach and stores nothing", async () => {
     const { store, actions } = installApp(unreachableTransport);
 
-    await expect(actions.signUp(alice)).resolves.toEqual({
+    await expect(actions.signUp(alice, stayOnAccount)).resolves.toEqual({
       outcome: "refused",
       refusal: "SERVER_UNREACHABLE",
     });
@@ -235,10 +243,10 @@ describe("signUp", () => {
 describe("logIn", () => {
   it("makes a fresh installation a new Device of an existing Account", async () => {
     const first = installApp();
-    await first.actions.signUp(alice);
+    await first.actions.signUp(alice, stayOnAccount);
     const second = installApp();
 
-    await expect(second.actions.logIn(alice)).resolves.toEqual({
+    await expect(second.actions.logIn(alice, stayOnAccount)).resolves.toEqual({
       outcome: "logged-in",
       session: { status: "logged-in", username: "alice" },
     });
@@ -248,31 +256,34 @@ describe("logIn", () => {
 
   it("returns the same deviceId after logging out and back in", async () => {
     const { store, actions } = installApp();
-    await actions.signUp(alice);
+    await actions.signUp(alice, stayOnAccount);
     const deviceId = deviceIdOf(store);
     await actions.logOut();
 
-    await actions.logIn(alice);
+    await actions.logIn(alice, stayOnAccount);
 
     expect(deviceIdOf(store)).toBe(deviceId);
     expect(serverRowCounts(server.database, deviceId).devices).toBe(1);
   });
 
   it("starts the live session", async () => {
-    await installApp().actions.signUp(alice);
+    await installApp().actions.signUp(alice, stayOnAccount);
     const { liveSession, actions } = installApp();
 
-    await actions.logIn(alice);
+    await actions.logIn(alice, stayOnAccount);
 
     expect(liveSession.start).toHaveBeenCalledOnce();
   });
 
   it("reports wrong credentials, stores nothing and starts nothing", async () => {
-    await installApp().actions.signUp(alice);
+    await installApp().actions.signUp(alice, stayOnAccount);
     const { store, liveSession, actions } = installApp();
 
     await expect(
-      actions.logIn({ ...alice, password: "not the right password" }),
+      actions.logIn(
+        { ...alice, password: "not the right password" },
+        stayOnAccount,
+      ),
     ).resolves.toEqual({ outcome: "refused", refusal: "INVALID_CREDENTIALS" });
     expect(store.readAccount()).toBeUndefined();
     expect(store.readSessionTokens()).toBeUndefined();
@@ -280,13 +291,13 @@ describe("logIn", () => {
   });
 
   it("is refused without asking the server for an Account other than the stored one", async () => {
-    await installApp().actions.signUp(bruno);
+    await installApp().actions.signUp(bruno, stayOnAccount);
     const { posts, actions } = installApp();
-    await actions.signUp(alice);
+    await actions.signUp(alice, stayOnAccount);
     await actions.logOut();
     posts.mockClear();
 
-    await expect(actions.logIn(bruno)).resolves.toEqual({
+    await expect(actions.logIn(bruno, stayOnAccount)).resolves.toEqual({
       outcome: "refused",
       refusal: "ANOTHER_ACCOUNT_STORED",
     });
@@ -297,7 +308,7 @@ describe("logIn", () => {
 describe("logOut", () => {
   it("stops the live session before asking the server", async () => {
     const { posts, liveSession, actions } = installApp();
-    await actions.signUp(alice);
+    await actions.signUp(alice, stayOnAccount);
     posts.mockClear();
     liveSession.stop.mockImplementation(() => {
       expect(posts).not.toHaveBeenCalled();
@@ -312,7 +323,7 @@ describe("logOut", () => {
 
   it("ends the session on the server and deletes only the local tokens", async () => {
     const { store, actions } = installApp();
-    await actions.signUp(alice);
+    await actions.signUp(alice, stayOnAccount);
     const keyPair = store.readIdentityKey();
     const account = store.readAccount();
 
@@ -330,7 +341,7 @@ describe("logOut", () => {
 
   it("renews an access token the server no longer accepts, so the server session still ends", async () => {
     const { store, actions } = installApp();
-    await actions.signUp(alice);
+    await actions.signUp(alice, stayOnAccount);
     const account = store.readAccount();
     const tokens = store.readSessionTokens();
     if (account === undefined || tokens === undefined)
@@ -347,7 +358,7 @@ describe("logOut", () => {
 
   it("still logs out this Device when the server cannot be reached", async () => {
     const { store, actions } = installApp();
-    await actions.signUp(alice);
+    await actions.signUp(alice, stayOnAccount);
 
     const offlineActions = restartApp(store, unreachableTransport);
 
@@ -372,7 +383,7 @@ describe("logOut", () => {
 describe("a restart of the app", () => {
   it("opens logged in when tokens are stored, without the password", async () => {
     const { store, actions } = installApp();
-    await actions.signUp(alice);
+    await actions.signUp(alice, stayOnAccount);
 
     const restarted = restartApp(store, server.transport);
 
@@ -384,7 +395,7 @@ describe("a restart of the app", () => {
 
   it("opens logged out, remembering the Account, after a logout", async () => {
     const { store, actions } = installApp();
-    await actions.signUp(alice);
+    await actions.signUp(alice, stayOnAccount);
     await actions.logOut();
 
     const restarted = restartApp(store, server.transport);
@@ -405,5 +416,122 @@ describe("readOnlineAccounts", () => {
       "bruno",
       "carla",
     ]);
+  });
+});
+
+describe("switching Accounts (D60)", () => {
+  function snapshotOf(store: LocalStore): unknown {
+    return {
+      identityKey: store.readIdentityKey(),
+      account: store.readAccount(),
+      tokens: store.readSessionTokens(),
+    };
+  }
+
+  function serverIdentityKeyOf(deviceId: string): string | undefined {
+    return server.database
+      .prepare<[string], { identity_key: Buffer }>(
+        "SELECT identity_key FROM devices WHERE id = ?",
+      )
+      .get(deviceId)
+      ?.identity_key.toString("base64");
+  }
+
+  it("logs in to the stored Account with no warning, whatever the choice", async () => {
+    const { actions } = installApp();
+    await actions.signUp(alice, stayOnAccount);
+    await actions.logOut();
+
+    await expect(actions.logIn(alice, confirmedSwitch)).resolves.toEqual({
+      outcome: "logged-in",
+      session: { status: "logged-in", username: "alice" },
+    });
+  });
+
+  it("changes nothing while the switch is not confirmed", async () => {
+    await installApp().actions.signUp(bruno, stayOnAccount);
+    const { store, actions } = installApp();
+    await actions.signUp(alice, stayOnAccount);
+    const before = snapshotOf(store);
+
+    await actions.logIn(bruno, stayOnAccount);
+    await actions.signUp({ ...bruno, username: "carla" }, stayOnAccount);
+
+    expect(snapshotOf(store)).toEqual(before);
+  });
+
+  it("logs in as a new Device with a new identity key once confirmed", async () => {
+    await installApp().actions.signUp(bruno, stayOnAccount);
+    const { store, actions } = installApp();
+    await actions.signUp(alice, stayOnAccount);
+    const oldKey = store.readIdentityKey();
+    const oldDeviceId = deviceIdOf(store);
+
+    await expect(actions.logIn(bruno, confirmedSwitch)).resolves.toEqual({
+      outcome: "logged-in",
+      session: { status: "logged-in", username: "bruno" },
+    });
+    const newKey = store.readIdentityKey();
+    expect(newKey).toBeDefined();
+    expect(newKey).not.toEqual(oldKey);
+    expect(deviceIdOf(store)).not.toBe(oldDeviceId);
+    expect(newKey && identityKeyBase64(newKey)).toBe(
+      serverIdentityKeyOf(deviceIdOf(store)),
+    );
+  });
+
+  it("signs up as a new Account with a new identity key once confirmed", async () => {
+    const { store, actions } = installApp();
+    await actions.signUp(alice, stayOnAccount);
+    const oldKey = store.readIdentityKey();
+
+    const result = await actions.signUp(bruno, confirmedSwitch);
+
+    expect(result.outcome).toBe("signed-up");
+    expect(store.readAccount()?.username).toBe("bruno");
+    expect(store.readIdentityKey()).not.toEqual(oldKey);
+  });
+
+  it("ends the old Account's session on the server", async () => {
+    await installApp().actions.signUp(bruno, stayOnAccount);
+    const { store, actions } = installApp();
+    await actions.signUp(alice, stayOnAccount);
+    const oldDeviceId = deviceIdOf(store);
+
+    await actions.logIn(bruno, confirmedSwitch);
+
+    expect(
+      serverRowCounts(server.database, oldDeviceId).deviceRefreshTokens,
+    ).toBe(0);
+  });
+
+  it("stops the live session before erasing anything", async () => {
+    await installApp().actions.signUp(bruno, stayOnAccount);
+    const { store, liveSession, actions } = installApp();
+    await actions.signUp(alice, stayOnAccount);
+    liveSession.stop.mockImplementation(() => {
+      expect(store.readAccount()?.username).toBe("alice");
+      return Promise.resolve();
+    });
+
+    await actions.logIn(bruno, confirmedSwitch);
+
+    expect(liveSession.stop).toHaveBeenCalledOnce();
+    expect(liveSession.start).toHaveBeenLastCalledWith();
+  });
+
+  it("leaves the installation as it was when the server refuses the new Account", async () => {
+    await installApp().actions.signUp(bruno, stayOnAccount);
+    const { store, actions } = installApp();
+    await actions.signUp(alice, stayOnAccount);
+    const before = snapshotOf(store);
+
+    await expect(
+      actions.logIn(
+        { ...bruno, password: "not the right password" },
+        confirmedSwitch,
+      ),
+    ).resolves.toEqual({ outcome: "refused", refusal: "INVALID_CREDENTIALS" });
+    expect(snapshotOf(store)).toEqual(before);
   });
 });
