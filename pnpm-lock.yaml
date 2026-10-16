@@ -47,6 +47,12 @@ importers:
       '@newcord/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      better-sqlite3:
+        specifier: ^13.0.3
+        version: 13.0.3
+      typebox:
+        specifier: ^1.3.37
+        version: 1.3.37
     devDependencies:
       '@electron-toolkit/tsconfig':
         specifier: ^2.0.0
@@ -54,6 +60,9 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+      '@types/better-sqlite3':
+        specifier: ^9.6.0
+        version: 9.6.0
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
@@ -81,6 +90,9 @@ importers:
       react-dom:
         specifier: ^19.3.0
         version: 19.3.1(react@19.3.1)
+      server:
+        specifier: workspace:*
+        version: link:../server
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3

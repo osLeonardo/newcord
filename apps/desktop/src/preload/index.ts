@@ -1,6 +1,8 @@
-import { contextBridge } from "electron";
-import type { DesktopApi } from "./desktop-api";
+import { contextBridge, ipcRenderer } from "electron";
+import { createDesktopApi } from "./desktop-api-bridge";
 
-const desktopApi: DesktopApi = {};
+const desktopApi = createDesktopApi((channel, ...args) =>
+  ipcRenderer.invoke(channel, ...args),
+);
 
 contextBridge.exposeInMainWorld("desktopApi", desktopApi);

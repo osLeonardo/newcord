@@ -2,16 +2,28 @@ import { app, shell, BrowserWindow, ipcMain, session } from "electron";
 import { join } from "path";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { APP_NAME } from "@newcord/shared";
+import Database from "better-sqlite3";
 import icon from "../../resources/icon.png?asset";
+import {
+  createAccountActions,
+  type AccountActions,
+} from "./account/account-actions";
 import { appPageUrl } from "./app-page";
 import { builtInServerAddress } from "./built-in-server-address";
-import { appIpcChannels } from "./ipc/app-ipc-channels";
+import {
+  createIdentityKeyPair,
+  loadOrCreateIdentityKey,
+} from "./identity/identity-key";
+import { createAppIpcChannels } from "./ipc/app-ipc-channels";
 import { isAppIpcSender } from "./ipc/app-ipc-sender";
 import {
   registerCheckedIpcHandler,
   type IpcInvocation,
 } from "./ipc/checked-ipc-handler";
+import { createSqliteLocalStore } from "./local-store/local-store";
 import { refuseEveryPermission } from "./permissions";
+import { createFetchTransport } from "./server-api/fetch-transport";
+import { createServerApiClient } from "./server-api/server-api-client";
 import { hardenWebContents } from "./web-contents-hardening";
 import { hardenedWebPreferences } from "./window-preferences";
 
@@ -21,6 +33,8 @@ const pageUrl = appPageUrl({
   rendererHtmlPath: join(__dirname, "../renderer/index.html"),
 });
 const appWebContentsIds = new Set<number>();
+// The local database lives in Electron's per-user data directory (D20, 08-m1-build step 7).
+const LOCAL_DATABASE_FILE_NAME = "device.db";
 
 function createWindow(): void {
   // Create the browser window.
@@ -58,8 +72,27 @@ function isTrustedIpcSender(invocation: IpcInvocation): boolean {
   });
 }
 
-function registerAppIpcHandlers(): void {
-  for (const channel of appIpcChannels) {
+/** Opens the local database, creates the identity key on first start, and builds the account flows. */
+function startAccountActions(): AccountActions {
+  const database = new Database(
+    join(app.getPath("userData"), LOCAL_DATABASE_FILE_NAME),
+  );
+  app.once("will-quit", () => {
+    database.close();
+  });
+  const store = createSqliteLocalStore(database);
+  loadOrCreateIdentityKey(store, createIdentityKeyPair);
+  return createAccountActions({
+    store,
+    server: createServerApiClient(
+      createFetchTransport(builtInServerAddress, fetch),
+    ),
+    createKeyPair: createIdentityKeyPair,
+  });
+}
+
+function registerAppIpcHandlers(accountActions: AccountActions): void {
+  for (const channel of createAppIpcChannels(accountActions)) {
     registerCheckedIpcHandler(ipcMain, isTrustedIpcSender, channel);
   }
 }
@@ -90,7 +123,7 @@ void app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window);
   });
 
-  registerAppIpcHandlers();
+  registerAppIpcHandlers(startAccountActions());
   createWindow();
   console.log(`${APP_NAME} desktop ready, server ${builtInServerAddress}`);
 
