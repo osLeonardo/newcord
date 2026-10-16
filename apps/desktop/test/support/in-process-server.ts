@@ -24,7 +24,14 @@ export interface InProcessServer {
 /** Starts the server app on a fresh in-memory database. */
 export async function startInProcessServer(): Promise<InProcessServer> {
   const database = openDatabase(":memory:");
-  const app = await buildServerApp({ jwtSecret: TEST_JWT_SECRET, database });
+  const app = await buildServerApp({
+    jwtSecret: TEST_JWT_SECRET,
+    database,
+    relay: {
+      secret: "a desktop-test-only relay secret, longer than 32 bytes",
+      urls: ["stun:relay.test:3478", "turn:relay.test:3478"],
+    },
+  });
   return {
     app,
     database,

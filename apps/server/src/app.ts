@@ -60,6 +60,10 @@ import {
   createRequestRateLimit,
   type RequestRateLimit,
 } from "./hub/request-rate-limit.js";
+import {
+  registerRelayCredentialsRoute,
+  type RelaySettings,
+} from "./relay/relay-credentials.js";
 import { registerHealthRoute } from "./routes/health.js";
 import { registerAccessTokenCheck } from "./sessions/access-token-check.js";
 import {
@@ -131,6 +135,7 @@ export const MAX_REQUEST_BODY_BYTES = 64 * 1024;
 export interface ServerAppOptions {
   jwtSecret: string;
   database: Database.Database;
+  relay: RelaySettings;
   log?: ServerLogOptions;
   passwordHasher?: PasswordHasher;
   clock?: () => number;
@@ -151,6 +156,7 @@ interface SessionParts {
 /** The stores and services the routes share, built once per app. */
 interface ServerParts extends SessionParts, LiveHub {
   database: Database.Database;
+  relay: RelaySettings;
   clock: () => number;
   passwordHasher: PasswordHasher;
   accountStore: AccountStore;
@@ -214,6 +220,7 @@ function createServerParts(
   const messenger = createHubMessenger(liveHub.socketRegistry);
   return {
     database: options.database,
+    relay: options.relay,
     clock,
     passwordHasher: options.passwordHasher ?? createArgon2idHasher(),
     accountStore: createAccountStore(options.database),
@@ -279,6 +286,7 @@ function registerAccountRoutes(app: FastifyInstance, parts: ServerParts): void {
   );
   registerPasswordRoutes(app, parts);
   registerKeyPackageRoute(app, parts);
+  registerRelayCredentialsRoute(app, parts);
   registerKeyDirectoryRoute(app, {
     checkAccessToken: parts.checkAccessToken,
     keyDirectory: createKeyDirectory(

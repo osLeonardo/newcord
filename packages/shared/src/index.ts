@@ -14,5 +14,6 @@ export * from "./passwords.js";
 export * from "./prompts.js";
 export * from "./protocol.js";
 export * from "./recovery-code.js";
+export * from "./relay.js";
 export * from "./replies.js";
 export * from "./sessions.js";

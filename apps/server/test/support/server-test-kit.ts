@@ -13,6 +13,12 @@ import { openDatabase } from "../../src/database/open-database.js";
 
 export const TEST_JWT_SECRET = "a test-only JWT secret, longer than 32 bytes";
 
+/** The relay every test server hands out credentials for. */
+export const TEST_RELAY = {
+  secret: "a test-only relay secret, longer than 32 bytes",
+  urls: ["stun:relay.test:3478", "turn:relay.test:3478"],
+} as const;
+
 export interface TestServer {
   app: FastifyInstance;
   database: Database.Database;
@@ -27,6 +33,7 @@ export async function startTestServer(
   const app = await buildServerApp({
     jwtSecret: TEST_JWT_SECRET,
     database,
+    relay: TEST_RELAY,
     ...overrides,
   });
   return {

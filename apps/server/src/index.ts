@@ -7,6 +7,7 @@ const config = loadConfigOrExit();
 const app = await buildServerApp({
   jwtSecret: config.jwtSecret,
   database: openDatabase(config.databasePath),
+  relay: config.relay,
   log: { level: "info" },
 });
 await app.listen({ port: 3000 });
