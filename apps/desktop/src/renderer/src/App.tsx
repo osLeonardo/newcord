@@ -46,9 +46,15 @@ function App({ desktopApi }: AppProps): React.JSX.Element {
   );
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-950 p-6 text-zinc-100">
+    <div
+      className={
+        view.screen === "home"
+          ? "min-h-screen bg-zinc-950 text-zinc-100"
+          : "flex min-h-screen items-center justify-center bg-zinc-950 p-6 text-zinc-100"
+      }
+    >
       <CurrentScreen view={view} desktopApi={desktopApi} show={setView} />
-    </main>
+    </div>
   );
 }
 

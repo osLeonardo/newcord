@@ -1,8 +1,12 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import type { DesktopApi } from "../../../preload/desktop-api";
-import { UNEXPECTED_FAILURE_MESSAGE } from "../account/account-messages";
-import { viewForSessionState, type AppView } from "../app-view";
-import { ScreenCard } from "../components/ScreenCard";
+import type { GroupSummary } from "../../../preload/group-api";
+import type { AppView } from "../app-view";
+import { AccountHeader } from "../components/home/AccountHeader";
+import { GroupList } from "../components/home/GroupList";
+import { GroupPane } from "../components/home/GroupPane";
+import { InvitationList } from "../components/home/InvitationList";
+import { OnlineNow } from "../components/home/OnlineNow";
 import { screenStyles } from "../components/screen-styles";
 
 interface HomeScreenProps {
@@ -11,94 +15,41 @@ interface HomeScreenProps {
   readonly show: (view: AppView) => void;
 }
 
-interface OnlineNowProps {
-  readonly desktopApi: DesktopApi;
-}
-
-/** The logged-in home: who else is online now, and logging out. */
+/** The logged-in home: the sidebar with the account, who is online, Groups and Invitations, and the open Group. */
 export function HomeScreen(props: HomeScreenProps): React.JSX.Element {
-  const [loggingOut, setLoggingOut] = useState(false);
-  const [message, setMessage] = useState<string>();
-
-  async function logOut(): Promise<void> {
-    setLoggingOut(true);
-    try {
-      props.show(viewForSessionState(await props.desktopApi.logOut()));
-    } catch {
-      setMessage(UNEXPECTED_FAILURE_MESSAGE);
-      setLoggingOut(false);
-    }
-  }
+  const [openGroup, setOpenGroup] = useState<GroupSummary>();
+  const select = useCallback((group: GroupSummary | undefined): void => {
+    setOpenGroup(group);
+  }, []);
 
   return (
-    <ScreenCard title={`Logged in as ${props.username}`}>
-      <OnlineNow desktopApi={props.desktopApi} />
-      {message !== undefined && (
-        <p role="alert" className={screenStyles.errorMessage}>
-          {message}
-        </p>
-      )}
-      <button
-        type="button"
-        className={screenStyles.secondaryButton}
-        disabled={loggingOut}
-        onClick={() => {
-          props.show({ screen: "password-change", username: props.username });
-        }}
+    <div className="flex h-screen w-full">
+      <nav
+        aria-label="Groups and people"
+        className="flex w-72 shrink-0 flex-col overflow-y-auto border-r border-zinc-800 bg-zinc-900"
       >
-        Change password
-      </button>
-      <button
-        type="button"
-        className={screenStyles.primaryButton}
-        disabled={loggingOut}
-        onClick={() => void logOut()}
-      >
-        Log out
-      </button>
-    </ScreenCard>
-  );
-}
-
-/** The other Accounts online now, kept up to date by the main process. */
-function OnlineNow({ desktopApi }: OnlineNowProps): React.JSX.Element {
-  const [usernames, setUsernames] = useState<readonly string[]>([]);
-
-  useEffect(() => {
-    let showsThisList = true;
-    const unsubscribe = desktopApi.onOnlineAccountsChanged(setUsernames);
-    desktopApi.readOnlineAccounts().then(
-      (online) => {
-        if (showsThisList) setUsernames(online);
-      },
-      () => undefined,
-    );
-    return (): void => {
-      showsThisList = false;
-      unsubscribe();
-    };
-  }, [desktopApi]);
-
-  return (
-    <section aria-labelledby="online-now" className="flex flex-col gap-2">
-      <h2 id="online-now" className="text-sm font-medium text-zinc-300">
-        Online now
-      </h2>
-      {usernames.length === 0 ? (
-        <p className={screenStyles.hint}>Nobody else is online.</p>
-      ) : (
-        <ul className="flex flex-col gap-1 text-sm">
-          {usernames.map((username) => (
-            <li key={username} className="flex items-center gap-2">
-              <span
-                aria-hidden
-                className="size-2 rounded-full bg-emerald-500"
-              />
-              {username}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+        <AccountHeader
+          desktopApi={props.desktopApi}
+          username={props.username}
+          show={props.show}
+        />
+        <OnlineNow desktopApi={props.desktopApi} />
+        <InvitationList desktopApi={props.desktopApi} />
+        <GroupList
+          desktopApi={props.desktopApi}
+          selectedGroupId={openGroup?.groupId}
+          select={select}
+        />
+      </nav>
+      <main className="min-w-0 flex-1">
+        {openGroup === undefined ? (
+          <p className={`${screenStyles.hint} p-6`}>
+            Open a Group, or create one to start.
+          </p>
+        ) : (
+          <GroupPane desktopApi={props.desktopApi} group={openGroup} />
+        )}
+      </main>
+    </div>
   );
 }
