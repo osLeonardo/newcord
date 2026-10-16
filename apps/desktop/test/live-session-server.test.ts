@@ -12,7 +12,8 @@ import {
   type LiveInstallations,
 } from "./support/live-installations";
 
-const FOURTEEN_MINUTES = 14 * 60 * 1000;
+// Past the renewal 1 minute before expiry, with room for the moments between the clock starting and the token being issued.
+const RENEWAL_TIME = 15 * 60 * 1000;
 
 let server: InProcessServer;
 let installations: LiveInstallations;
@@ -86,7 +87,7 @@ describe("the live session against the real server", () => {
       refreshToken: stolen.refreshToken,
     });
 
-    await alice.clock.advance(FOURTEEN_MINUTES);
+    await alice.clock.advance(RENEWAL_TIME);
 
     await vi.waitFor(() => {
       expect(alice.sessionEnded).toHaveBeenCalledOnce();
