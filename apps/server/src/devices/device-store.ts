@@ -19,6 +19,8 @@ export interface DeviceStore {
   insert(device: NewDevice): void;
   /** The ID of every Device of the Account; none for an unknown Account. */
   deviceIdsOf(userId: number): string[];
+  /** The Account a Device belongs to, or undefined for an unknown Device. */
+  ownerOf(deviceId: string): number | undefined;
 }
 
 /**
@@ -39,7 +41,17 @@ export function createDeviceStore(database: Database.Database): DeviceStore {
       insertDevice.run(device);
     },
     deviceIdsOf: createDeviceIdLookup(database),
+    ownerOf: createOwnerLookup(database),
   };
+}
+
+function createOwnerLookup(
+  database: Database.Database,
+): DeviceStore["ownerOf"] {
+  const findOwner = database
+    .prepare<[string], number>("SELECT user_id FROM devices WHERE id = ?")
+    .pluck();
+  return (deviceId: string): number | undefined => findOwner.get(deviceId);
 }
 
 function createDeviceIdLookup(

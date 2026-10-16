@@ -85,6 +85,16 @@ import {
   type SessionTokenIssuer,
 } from "./sessions/session-tokens.js";
 import { createTokenRefresh } from "./sessions/token-refresh.js";
+import { createCommitAcceptance } from "./commits/commit-acceptance.js";
+import { createCommitRequestHandlers } from "./commits/commit-requests.js";
+import {
+  createMessageQueue,
+  type MessageQueue,
+} from "./queue/message-queue.js";
+import {
+  createQueueRequestHandlers,
+  replayQueueOnHello,
+} from "./queue/queue-requests.js";
 import {
   createBlockRequestHandlers,
   sendBlockListOnHello,
@@ -142,6 +152,7 @@ interface ServerParts extends SessionParts, LiveHub {
   invitationRateLimit: RequestRateLimit;
   keyPackageStore: KeyPackageStore;
   keyPackageRateLimit: RequestRateLimit;
+  messageQueue: MessageQueue;
   messenger: HubMessenger;
 }
 
@@ -196,6 +207,7 @@ function createServerParts(
     invitationStore: createInvitationStore(options.database),
     invitationRateLimit: createRequestRateLimit(INVITATION_RATE_LIMIT, clock),
     keyPackageStore: createKeyPackageStore(options.database),
+    messageQueue: createMessageQueue(options.database),
     keyPackageRateLimit: createRequestRateLimit(
       KEY_PACKAGE_REQUEST_RATE_LIMIT,
       clock,
@@ -271,12 +283,18 @@ function createHub(parts: ServerParts): HubEndpoints {
       (context): void => sendBlockListOnHello(parts, context),
       (context): void => sendKeyPackageCountOnHello(parts, context),
       (context): void => sendInvitationsOnHello(parts, context),
+      (context): void => replayQueueOnHello(parts, context),
     ],
     {
       ...createGroupRequestHandlers(parts),
       ...createBlockRequestHandlers(parts),
       ...createInvitationRequestHandlers(parts),
       ...createKeyPackageRequestHandlers(parts),
+      ...createQueueRequestHandlers(parts),
+      ...createCommitRequestHandlers({
+        ...parts,
+        acceptCommit: createCommitAcceptance(parts),
+      }),
     },
   );
 }

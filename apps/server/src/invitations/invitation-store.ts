@@ -34,6 +34,8 @@ export interface InvitationStore {
   /** The Group of a pending, visible Invitation addressed to the Account, if there is one. */
   pendingGroupOf(invitationId: string, toUser: number): Buffer | undefined;
   answer(invitationId: string, answer: InvitationAnswer): void;
+  /** Deletes the accepted Invitations of Accounts a commit added: they are handled. */
+  closeAccepted(groupId: Buffer, userIds: readonly number[]): void;
   /** Whether a pending or accepted Invitation joins the two Accounts, either way (D64). */
   isOpenBetween(firstUser: number, secondUser: number): boolean;
 }
@@ -53,6 +55,7 @@ export function createInvitationStore(
     deliverableFor: createDeliverableList(database),
     pendingGroupOf: createPendingGroupLookup(database),
     answer: createAnswer(database),
+    closeAccepted: createCloseAccepted(database),
     isOpenBetween: createOpenBetweenCheck(database),
   };
 }
@@ -149,6 +152,17 @@ function createAnswer(database: Database.Database): InvitationStore["answer"] {
   );
   return (invitationId, answer): void => {
     update.run(answer, invitationId);
+  };
+}
+
+function createCloseAccepted(
+  database: Database.Database,
+): InvitationStore["closeAccepted"] {
+  const deleteAccepted = database.prepare<[Buffer, number]>(
+    "DELETE FROM invitations WHERE group_id = ? AND to_user = ? AND status = 'accepted'",
+  );
+  return (groupId, userIds): void => {
+    for (const userId of new Set(userIds)) deleteAccepted.run(groupId, userId);
   };
 }
 

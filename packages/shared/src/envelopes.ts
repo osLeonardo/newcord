@@ -15,6 +15,14 @@ import {
   KeyPackageCountEnvelope,
   KeyPackageGetEnvelope,
 } from "./key-packages.js";
+import {
+  AckEnvelope,
+  MlsCommitDeliveryEnvelope,
+  MlsCommitEnvelope,
+  MlsMessageDeliveryEnvelope,
+  MlsMessageEnvelope,
+  MlsWelcomeDeliveryEnvelope,
+} from "./mls-envelopes.js";
 import { ProtocolVersion } from "./protocol.js";
 import { ReplyEnvelope } from "./replies.js";
 import { AccessToken } from "./sessions.js";
@@ -59,6 +67,9 @@ export const HubRequestEnvelope = Type.Union([
   InviteEnvelope,
   InviteReplyEnvelope,
   KeyPackageGetEnvelope,
+  MlsCommitEnvelope,
+  MlsMessageEnvelope,
+  AckEnvelope,
 ]);
 export type HubRequestEnvelope = Static<typeof HubRequestEnvelope>;
 
@@ -75,6 +86,9 @@ export const ServerEnvelope = Type.Union([
   BlockListEnvelope,
   InvitationEnvelope,
   KeyPackageCountEnvelope,
+  MlsCommitDeliveryEnvelope,
+  MlsWelcomeDeliveryEnvelope,
+  MlsMessageDeliveryEnvelope,
 ]);
 export type ServerEnvelope = Static<typeof ServerEnvelope>;
 

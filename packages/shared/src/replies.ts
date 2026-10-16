@@ -23,6 +23,13 @@ export const HubErrorCode = {
    * Group, and no Device of a Member Account missing from it.
    */
   NothingToAdd: "NOTHING_TO_ADD",
+  /** Another commit already moved the Group past the commit's epoch: process it, then retry if still needed. */
+  WrongEpoch: "WRONG_EPOCH",
+  /**
+   * The declared change breaks a rule: it adds a Device with no reason to join or already in the
+   * Group, removes one not in it, or brings no welcome for the Devices it adds (or one for nobody).
+   */
+  InvalidChange: "INVALID_CHANGE",
 } as const;
 export type HubErrorCode = (typeof HubErrorCode)[keyof typeof HubErrorCode];
 
@@ -35,6 +42,10 @@ export const ReplyDoneEnvelope = Type.Object(
     ok: Type.Literal(true),
     /** `keypackage.get`: one Key package per Device that may be added. */
     keyPackages: Type.Optional(Type.Array(DeviceKeyPackage)),
+    /** `mls.commit` and `mls.message`: the sequence number the server gave it. */
+    seq: Type.Optional(Type.Integer({ minimum: 1 })),
+    /** `mls.commit`: the Group's epoch after it. */
+    epoch: Type.Optional(Type.Integer({ minimum: 0 })),
   },
   { additionalProperties: false },
 );

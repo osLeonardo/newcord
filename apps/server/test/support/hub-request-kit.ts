@@ -22,3 +22,33 @@ export function doneReply(requestId: string, results: object = {}): object {
 export function refusedReply(requestId: string, code: string): object {
   return { v: 1, type: "reply", requestId, ok: false, code };
 }
+
+/** Reads Envelopes until the reply to `requestId`, returning it and what came before it. */
+export async function replyTo(
+  client: TestSocketClient,
+  requestId: string,
+): Promise<{ reply: unknown; before: unknown[] }> {
+  const before: unknown[] = [];
+  for (;;) {
+    const envelope = await client.nextEnvelope();
+    const { type, requestId: answered } = envelope as {
+      type?: string;
+      requestId?: string;
+    };
+    if (type === "reply" && answered === requestId) {
+      return { reply: envelope, before };
+    }
+    before.push(envelope);
+  }
+}
+
+/** Sends a harmless request and waits for its reply, so everything sent before it was handled. */
+export async function settleRequests(
+  client: TestSocketClient,
+): Promise<unknown[]> {
+  const requestId = sendRequest(client, {
+    type: "unblock",
+    username: "nobody",
+  });
+  return (await replyTo(client, requestId)).before;
+}

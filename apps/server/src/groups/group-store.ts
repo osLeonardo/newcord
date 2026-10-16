@@ -1,5 +1,12 @@
 import type Database from "better-sqlite3";
 
+/** A Member Device row, with the Account it belongs to. */
+export interface GroupMember {
+  deviceId: string;
+  userId: number;
+  leaving: boolean;
+}
+
 export interface NewGroup {
   groupId: Buffer;
   name: string;
@@ -22,6 +29,15 @@ export interface GroupStore {
   coMemberUserIdsOf(userId: number): number[];
   /** The Account's Devices a commit may add: those outside the Group, and those needing a resync (D24, D56). */
   devicesToAdd(groupId: Buffer, userId: number): string[];
+  epochOf(groupId: Buffer): number | undefined;
+  /** Every Member Device, leaving or not. */
+  membersOf(groupId: Buffer): GroupMember[];
+  /** Applies an accepted commit's change: removes and adds Devices and raises the epoch by one. */
+  applyChange(
+    groupId: Buffer,
+    removed: readonly string[],
+    added: readonly string[],
+  ): void;
 }
 
 /**
@@ -38,7 +54,55 @@ export function createGroupStore(database: Database.Database): GroupStore {
     activeMemberDeviceIds: createActiveMemberList(database),
     coMemberUserIdsOf: createCoMemberLookup(database),
     devicesToAdd: createDevicesToAddList(database),
+    epochOf: createEpochLookup(database),
+    membersOf: createMemberList(database),
+    applyChange: createChangeTransaction(database),
   };
+}
+
+function createEpochLookup(database: Database.Database): GroupStore["epochOf"] {
+  const findEpoch = database
+    .prepare<[Buffer], number>("SELECT epoch FROM groups WHERE id = ?")
+    .pluck();
+  return (groupId): number | undefined => findEpoch.get(groupId);
+}
+
+function createMemberList(
+  database: Database.Database,
+): GroupStore["membersOf"] {
+  const listMembers = database.prepare<
+    [Buffer],
+    { deviceId: string; userId: number; leaving: number }
+  >(
+    `SELECT group_members.device_id AS deviceId, devices.user_id AS userId, group_members.leaving
+       FROM group_members JOIN devices ON devices.id = group_members.device_id
+      WHERE group_members.group_id = ? ORDER BY group_members.device_id`,
+  );
+  return (groupId): GroupMember[] =>
+    listMembers
+      .all(groupId)
+      .map((row) => ({ ...row, leaving: row.leaving === 1 }));
+}
+
+function createChangeTransaction(
+  database: Database.Database,
+): GroupStore["applyChange"] {
+  const removeMember = database.prepare<[Buffer, string]>(
+    "DELETE FROM group_members WHERE group_id = ? AND device_id = ?",
+  );
+  const addMember = database.prepare<[Buffer, string]>(
+    "INSERT INTO group_members (group_id, device_id) VALUES (?, ?)",
+  );
+  const raiseEpoch = database.prepare<[Buffer]>(
+    "UPDATE groups SET epoch = epoch + 1 WHERE id = ?",
+  );
+  return database.transaction(
+    (groupId: Buffer, removed: readonly string[], added: readonly string[]) => {
+      for (const deviceId of removed) removeMember.run(groupId, deviceId);
+      for (const deviceId of added) addMember.run(groupId, deviceId);
+      raiseEpoch.run(groupId);
+    },
+  );
 }
 
 function createDevicesToAddList(
