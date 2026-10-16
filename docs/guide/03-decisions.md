@@ -88,7 +88,7 @@ Every decision so far, D1 to D82, is made and summarized below. Each one records
 | D79 electron-winstaller install script | Denied; NSIS does not use it |
 | D80 better-sqlite3 install script | Denied; its prebuilt Node-API binaries are used |
 | D81 Logging in again on a device | Deletes that device's other refresh tokens |
-| D82 Values filled in while building M1 | See the entry: status codes, database path, secret length, cleanup interval, release address, IPC checks |
+| D82 Values filled in while building M1 | See the entry: status codes, database path, secret length, cleanup interval, release address, IPC checks, key directory, WebSocket codes, heartbeat (#17) |
 
 ## D1 — Architecture: who carries messages and calls?
 
@@ -1329,3 +1329,9 @@ Values the guide did not give, proposed while building M1 and accepted on Octobe
 | How often expired refresh tokens are deleted | Every 15 minutes, and once at start-up |
 | The release build's server address | `https://newcord.duckdns.org`, following the working-title rule (D58), until the final name and deployment (#12, #14) |
 | How the desktop app checks IPC arguments | With the shared TypeBox schemas, so `typebox` is a dependency of the desktop app too |
+| Key directory response | `{ "identityKeys": [...] }`, oldest device first, with no device IDs; revisited in M2 (#5) if commits need keys matched to devices |
+| A username parameter over 100 characters | Fastify's router answers `414` before any check runs; 33 to 100 characters get `400` |
+| Unknown query-string fields | Ignored, since no handler reads the query |
+| WebSocket Envelope version field and close codes | The field is `v`. `4001` authentication failed or `hello` too late (the app renews its token and reconnects); `4002` session ended (the app shows the login screen); `1008` for any message after `hello` in M1 |
+| Types for the WebSocket library | `@types/ws` as a development dependency of the server, so the hub's socket interfaces are checked against `ws` |
+| Detecting dead WebSocket connections | A server heartbeat, built in its own follow-up issue (#17) |
