@@ -1,7 +1,7 @@
 # M3 build steps
 
 
-M3 adds calls: voice for up to 6 people in a mesh, screen sharing without sound (D43) using the codec from settings, call setup encrypted with MLS (D18), the coturn relay and Hide my IP. M3 is done when a 6-person call with a screen share works on Windows, CPU use per viewer has been measured for each codec, and a client behind a strict firewall connects through the relay.
+M3 adds calls: voice for up to 6 people in a mesh, screen sharing without sound (D43) using the codec from settings, call setup encrypted with MLS (D18), the coturn relay and Hide my IP. M3 is done when a 6-person call with a screen share works on Windows, CPU use per viewer has been measured for each codec, and a call connects through the development relay when Hide my IP forces it. The strict-firewall test (UDP blocked, through port 443) needs nginx sharing port 443, so it runs in the server deployment (`14-server-deployment.md`).
 
 ## Settings
 
@@ -104,4 +104,4 @@ The other codecs stay listed after the chosen one, so a connection still works i
 
 ## Done when
 
-A 6-person call with a screen share works on Windows, CPU per viewer is recorded for each codec, and a computer with UDP blocked joins through the relay.
+A 6-person call with a screen share works on Windows, CPU per viewer is recorded for each codec, and a call connects through the development relay with Hide my IP on. A computer with UDP blocked joining through port 443 is checked in the server deployment.
