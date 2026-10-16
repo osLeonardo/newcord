@@ -20,6 +20,8 @@ export interface GroupStore {
   activeMemberDeviceIds(groupId: Buffer): string[];
   /** Every other Account with an active Member Device in a Group where this Account has one. */
   coMemberUserIdsOf(userId: number): number[];
+  /** The Account's Devices a commit may add: those outside the Group, and those needing a resync (D24, D56). */
+  devicesToAdd(groupId: Buffer, userId: number): string[];
 }
 
 /**
@@ -35,7 +37,22 @@ export function createGroupStore(database: Database.Database): GroupStore {
     rename: createRename(database),
     activeMemberDeviceIds: createActiveMemberList(database),
     coMemberUserIdsOf: createCoMemberLookup(database),
+    devicesToAdd: createDevicesToAddList(database),
   };
+}
+
+function createDevicesToAddList(
+  database: Database.Database,
+): GroupStore["devicesToAdd"] {
+  const listDevices = database
+    .prepare<[Buffer, number], string>(
+      `SELECT devices.id FROM devices
+         LEFT JOIN group_members ON group_members.device_id = devices.id AND group_members.group_id = ?
+        WHERE devices.user_id = ? AND (group_members.device_id IS NULL OR group_members.needs_resync = 1)
+        ORDER BY devices.created_at, devices.id`,
+    )
+    .pluck();
+  return (groupId, userId): string[] => listDevices.all(groupId, userId);
 }
 
 function createGroupTransaction(

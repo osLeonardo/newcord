@@ -40,10 +40,20 @@ import {
   createKeyDirectory,
   keyDirectoryAudience,
 } from "./key-directory/key-directory.js";
+import {
+  createKeyPackageRequestHandlers,
+  sendKeyPackageCountOnHello,
+} from "./key-packages/key-package-requests.js";
+import { registerKeyPackageRoute } from "./key-packages/key-package-route.js";
+import {
+  createKeyPackageStore,
+  type KeyPackageStore,
+} from "./key-packages/key-package-store.js";
 import { registerKeyDirectoryRoute } from "./key-directory/key-directory-route.js";
 import { createLoggerOptions, type ServerLogOptions } from "./logging.js";
 import {
   INVITATION_RATE_LIMIT,
+  KEY_PACKAGE_REQUEST_RATE_LIMIT,
   RATE_LIMIT_PLUGIN_OPTIONS,
 } from "./rate-limits.js";
 import {
@@ -130,6 +140,8 @@ interface ServerParts extends SessionParts, LiveHub {
   blockStore: BlockStore;
   invitationStore: InvitationStore;
   invitationRateLimit: RequestRateLimit;
+  keyPackageStore: KeyPackageStore;
+  keyPackageRateLimit: RequestRateLimit;
   messenger: HubMessenger;
 }
 
@@ -183,6 +195,11 @@ function createServerParts(
     blockStore: createBlockStore(options.database),
     invitationStore: createInvitationStore(options.database),
     invitationRateLimit: createRequestRateLimit(INVITATION_RATE_LIMIT, clock),
+    keyPackageStore: createKeyPackageStore(options.database),
+    keyPackageRateLimit: createRequestRateLimit(
+      KEY_PACKAGE_REQUEST_RATE_LIMIT,
+      clock,
+    ),
     messenger: createHubMessenger(liveHub.socketRegistry),
     ...liveHub,
     ...createSessionParts(app, options, clock, liveHub.sessionSockets),
@@ -221,6 +238,7 @@ function registerAccountRoutes(app: FastifyInstance, parts: ServerParts): void {
   registerSignUpRoute(app, createSignUp(parts));
   registerLoginRoute(app, createLogin(parts));
   registerPasswordRoutes(app, parts);
+  registerKeyPackageRoute(app, parts);
   registerKeyDirectoryRoute(app, {
     checkAccessToken: parts.checkAccessToken,
     keyDirectory: createKeyDirectory(
@@ -251,12 +269,14 @@ function createHub(parts: ServerParts): HubEndpoints {
   return createHubEndpoints(
     [
       (context): void => sendBlockListOnHello(parts, context),
+      (context): void => sendKeyPackageCountOnHello(parts, context),
       (context): void => sendInvitationsOnHello(parts, context),
     ],
     {
       ...createGroupRequestHandlers(parts),
       ...createBlockRequestHandlers(parts),
       ...createInvitationRequestHandlers(parts),
+      ...createKeyPackageRequestHandlers(parts),
     },
   );
 }

@@ -112,9 +112,13 @@ export interface HelloAnswer {
   client: TestSocketClient;
   snapshot: unknown;
   blockList: unknown;
+  keyPackageCount: unknown;
 }
 
-/** Connects, sends `hello` with `accessToken` and reads the presence snapshot and block list that answer it. */
+/**
+ * Connects, sends `hello` with `accessToken` and reads what always answers it: the presence
+ * snapshot, the block list and the Key package count. Invitations, queued messages and prompts follow when there are any.
+ */
 export async function connectWithHello(
   app: FastifyInstance,
   accessToken: string,
@@ -122,7 +126,13 @@ export async function connectWithHello(
   const client = await connectTestClient(app);
   client.sendEnvelope(helloEnvelope(accessToken));
   const snapshot = await client.nextEnvelope();
-  return { client, snapshot, blockList: await client.nextEnvelope() };
+  const blockList = await client.nextEnvelope();
+  return {
+    client,
+    snapshot,
+    blockList,
+    keyPackageCount: await client.nextEnvelope(),
+  };
 }
 
 function watchTestClient(raw: RawTestClient): TestSocketClient {

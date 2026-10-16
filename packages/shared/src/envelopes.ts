@@ -11,6 +11,10 @@ import {
   InviteEnvelope,
   InviteReplyEnvelope,
 } from "./invitations.js";
+import {
+  KeyPackageCountEnvelope,
+  KeyPackageGetEnvelope,
+} from "./key-packages.js";
 import { ProtocolVersion } from "./protocol.js";
 import { ReplyEnvelope } from "./replies.js";
 import { AccessToken } from "./sessions.js";
@@ -54,6 +58,7 @@ export const HubRequestEnvelope = Type.Union([
   UnblockEnvelope,
   InviteEnvelope,
   InviteReplyEnvelope,
+  KeyPackageGetEnvelope,
 ]);
 export type HubRequestEnvelope = Static<typeof HubRequestEnvelope>;
 
@@ -69,6 +74,7 @@ export const ServerEnvelope = Type.Union([
   GroupRenamedEnvelope,
   BlockListEnvelope,
   InvitationEnvelope,
+  KeyPackageCountEnvelope,
 ]);
 export type ServerEnvelope = Static<typeof ServerEnvelope>;
 

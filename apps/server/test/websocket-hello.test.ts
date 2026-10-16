@@ -81,6 +81,7 @@ describe("GET /ws hello deadline", () => {
     client.sendEnvelope(helloEnvelope(alice.accessToken));
     const snapshot = await client.nextEnvelope();
     await client.nextEnvelope();
+    await client.nextEnvelope();
     vi.advanceTimersByTime(HELLO_DEADLINE_MS * 10);
     const bob = (await signUp(server.app, { username: "bob" })).body;
     shareGroup(server.database, [alice.deviceId, bob.deviceId]);

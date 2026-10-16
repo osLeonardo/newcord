@@ -1,4 +1,5 @@
 import { Type, type Static } from "typebox";
+import { DeviceKeyPackage } from "./key-packages.js";
 import { ProtocolVersion, RequestId } from "./protocol.js";
 
 /** Why the server refused a request Envelope that matched its schema but broke a rule. */
@@ -17,16 +18,23 @@ export const HubErrorCode = {
   /** No pending Invitation with that ID is addressed to the sender's Account. */
   InvitationNotFound: "INVITATION_NOT_FOUND",
   RateLimited: "RATE_LIMITED",
+  /**
+   * `keypackage.get` named an Account with no reason to be added: no accepted Invitation to the
+   * Group, and no Device of a Member Account missing from it.
+   */
+  NothingToAdd: "NOTHING_TO_ADD",
 } as const;
 export type HubErrorCode = (typeof HubErrorCode)[keyof typeof HubErrorCode];
 
-/** The answer to a request Envelope that was carried out. */
+/** The answer to a request Envelope that was carried out, with the results some requests return. */
 export const ReplyDoneEnvelope = Type.Object(
   {
     v: ProtocolVersion,
     type: Type.Literal("reply"),
     requestId: RequestId,
     ok: Type.Literal(true),
+    /** `keypackage.get`: one Key package per Device that may be added. */
+    keyPackages: Type.Optional(Type.Array(DeviceKeyPackage)),
   },
   { additionalProperties: false },
 );

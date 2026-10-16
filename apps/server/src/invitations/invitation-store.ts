@@ -25,6 +25,8 @@ export interface InvitationStore {
   create(invitation: NewInvitation): void;
   /** Whether the Account has a pending or accepted Invitation to the Group. */
   hasOpenInvitation(groupId: Buffer, toUser: number): boolean;
+  /** Whether the Account accepted an Invitation to the Group and is waiting to be added. */
+  hasAcceptedInvitation(groupId: Buffer, toUser: number): boolean;
   /** Distinct people in the Group or invited to it: active Member Accounts and open invitees (D17). */
   peopleCount(groupId: Buffer): number;
   /** The Account's pending Invitations it may see, oldest first. */
@@ -46,6 +48,7 @@ export function createInvitationStore(
   return {
     create: createInsert(database),
     hasOpenInvitation: createOpenInvitationCheck(database),
+    hasAcceptedInvitation: createAcceptedInvitationCheck(database),
     peopleCount: createPeopleCount(database),
     deliverableFor: createDeliverableList(database),
     pendingGroupOf: createPendingGroupLookup(database),
@@ -80,6 +83,17 @@ function createOpenInvitationCheck(
   const find = database
     .prepare<[Buffer, number], number>(
       `SELECT 1 FROM invitations WHERE group_id = ? AND to_user = ? AND ${OPEN}`,
+    )
+    .pluck();
+  return (groupId, toUser): boolean => find.get(groupId, toUser) !== undefined;
+}
+
+function createAcceptedInvitationCheck(
+  database: Database.Database,
+): InvitationStore["hasAcceptedInvitation"] {
+  const find = database
+    .prepare<[Buffer, number], number>(
+      "SELECT 1 FROM invitations WHERE group_id = ? AND to_user = ? AND status = 'accepted'",
     )
     .pluck();
   return (groupId, toUser): boolean => find.get(groupId, toUser) !== undefined;

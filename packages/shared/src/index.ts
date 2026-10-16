@@ -7,6 +7,7 @@ export * from "./blocks.js";
 export * from "./envelopes.js";
 export * from "./groups.js";
 export * from "./invitations.js";
+export * from "./key-packages.js";
 export * from "./key-directory.js";
 export * from "./passwords.js";
 export * from "./protocol.js";

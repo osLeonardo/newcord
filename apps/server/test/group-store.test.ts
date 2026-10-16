@@ -113,6 +113,27 @@ describe("isAccountActiveMember and nameOf", () => {
   });
 });
 
+describe("devicesToAdd", () => {
+  it("lists the Account's Devices outside the Group and those needing a resync", () => {
+    const groupId = insertGroup(database, ["alice-phone", "bruno-phone"]);
+    database
+      .prepare(
+        "UPDATE group_members SET needs_resync = 1 WHERE device_id = 'bruno-phone'",
+      )
+      .run();
+
+    expect(groups.devicesToAdd(groupId, accounts.alice.userId)).toEqual([
+      "alice-laptop",
+    ]);
+    expect(groups.devicesToAdd(groupId, accounts.bruno.userId)).toEqual([
+      "bruno-phone",
+    ]);
+    expect(groups.devicesToAdd(groupId, accounts.carla.userId)).toEqual([
+      "carla-phone",
+    ]);
+  });
+});
+
 describe("rename", () => {
   it("changes the name only", () => {
     const groupId = insertGroup(database, ["alice-phone"], "friends");
