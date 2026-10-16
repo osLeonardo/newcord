@@ -158,6 +158,53 @@ export function logout(
   });
 }
 
+/** Sends `POST /password/change` with `payload` and `authorization` as the Authorization header, when given. */
+export function changePassword(
+  app: FastifyInstance,
+  payload: object,
+  authorization?: string,
+  remoteAddress = "127.0.0.1",
+): Promise<LightMyRequestResponse> {
+  return app.inject({
+    method: "POST",
+    url: "/password/change",
+    payload,
+    headers: authorization === undefined ? {} : { authorization },
+    remoteAddress,
+  });
+}
+
+/** Sends `POST /password/recover` with `payload`, from `remoteAddress` when given. */
+export function recoverPassword(
+  app: FastifyInstance,
+  payload: object,
+  remoteAddress = "127.0.0.1",
+): Promise<LightMyRequestResponse> {
+  return app.inject({
+    method: "POST",
+    url: "/password/recover",
+    payload,
+    remoteAddress,
+  });
+}
+
+export interface StoredCredentialHashes {
+  password_hash: string;
+  recovery_hash: string;
+}
+
+/** Reads the password and Recovery code hashes stored for `username`. */
+export function storedHashesOf(
+  database: Database.Database,
+  username: string,
+): StoredCredentialHashes | undefined {
+  return database
+    .prepare(
+      "SELECT password_hash, recovery_hash FROM users WHERE username = ?",
+    )
+    .get(username) as StoredCredentialHashes | undefined;
+}
+
 export interface RefreshTokenRow {
   token_hash: Buffer;
   device_id: string;

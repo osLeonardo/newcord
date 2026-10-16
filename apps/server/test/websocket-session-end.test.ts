@@ -1,14 +1,23 @@
-import { WebSocketCloseCode, type RefreshResponse } from "@newcord/shared";
+import {
+  WebSocketCloseCode,
+  type LoginResponse,
+  type RefreshResponse,
+} from "@newcord/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  changePassword,
   fastFakeHasher,
+  login,
   logout,
+  recoverPassword,
   refresh,
   refreshTokenRow,
+  signUp,
   startTestServer,
   type TestServer,
 } from "./support/server-test-kit.js";
 import {
+  SOCKET_TEST_PASSWORD,
   connectWithHello,
   logInOnNewDevice,
   presenceChange,
@@ -19,6 +28,7 @@ import {
 const NOW = Date.UTC(2026, 9, 15, 12, 0, 0);
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
+const NEW_PASSWORD = "a brand new password";
 
 let server: TestServer;
 let now: number;
@@ -196,5 +206,102 @@ describe("the 15-minute session check", () => {
     expect(refreshTokenRow(server.database, alice.refreshToken)).toMatchObject({
       used_at: NOW,
     });
+  });
+});
+
+describe("POST /password/change (D66)", () => {
+  it("closes the sockets of the Account's other Devices with the session-ended close code, and keeps the caller's open", async () => {
+    const bobSocket = await online(
+      (await signUpAs(server.app, "bob")).accessToken,
+    );
+    const alice = await signUpAs(server.app, "alice");
+    const phone = await online(alice.accessToken);
+    const laptop = await online(
+      (await logInOnNewDevice(server.app, "alice")).accessToken,
+    );
+    const desktop = await online(
+      (await logInOnNewDevice(server.app, "alice")).accessToken,
+    );
+    await bobSocket.nextEnvelope();
+
+    const response = await changePassword(
+      server.app,
+      { newPassword: NEW_PASSWORD },
+      bearer(alice.accessToken),
+    );
+
+    expect(response.statusCode).toBe(204);
+    expect(await laptop.closed).toMatchObject(sessionEnded);
+    expect(await desktop.closed).toMatchObject(sessionEnded);
+    await online((await signUpAs(server.app, "carol")).accessToken);
+    expect(await phone.nextEnvelope()).toEqual(
+      presenceChange("online", "carol"),
+    );
+    expect(await bobSocket.nextEnvelope()).toEqual(
+      presenceChange("online", "carol"),
+    );
+  });
+});
+
+describe("POST /password/recover (D66)", () => {
+  it("closes every socket of the Account with the session-ended close code and tells others it went offline", async () => {
+    const bobSocket = await online(
+      (await signUpAs(server.app, "bob")).accessToken,
+    );
+    const alice = await signUpAs(server.app, "alice");
+    const phone = await online(alice.accessToken);
+    const laptop = await online(
+      (await logInOnNewDevice(server.app, "alice")).accessToken,
+    );
+    await bobSocket.nextEnvelope();
+
+    const response = await recoverPassword(server.app, {
+      username: "alice",
+      recoveryCode: alice.recoveryCode,
+      newPassword: NEW_PASSWORD,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(await phone.closed).toMatchObject(sessionEnded);
+    expect(await laptop.closed).toMatchObject(sessionEnded);
+    expect(await bobSocket.nextEnvelope()).toEqual(
+      presenceChange("offline", "alice"),
+    );
+    expect(bobSocket.isOpen()).toBe(true);
+  });
+
+  it("leaves the sockets open when the code is wrong", async () => {
+    const alice = await signUpAs(server.app, "alice");
+    const phone = await online(alice.accessToken);
+
+    const response = await recoverPassword(server.app, {
+      username: "alice",
+      recoveryCode: "Z".repeat(24),
+      newPassword: NEW_PASSWORD,
+    });
+    await online((await signUpAs(server.app, "bob")).accessToken);
+
+    expect(response.statusCode).toBe(401);
+    expect(await phone.nextEnvelope()).toEqual(presenceChange("online", "bob"));
+  });
+});
+
+describe("POST /login again on the same Device (D81)", () => {
+  it("leaves that Device's open sockets alone: it is the same Device", async () => {
+    const alice = await signUp(server.app, {
+      username: "alice",
+      password: SOCKET_TEST_PASSWORD,
+    });
+    const phone = await online(alice.body.accessToken);
+
+    const again = await login(server.app, {
+      username: "alice",
+      password: SOCKET_TEST_PASSWORD,
+      identityKey: alice.request.identityKey,
+    });
+    await online((await signUpAs(server.app, "bob")).accessToken);
+
+    expect(again.json<LoginResponse>().deviceId).toBe(alice.body.deviceId);
+    expect(await phone.nextEnvelope()).toEqual(presenceChange("online", "bob"));
   });
 });

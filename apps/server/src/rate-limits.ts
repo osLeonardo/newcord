@@ -37,6 +37,18 @@ export const REFRESH_RATE_LIMIT: RateLimitSetting = {
   timeWindow: ONE_MINUTE_MS,
 };
 
+/** Password change: 5 per hour per Account (08-m1-build Settings). */
+export const PASSWORD_CHANGE_RATE_LIMIT: RateLimitSetting = {
+  max: 5,
+  timeWindow: ONE_HOUR_MS,
+};
+
+/** Password recovery: 5 attempts per hour, per username and per IP address (08-m1-build Settings). */
+export const PASSWORD_RECOVERY_RATE_LIMIT: RateLimitSetting = {
+  max: 5,
+  timeWindow: ONE_HOUR_MS,
+};
+
 /** Key directory: 60 lookups per minute per Account (08-m1-build Settings, D64). */
 export const KEY_DIRECTORY_RATE_LIMIT: RateLimitSetting = {
   max: 60,

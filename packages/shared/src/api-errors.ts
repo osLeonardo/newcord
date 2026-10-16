@@ -2,7 +2,7 @@
 export const ApiErrorCode = {
   UsernameTaken: "USERNAME_TAKEN",
   IdentityKeyTaken: "IDENTITY_KEY_TAKEN",
-  /** Login: the same answer for an unknown username and a wrong password. */
+  /** Login and recovery: the same answer for an unknown username and a wrong password or Recovery code. */
   InvalidCredentials: "INVALID_CREDENTIALS",
   /** Refresh: unknown, expired or already used; the Device must log in again. */
   InvalidRefreshToken: "INVALID_REFRESH_TOKEN",

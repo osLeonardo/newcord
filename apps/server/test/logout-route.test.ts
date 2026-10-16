@@ -2,6 +2,7 @@ import { generateKeyPairSync, sign } from "node:crypto";
 import {
   ApiErrorCode,
   type LoginResponse,
+  type RefreshResponse,
   type RegisterRequest,
   type RegisterResponse,
 } from "@newcord/shared";
@@ -62,16 +63,18 @@ describe("POST /logout with a valid access token", () => {
     expect(response.body).toBe("");
   });
 
-  it("deletes every refresh token of that Device", async () => {
-    const again = await logInAlice(alice.request.identityKey);
+  it("deletes every refresh token of that Device, used or not", async () => {
+    const fresh = (
+      await refresh(server.app, alice.body.refreshToken)
+    ).json<RefreshResponse>();
     expect(countRefreshTokensOf(server.database, alice.body.deviceId)).toBe(2);
 
-    await logout(server.app, bearer(again.accessToken));
+    await logout(server.app, bearer(fresh.accessToken));
 
     expect(countRefreshTokensOf(server.database, alice.body.deviceId)).toBe(0);
-    for (const token of [alice.body.refreshToken, again.refreshToken]) {
-      expect((await refresh(server.app, token)).statusCode).toBe(401);
-    }
+    expect((await refresh(server.app, fresh.refreshToken)).statusCode).toBe(
+      401,
+    );
   });
 
   it("leaves the Account's other Devices logged in", async () => {

@@ -17,6 +17,8 @@ export interface StoredDevice {
 export interface DeviceStore {
   findByIdentityKey(identityKey: Buffer): StoredDevice | undefined;
   insert(device: NewDevice): void;
+  /** The ID of every Device of the Account; none for an unknown Account. */
+  deviceIdsOf(userId: number): string[];
 }
 
 /**
@@ -36,5 +38,15 @@ export function createDeviceStore(database: Database.Database): DeviceStore {
     insert: (device: NewDevice): void => {
       insertDevice.run(device);
     },
+    deviceIdsOf: createDeviceIdLookup(database),
   };
+}
+
+function createDeviceIdLookup(
+  database: Database.Database,
+): DeviceStore["deviceIdsOf"] {
+  const listDeviceIds = database
+    .prepare<[number], string>("SELECT id FROM devices WHERE user_id = ?")
+    .pluck();
+  return (userId: number): string[] => listDeviceIds.all(userId);
 }

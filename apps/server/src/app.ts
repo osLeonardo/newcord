@@ -11,12 +11,20 @@ import {
   createAccountStore,
   type AccountStore,
 } from "./accounts/account-store.js";
+import {
+  createCredentialStore,
+  type CredentialStore,
+} from "./accounts/credential-store.js";
 import { createLogin } from "./accounts/login.js";
 import { registerLoginRoute } from "./accounts/login-route.js";
+import { createPasswordChange } from "./accounts/password-change.js";
+import { registerPasswordChangeRoute } from "./accounts/password-change-route.js";
 import {
   createArgon2idHasher,
   type PasswordHasher,
 } from "./accounts/password-hasher.js";
+import { createPasswordRecovery } from "./accounts/password-recovery.js";
+import { registerPasswordRecoveryRoute } from "./accounts/password-recovery-route.js";
 import { registerSignUpRoute } from "./accounts/register-route.js";
 import { createSignUp } from "./accounts/sign-up.js";
 import { createDeviceStore, type DeviceStore } from "./devices/device-store.js";
@@ -89,6 +97,7 @@ interface ServerParts extends SessionParts, LiveHub {
   clock: () => number;
   passwordHasher: PasswordHasher;
   accountStore: AccountStore;
+  credentialStore: CredentialStore;
   deviceStore: DeviceStore;
 }
 
@@ -135,6 +144,7 @@ function createServerParts(
     clock,
     passwordHasher: options.passwordHasher ?? createArgon2idHasher(),
     accountStore: createAccountStore(options.database),
+    credentialStore: createCredentialStore(options.database),
     deviceStore: createDeviceStore(options.database),
     ...liveHub,
     ...createSessionParts(app, options, clock, liveHub.sessionSockets),
@@ -172,10 +182,22 @@ function createSessionParts(
 function registerAccountRoutes(app: FastifyInstance, parts: ServerParts): void {
   registerSignUpRoute(app, createSignUp(parts));
   registerLoginRoute(app, createLogin(parts));
+  registerPasswordRoutes(app, parts);
   registerKeyDirectoryRoute(app, {
     checkAccessToken: parts.checkAccessToken,
     keyDirectory: createKeyDirectory(parts.database),
   });
+}
+
+function registerPasswordRoutes(
+  app: FastifyInstance,
+  parts: ServerParts,
+): void {
+  registerPasswordChangeRoute(app, {
+    checkAccessToken: parts.checkAccessToken,
+    changePassword: createPasswordChange(parts),
+  });
+  registerPasswordRecoveryRoute(app, createPasswordRecovery(parts));
 }
 
 function registerSessionRoutes(app: FastifyInstance, parts: ServerParts): void {

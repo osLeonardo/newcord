@@ -8,10 +8,12 @@ import { Value } from "typebox/value";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DUMMY_PASSWORD_HASH } from "../src/accounts/password-hasher.js";
 import {
+  countRefreshTokensOf,
   countRows,
   createIdentityKey,
   fastFakeHasher,
   login,
+  refresh,
   refreshTokenRow,
   signUp,
   startTestServer,
@@ -116,16 +118,68 @@ describe("POST /login with the right password", () => {
       deviceId: body.deviceId,
     });
   });
+});
 
-  it("keeps the Device's earlier refresh token working", async () => {
-    await login(
-      server.app,
-      loginRequest({ identityKey: alice.request.identityKey }),
-    );
+describe("POST /login on a Device that already has refresh tokens (D81)", () => {
+  let alice: { request: LoginRequest; body: RegisterResponse };
+
+  beforeEach(async () => {
+    server = await startTestServer({ passwordHasher: fastFakeHasher });
+    alice = await signUp(server.app, { username: "alice", password: PASSWORD });
+  });
+
+  const logInAgain = async (identityKey: string): Promise<LoginResponse> =>
+    (await login(server.app, loginRequest({ identityKey }))).json();
+
+  it("refuses the Device's previous refresh token and accepts the new one", async () => {
+    const again = await logInAgain(alice.request.identityKey);
 
     expect(
-      refreshTokenRow(server.database, alice.body.refreshToken),
-    ).toMatchObject({ used_at: null });
+      (await refresh(server.app, alice.body.refreshToken)).statusCode,
+    ).toBe(401);
+    expect((await refresh(server.app, again.refreshToken)).statusCode).toBe(
+      200,
+    );
+  });
+
+  it("leaves the Device holding only the new token, its used ones deleted too", async () => {
+    await refresh(server.app, alice.body.refreshToken);
+    expect(countRefreshTokensOf(server.database, alice.body.deviceId)).toBe(2);
+
+    const again = await logInAgain(alice.request.identityKey);
+
+    expect(countRefreshTokensOf(server.database, alice.body.deviceId)).toBe(1);
+    expect(refreshTokenRow(server.database, again.refreshToken)).toMatchObject({
+      device_id: alice.body.deviceId,
+      used_at: null,
+    });
+  });
+
+  it("keeps the refresh tokens of the Account's other Devices", async () => {
+    const laptop = await logInAgain(createIdentityKey());
+
+    await logInAgain(alice.request.identityKey);
+
+    expect((await refresh(server.app, laptop.refreshToken)).statusCode).toBe(
+      200,
+    );
+  });
+
+  it("deletes nothing when a refused login names another Account's key", async () => {
+    await signUp(server.app, { username: "bruno", password: PASSWORD });
+
+    const response = await login(
+      server.app,
+      loginRequest({
+        username: "bruno",
+        identityKey: alice.request.identityKey,
+      }),
+    );
+
+    expect(response.statusCode).toBe(409);
+    expect(
+      (await refresh(server.app, alice.body.refreshToken)).statusCode,
+    ).toBe(200);
   });
 });
 
