@@ -10,6 +10,7 @@ import {
   KEY_DIRECTORY_RATE_LIMIT,
   createAccountRateLimit,
 } from "../rate-limits.js";
+import { authenticatedSubject } from "../sessions/access-token-check.js";
 import type { KeyDirectory } from "./key-directory.js";
 
 export interface KeyDirectoryRouteDependencies {
@@ -39,15 +40,24 @@ export function registerKeyDirectoryRoute(
       ],
     },
     (request): KeyDirectoryResponse =>
-      identityKeysResponse(dependencies.keyDirectory, request.params.username),
+      identityKeysResponse(
+        dependencies.keyDirectory,
+        authenticatedSubject(request).userId,
+        request.params.username,
+      ),
   );
 }
 
+/** Someone the caller may not look up gets the same answer as an unknown username (D64). */
 function identityKeysResponse(
   keyDirectory: KeyDirectory,
+  callerUserId: number,
   username: string,
 ): KeyDirectoryResponse {
-  const identityKeys = keyDirectory.identityKeysOf(username);
+  const identityKeys = keyDirectory.identityKeysVisibleTo(
+    callerUserId,
+    username,
+  );
   if (identityKeys === undefined) throw accountNotFoundError(username);
   return {
     identityKeys: identityKeys.map((key) => key.toString("base64")),

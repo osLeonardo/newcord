@@ -9,6 +9,14 @@ export const HubErrorCode = {
   /** No Account has the username, or the sender may not learn about it (D64). */
   AccountNotFound: "ACCOUNT_NOT_FOUND",
   CannotBlockSelf: "CANNOT_BLOCK_SELF",
+  AlreadyAMember: "ALREADY_A_MEMBER",
+  /** The Account already has a pending or accepted Invitation to the Group. */
+  AlreadyInvited: "ALREADY_INVITED",
+  /** The change would take the Group past 10 people, counting open Invitations (D17). */
+  GroupFull: "GROUP_FULL",
+  /** No pending Invitation with that ID is addressed to the sender's Account. */
+  InvitationNotFound: "INVITATION_NOT_FOUND",
+  RateLimited: "RATE_LIMITED",
 } as const;
 export type HubErrorCode = (typeof HubErrorCode)[keyof typeof HubErrorCode];
 

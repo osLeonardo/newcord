@@ -8,6 +8,9 @@ import { ProtocolVersion, RequestId } from "./protocol.js";
  */
 export const GroupId = Type.String({ pattern: "^[A-Za-z0-9_-]{21}[AQgw]$" });
 
+/** A Group holds at most 10 people; someone with two Devices counts once (D17, 09-m2-build Settings). */
+export const GROUP_PEOPLE_LIMIT = 10;
+
 /** A Group's name: 1 to 64 characters, readable by the server (09-m2-build Settings, D40). */
 export const GroupName = Type.String({ minLength: 1, maxLength: 64 });
 

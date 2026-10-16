@@ -12,6 +12,9 @@ export interface GroupStore {
   /** Stores the Group at epoch 0 with its creator's Device as its only Member; false if the ID is taken. */
   create(group: NewGroup): boolean;
   isActiveMember(groupId: Buffer, deviceId: string): boolean;
+  /** Whether any Device of the Account is an active Member of the Group. */
+  isAccountActiveMember(groupId: Buffer, userId: number): boolean;
+  nameOf(groupId: Buffer): string | undefined;
   rename(groupId: Buffer, name: string): void;
   /** The Group's active Member Devices. */
   activeMemberDeviceIds(groupId: Buffer): string[];
@@ -27,6 +30,8 @@ export function createGroupStore(database: Database.Database): GroupStore {
   return {
     create: createGroupTransaction(database),
     isActiveMember: createActiveMemberCheck(database),
+    isAccountActiveMember: createAccountMemberCheck(database),
+    nameOf: createNameLookup(database),
     rename: createRename(database),
     activeMemberDeviceIds: createActiveMemberList(database),
     coMemberUserIdsOf: createCoMemberLookup(database),
@@ -64,6 +69,26 @@ function createActiveMemberCheck(
     .pluck();
   return (groupId, deviceId): boolean =>
     findMember.get(groupId, deviceId) !== undefined;
+}
+
+function createAccountMemberCheck(
+  database: Database.Database,
+): GroupStore["isAccountActiveMember"] {
+  const findMember = database
+    .prepare<[Buffer, number], number>(
+      `SELECT 1 FROM group_members JOIN devices ON devices.id = group_members.device_id
+        WHERE group_members.group_id = ? AND devices.user_id = ? AND group_members.leaving = 0`,
+    )
+    .pluck();
+  return (groupId, userId): boolean =>
+    findMember.get(groupId, userId) !== undefined;
+}
+
+function createNameLookup(database: Database.Database): GroupStore["nameOf"] {
+  const findName = database
+    .prepare<[Buffer], string>("SELECT name FROM groups WHERE id = ?")
+    .pluck();
+  return (groupId): string | undefined => findName.get(groupId);
 }
 
 function createRename(database: Database.Database): GroupStore["rename"] {

@@ -28,10 +28,28 @@ import { registerPasswordRecoveryRoute } from "./accounts/password-recovery-rout
 import { registerSignUpRoute } from "./accounts/register-route.js";
 import { createSignUp } from "./accounts/sign-up.js";
 import { createDeviceStore, type DeviceStore } from "./devices/device-store.js";
-import { createKeyDirectory } from "./key-directory/key-directory.js";
+import {
+  createInvitationRequestHandlers,
+  sendInvitationsOnHello,
+} from "./invitations/invitation-requests.js";
+import {
+  createInvitationStore,
+  type InvitationStore,
+} from "./invitations/invitation-store.js";
+import {
+  createKeyDirectory,
+  keyDirectoryAudience,
+} from "./key-directory/key-directory.js";
 import { registerKeyDirectoryRoute } from "./key-directory/key-directory-route.js";
 import { createLoggerOptions, type ServerLogOptions } from "./logging.js";
-import { RATE_LIMIT_PLUGIN_OPTIONS } from "./rate-limits.js";
+import {
+  INVITATION_RATE_LIMIT,
+  RATE_LIMIT_PLUGIN_OPTIONS,
+} from "./rate-limits.js";
+import {
+  createRequestRateLimit,
+  type RequestRateLimit,
+} from "./hub/request-rate-limit.js";
 import { registerHealthRoute } from "./routes/health.js";
 import { registerAccessTokenCheck } from "./sessions/access-token-check.js";
 import {
@@ -110,6 +128,8 @@ interface ServerParts extends SessionParts, LiveHub {
   deviceStore: DeviceStore;
   groupStore: GroupStore;
   blockStore: BlockStore;
+  invitationStore: InvitationStore;
+  invitationRateLimit: RequestRateLimit;
   messenger: HubMessenger;
 }
 
@@ -161,6 +181,8 @@ function createServerParts(
     deviceStore: createDeviceStore(options.database),
     groupStore,
     blockStore: createBlockStore(options.database),
+    invitationStore: createInvitationStore(options.database),
+    invitationRateLimit: createRequestRateLimit(INVITATION_RATE_LIMIT, clock),
     messenger: createHubMessenger(liveHub.socketRegistry),
     ...liveHub,
     ...createSessionParts(app, options, clock, liveHub.sessionSockets),
@@ -201,7 +223,10 @@ function registerAccountRoutes(app: FastifyInstance, parts: ServerParts): void {
   registerPasswordRoutes(app, parts);
   registerKeyDirectoryRoute(app, {
     checkAccessToken: parts.checkAccessToken,
-    keyDirectory: createKeyDirectory(parts.database),
+    keyDirectory: createKeyDirectory(
+      parts.database,
+      keyDirectoryAudience(parts.groupStore, parts.invitationStore),
+    ),
   });
 }
 
@@ -224,10 +249,14 @@ function registerSessionRoutes(app: FastifyInstance, parts: ServerParts): void {
 /** The hub's endpoints: what a Device gets after `hello`, and the handler of each request Envelope. */
 function createHub(parts: ServerParts): HubEndpoints {
   return createHubEndpoints(
-    [(context): void => sendBlockListOnHello(parts, context)],
+    [
+      (context): void => sendBlockListOnHello(parts, context),
+      (context): void => sendInvitationsOnHello(parts, context),
+    ],
     {
       ...createGroupRequestHandlers(parts),
       ...createBlockRequestHandlers(parts),
+      ...createInvitationRequestHandlers(parts),
     },
   );
 }

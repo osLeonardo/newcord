@@ -18,12 +18,16 @@ import {
   signUpAs,
   type TestSocketClient,
 } from "./support/websocket-test-client.js";
+import {
+  doneReply as done,
+  refusedReply as refused,
+  sendRequest as request,
+} from "./support/hub-request-kit.js";
 
 let server: TestServer;
 let alice: RegisterResponse;
 let bruno: RegisterResponse;
 const clients: TestSocketClient[] = [];
-let nextRequest = 0;
 
 beforeEach(async () => {
   server = await startTestServer({
@@ -43,22 +47,6 @@ async function online(accessToken: string): Promise<TestSocketClient> {
   const { client } = await connectWithHello(server.app, accessToken);
   clients.push(client);
   return client;
-}
-
-/** Sends a request Envelope with a fresh request ID and returns the ID. */
-function request(client: TestSocketClient, envelope: object): string {
-  nextRequest += 1;
-  const requestId = `r-${nextRequest}`;
-  client.sendEnvelope({ v: 1, requestId, ...envelope });
-  return requestId;
-}
-
-function done(requestId: string): object {
-  return { v: 1, type: "reply", requestId, ok: true };
-}
-
-function refused(requestId: string, code: string): object {
-  return { v: 1, type: "reply", requestId, ok: false, code };
 }
 
 function newGroupId(): string {

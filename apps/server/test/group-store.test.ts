@@ -89,6 +89,30 @@ describe("membership", () => {
   });
 });
 
+describe("isAccountActiveMember and nameOf", () => {
+  it("find an Account through any of its active Devices", () => {
+    const groupId = insertGroup(database, ["alice-laptop"], "friends");
+
+    expect(groups.isAccountActiveMember(groupId, accounts.alice.userId)).toBe(
+      true,
+    );
+    expect(groups.isAccountActiveMember(groupId, accounts.bruno.userId)).toBe(
+      false,
+    );
+    expect(groups.nameOf(groupId)).toBe("friends");
+    expect(groups.nameOf(newGroupId())).toBeUndefined();
+  });
+
+  it("does not count an Account whose Devices asked to leave", () => {
+    const groupId = insertGroup(database, ["alice-laptop", "bruno-phone"]);
+    markLeaving(groupId, "alice-laptop");
+
+    expect(groups.isAccountActiveMember(groupId, accounts.alice.userId)).toBe(
+      false,
+    );
+  });
+});
+
 describe("rename", () => {
   it("changes the name only", () => {
     const groupId = insertGroup(database, ["alice-phone"], "friends");

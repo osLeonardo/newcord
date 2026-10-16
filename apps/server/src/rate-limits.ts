@@ -55,6 +55,18 @@ export const KEY_DIRECTORY_RATE_LIMIT: RateLimitSetting = {
   timeWindow: ONE_MINUTE_MS,
 };
 
+/** Invitations: 20 per hour per Account (#5's spec), counted over the WebSocket. */
+export const INVITATION_RATE_LIMIT: RateLimitSetting = {
+  max: 20,
+  timeWindow: ONE_HOUR_MS,
+};
+
+/** Key package requests: 60 per hour per Account (#5's spec), counted over the WebSocket. */
+export const KEY_PACKAGE_REQUEST_RATE_LIMIT: RateLimitSetting = {
+  max: 60,
+  timeWindow: ONE_HOUR_MS,
+};
+
 /** @fastify/rate-limit settings: only routes naming a limit are limited, and every 429 carries a code. */
 export const RATE_LIMIT_PLUGIN_OPTIONS: RateLimitPluginOptions = {
   global: false,
