@@ -12,6 +12,8 @@ import {
   createSqliteLocalStore,
   type LocalStore,
 } from "../../src/main/local-store/local-store";
+import { createDeviceHub, type DeviceHub } from "../../src/main/hub/device-hub";
+import { createMlsStateStore } from "../../src/main/local-store/mls-state-store";
 import { createServerApiClient } from "../../src/main/server-api/server-api-client";
 import {
   createLiveSession,
@@ -19,6 +21,7 @@ import {
 } from "../../src/main/session/live-session";
 import { createTokenRenewal } from "../../src/main/session/token-renewal";
 import type { Credentials } from "../../src/preload/desktop-api";
+import { createFakeMlsEngine } from "./fake-mls-engine";
 import { createInjectedSocketOpener } from "./injected-socket-opener";
 import type { InProcessServer } from "./in-process-server";
 import { createManualClock, type ManualClock } from "./manual-clock";
@@ -33,6 +36,9 @@ export interface LiveInstallation {
   readonly liveSession: LiveSession;
   readonly sessionEnded: ReturnType<typeof vi.fn<() => void>>;
   readonly actions: AccountActions;
+  readonly deviceHub: DeviceHub;
+  /** Failures the hub reported instead of throwing; tests expect none. */
+  readonly hubErrors: unknown[];
 }
 
 /** Builds installations talking to one in-process server, and tears them all down. */
@@ -82,13 +88,31 @@ function installApp(
   const serverApi = createServerApiClient(server.transport);
   const clock = createManualClock();
   const sessionEnded = vi.fn<() => void>();
+  const hubErrors: unknown[] = [];
+  // The live session's events reach the hub, which needs the live session to send.
+  const hubHolder: { hub?: DeviceHub } = {};
   const liveSession = createLiveSession({
     store,
     renewal: createTokenRenewal({ store, server: serverApi }),
     openSocket: createInjectedSocketOpener(server.app),
     clock,
-    events: { sessionEnded, onlineAccountsChanged: () => undefined },
+    events: {
+      sessionEnded,
+      onlineAccountsChanged: () => undefined,
+      envelopeReceived: (envelope) => hubHolder.hub?.envelopeReceived(envelope),
+      connectionChanged: (ready) => hubHolder.hub?.connectionChanged(ready),
+    },
   });
+  const deviceHub = createDeviceHub({
+    store,
+    mlsStateStore: createMlsStateStore(database),
+    createEngine: createFakeMlsEngine,
+    server: serverApi,
+    liveSession,
+    clock,
+    reportError: (error) => hubErrors.push(error),
+  });
+  hubHolder.hub = deviceHub;
   const actions = createAccountActions({
     store,
     server: serverApi,
@@ -96,7 +120,15 @@ function installApp(
     liveSession,
   });
   return {
-    view: { store, clock, liveSession, sessionEnded, actions },
+    view: {
+      store,
+      clock,
+      liveSession,
+      sessionEnded,
+      actions,
+      deviceHub,
+      hubErrors,
+    },
     resources: { database, liveSession },
   };
 }

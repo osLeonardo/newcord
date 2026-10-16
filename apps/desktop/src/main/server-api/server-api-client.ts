@@ -1,9 +1,11 @@
 import {
   ApiErrorCode,
+  KeyPackageUploadResponse,
   LoginResponse,
   PasswordRecoveryResponse,
   RefreshResponse,
   RegisterResponse,
+  type KeyPackageUploadRequest,
   type LoginRequest,
   type PasswordChangeRequest,
   type PasswordRecoveryRequest,
@@ -41,6 +43,10 @@ export interface ServerApiClient {
   recoverPassword(
     request: PasswordRecoveryRequest,
   ): Promise<ServerCallResult<PasswordRecoveryResponse>>;
+  uploadKeyPackages(
+    accessToken: string,
+    request: KeyPackageUploadRequest,
+  ): Promise<ServerCallResult<KeyPackageUploadResponse>>;
 }
 
 interface ExpectedReply<Schema extends TSchema> {
@@ -96,6 +102,12 @@ export function createServerApiClient(
         transport,
         { path: "/password/recover", body: request },
         { status: 200, schema: PasswordRecoveryResponse },
+      ),
+    uploadKeyPackages: (accessToken, request) =>
+      post(
+        transport,
+        { path: "/keypackages", body: request, accessToken },
+        { status: 200, schema: KeyPackageUploadResponse },
       ),
   };
 }
