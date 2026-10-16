@@ -19,6 +19,7 @@ const refusalMessages: ReadonlyMap<string, string> = new Map(
     INVALID_ACCESS_TOKEN:
       "The server did not accept this session. Log in again.",
     RATE_LIMITED: "Too many attempts. Try again later.",
+    ACCOUNT_NOT_FOUND: "There is no Account with that username.",
     SERVER_UNREACHABLE:
       "Cannot reach the server. Check your connection and try again.",
     UNEXPECTED_RESPONSE:
