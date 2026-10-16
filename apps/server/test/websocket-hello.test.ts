@@ -14,6 +14,7 @@ import {
   signUp,
   startTestServer,
   type TestJwt,
+  shareGroup,
   type TestServer,
 } from "./support/server-test-kit.js";
 import {
@@ -79,8 +80,10 @@ describe("GET /ws hello deadline", () => {
 
     client.sendEnvelope(helloEnvelope(alice.accessToken));
     const snapshot = await client.nextEnvelope();
+    await client.nextEnvelope();
     vi.advanceTimersByTime(HELLO_DEADLINE_MS * 10);
     const bob = (await signUp(server.app, { username: "bob" })).body;
+    shareGroup(server.database, [alice.deviceId, bob.deviceId]);
     clients.push((await connectWithHello(server.app, bob.accessToken)).client);
 
     expect(snapshot).toMatchObject({ kind: "snapshot" });
@@ -107,6 +110,16 @@ describe("GET /ws with a valid hello", () => {
       usernames: ["alice"],
     });
     expect(Value.Check(ServerEnvelope, snapshot)).toBe(true);
+  });
+
+  it("follows the snapshot with the Account's block list", async () => {
+    const { client, blockList } = await connectWithHello(
+      server.app,
+      alice.accessToken,
+    );
+    clients.push(client);
+
+    expect(blockList).toEqual({ v: 1, type: "blocks", usernames: [] });
   });
 });
 

@@ -1,11 +1,14 @@
 import { Type, type Static } from "typebox";
 import { Username } from "./accounts.js";
+import { BlockEnvelope, BlockListEnvelope, UnblockEnvelope } from "./blocks.js";
+import {
+  GroupCreateEnvelope,
+  GroupRenameEnvelope,
+  GroupRenamedEnvelope,
+} from "./groups.js";
+import { ProtocolVersion } from "./protocol.js";
+import { ReplyEnvelope } from "./replies.js";
 import { AccessToken } from "./sessions.js";
-
-/** The WebSocket protocol version; every Envelope carries it as `v` (06-message-formats). */
-export const PROTOCOL_VERSION = 1;
-
-const ProtocolVersion = Type.Literal(PROTOCOL_VERSION);
 
 /** The client's first Envelope, sent within 5 seconds: it authenticates the socket (08-m1-build step 5). */
 export const HelloEnvelope = Type.Object(
@@ -14,7 +17,7 @@ export const HelloEnvelope = Type.Object(
 );
 export type HelloEnvelope = Static<typeof HelloEnvelope>;
 
-/** Sent once after `hello`: every online Account, the socket's own included, sorted by username. */
+/** Sent once after `hello`: every online Account sharing a Group with the socket's, its own included, sorted by username. */
 export const PresenceSnapshotEnvelope = Type.Object(
   {
     v: ProtocolVersion,
@@ -38,14 +41,26 @@ export const PresenceChangeEnvelope = Type.Object(
 );
 export type PresenceChangeEnvelope = Static<typeof PresenceChangeEnvelope>;
 
-/** Every Envelope a client may send; M1 has only `hello`. */
-export const ClientEnvelope = Type.Union([HelloEnvelope]);
+/** Every Envelope a client may send once its `hello` was accepted. */
+export const HubRequestEnvelope = Type.Union([
+  GroupCreateEnvelope,
+  GroupRenameEnvelope,
+  BlockEnvelope,
+  UnblockEnvelope,
+]);
+export type HubRequestEnvelope = Static<typeof HubRequestEnvelope>;
+
+/** Every Envelope a client may send: `hello` first, then the hub's requests. */
+export const ClientEnvelope = Type.Union([HelloEnvelope, HubRequestEnvelope]);
 export type ClientEnvelope = Static<typeof ClientEnvelope>;
 
-/** Every Envelope the server sends; M1 has only presence, sent to every connected client. */
+/** Every Envelope the server sends. */
 export const ServerEnvelope = Type.Union([
   PresenceSnapshotEnvelope,
   PresenceChangeEnvelope,
+  ReplyEnvelope,
+  GroupRenamedEnvelope,
+  BlockListEnvelope,
 ]);
 export type ServerEnvelope = Static<typeof ServerEnvelope>;
 

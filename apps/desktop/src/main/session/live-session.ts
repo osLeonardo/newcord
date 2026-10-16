@@ -226,7 +226,8 @@ async function sendHello(
 
 function receiveEnvelope(session: Session, text: string): void {
   const envelope = parseServerEnvelope(text);
-  if (envelope === undefined) return;
+  // M2's other Envelopes are handled by #6; the live session follows presence only.
+  if (envelope?.type !== "presence") return;
   // The snapshot is the server's answer to a valid `hello`.
   if (envelope.kind === "snapshot") session.state.reconnectBackoff.reset();
   const ownUsername = session.dependencies.store.readAccount()?.username ?? "";

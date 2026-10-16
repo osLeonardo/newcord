@@ -57,6 +57,15 @@ import {
   type SessionTokenIssuer,
 } from "./sessions/session-tokens.js";
 import { createTokenRefresh } from "./sessions/token-refresh.js";
+import {
+  createBlockRequestHandlers,
+  sendBlockListOnHello,
+} from "./blocks/block-requests.js";
+import { createBlockStore, type BlockStore } from "./blocks/block-store.js";
+import { createGroupRequestHandlers } from "./groups/group-requests.js";
+import { createGroupStore, type GroupStore } from "./groups/group-store.js";
+import { createHubMessenger, type HubMessenger } from "./hub/hub-messenger.js";
+import { createHubEndpoints, type HubEndpoints } from "./hub/hub-requests.js";
 import { createLiveHub, type LiveHub } from "./websocket/live-hub.js";
 import { scheduleLiveSessionCheck } from "./websocket/session-check.js";
 import {
@@ -99,6 +108,9 @@ interface ServerParts extends SessionParts, LiveHub {
   accountStore: AccountStore;
   credentialStore: CredentialStore;
   deviceStore: DeviceStore;
+  groupStore: GroupStore;
+  blockStore: BlockStore;
+  messenger: HubMessenger;
 }
 
 /**
@@ -116,7 +128,7 @@ export async function buildServerApp(
   registerHealthRoute(app);
   registerAccountRoutes(app, parts);
   registerSessionRoutes(app, parts);
-  registerWebSocketRoute(app, parts);
+  registerWebSocketRoute(app, { ...parts, hub: createHub(parts) });
   scheduleRefreshTokenCleanup(app, parts);
   scheduleLiveSessionCheck(app, parts);
   return app;
@@ -138,7 +150,8 @@ function createServerParts(
   options: ServerAppOptions,
 ): ServerParts {
   const clock = options.clock ?? ((): number => Date.now());
-  const liveHub = createLiveHub();
+  const groupStore = createGroupStore(options.database);
+  const liveHub = createLiveHub(groupStore);
   return {
     database: options.database,
     clock,
@@ -146,6 +159,9 @@ function createServerParts(
     accountStore: createAccountStore(options.database),
     credentialStore: createCredentialStore(options.database),
     deviceStore: createDeviceStore(options.database),
+    groupStore,
+    blockStore: createBlockStore(options.database),
+    messenger: createHubMessenger(liveHub.socketRegistry),
     ...liveHub,
     ...createSessionParts(app, options, clock, liveHub.sessionSockets),
   };
@@ -203,4 +219,15 @@ function registerPasswordRoutes(
 function registerSessionRoutes(app: FastifyInstance, parts: ServerParts): void {
   registerRefreshRoute(app, createTokenRefresh(parts));
   registerLogoutRoute(app, parts);
+}
+
+/** The hub's endpoints: what a Device gets after `hello`, and the handler of each request Envelope. */
+function createHub(parts: ServerParts): HubEndpoints {
+  return createHubEndpoints(
+    [(context): void => sendBlockListOnHello(parts, context)],
+    {
+      ...createGroupRequestHandlers(parts),
+      ...createBlockRequestHandlers(parts),
+    },
+  );
 }

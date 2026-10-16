@@ -7,6 +7,7 @@ import { Value } from "typebox/value";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   fastFakeHasher,
+  shareGroup,
   startTestServer,
   type TestServer,
 } from "./support/server-test-kit.js";
@@ -31,6 +32,7 @@ beforeEach(async () => {
   alice = await signUpAs(server.app, "alice");
   bob = await signUpAs(server.app, "bob");
   carol = await signUpAs(server.app, "carol");
+  shareGroup(server.database, [alice.deviceId, bob.deviceId, carol.deviceId]);
 });
 
 afterEach(async () => {
@@ -175,5 +177,31 @@ describe("Envelopes after hello", () => {
     expect(await aliceSocket.nextEnvelope()).toEqual(
       presenceChange("offline", "bob"),
     );
+  });
+});
+
+describe("presence among Group Members only (09-m2-build step 7)", () => {
+  it("shows an Account sharing no Group nobody but itself, and tells nobody about it", async () => {
+    const aliceSocket = (await online(alice.accessToken)).client;
+    const dora = await signUpAs(server.app, "dora");
+
+    const { snapshot } = await online(dora.accessToken);
+    await online(bob.accessToken);
+
+    expect(snapshot).toMatchObject({ usernames: ["dora"] });
+    expect(await aliceSocket.nextEnvelope()).toEqual(
+      presenceChange("online", "bob"),
+    );
+  });
+
+  it("shows only the Accounts of the Groups the Account is in", async () => {
+    const dora = await signUpAs(server.app, "dora");
+    shareGroup(server.database, [dora.deviceId, carol.deviceId]);
+    await online(alice.accessToken);
+    await online(carol.accessToken);
+
+    const { snapshot } = await online(dora.accessToken);
+
+    expect(snapshot).toMatchObject({ usernames: ["carol", "dora"] });
   });
 });

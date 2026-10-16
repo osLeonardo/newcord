@@ -7,9 +7,11 @@ import {
   type SocketRegistry,
 } from "../src/websocket/socket-registry.js";
 import {
+  ALICE_AND_BOB_SHARE_A_GROUP,
   ALICE_LAPTOP,
   ALICE_PHONE,
   BOB_PHONE,
+  CAROL_PHONE,
   createFakeHubSocket,
   type FakeHubSocket,
 } from "./support/fake-hub-socket.js";
@@ -28,7 +30,7 @@ let bob: FakeHubSocket;
 
 beforeEach(() => {
   registry = createSocketRegistry();
-  presence = createPresence(registry);
+  presence = createPresence(registry, ALICE_AND_BOB_SHARE_A_GROUP);
   bob = createFakeHubSocket();
   presence.join(bob, BOB_PHONE);
   bob.sent.length = 0;
@@ -103,6 +105,57 @@ describe("Presence.leave", () => {
     presence.leave(phone);
     presence.leave(createFakeHubSocket());
 
+    expect(bob.sent).toEqual([]);
+  });
+});
+
+describe("the audience of presence (09-m2-build step 7)", () => {
+  it("leaves Accounts sharing no Group out of the snapshot", () => {
+    presence.join(createFakeHubSocket(), CAROL_PHONE);
+    const phone = createFakeHubSocket();
+
+    presence.join(phone, ALICE_PHONE);
+
+    expect(phone.sent).toEqual([snapshotOf(["alice", "bob"])]);
+  });
+
+  it("shows an Account sharing no Group only itself", () => {
+    const carol = createFakeHubSocket();
+
+    presence.join(carol, CAROL_PHONE);
+
+    expect(carol.sent).toEqual([snapshotOf(["carol"])]);
+  });
+
+  it("tells only Accounts sharing a Group when an Account comes online or goes offline", () => {
+    const carol = createFakeHubSocket();
+    presence.join(carol, CAROL_PHONE);
+    carol.sent.length = 0;
+    const phone = createFakeHubSocket();
+
+    presence.join(phone, ALICE_PHONE);
+    presence.leave(phone);
+
+    expect(carol.sent).toEqual([]);
+    expect(bob.sent).toEqual([
+      presenceChange("online", "alice"),
+      presenceChange("offline", "alice"),
+    ]);
+  });
+
+  it("resends a fresh snapshot to every socket of the Accounts named", () => {
+    const phone = createFakeHubSocket();
+    const laptop = createFakeHubSocket();
+    presence.join(phone, ALICE_PHONE);
+    presence.join(laptop, ALICE_LAPTOP);
+    phone.sent.length = 0;
+    laptop.sent.length = 0;
+    bob.sent.length = 0;
+
+    presence.resendSnapshots([ALICE_PHONE.userId, ALICE_PHONE.userId]);
+
+    expect(phone.sent).toEqual([snapshotOf(["alice", "bob"])]);
+    expect(laptop.sent).toEqual([snapshotOf(["alice", "bob"])]);
     expect(bob.sent).toEqual([]);
   });
 });

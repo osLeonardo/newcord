@@ -107,14 +107,22 @@ export function helloEnvelope(accessToken: string): object {
   return { v: PROTOCOL_VERSION, type: "hello", accessToken };
 }
 
-/** Connects, sends `hello` with `accessToken` and reads the presence snapshot that answers it. */
+/** What every Device receives right after an accepted `hello`, in this order. */
+export interface HelloAnswer {
+  client: TestSocketClient;
+  snapshot: unknown;
+  blockList: unknown;
+}
+
+/** Connects, sends `hello` with `accessToken` and reads the presence snapshot and block list that answer it. */
 export async function connectWithHello(
   app: FastifyInstance,
   accessToken: string,
-): Promise<{ client: TestSocketClient; snapshot: unknown }> {
+): Promise<HelloAnswer> {
   const client = await connectTestClient(app);
   client.sendEnvelope(helloEnvelope(accessToken));
-  return { client, snapshot: await client.nextEnvelope() };
+  const snapshot = await client.nextEnvelope();
+  return { client, snapshot, blockList: await client.nextEnvelope() };
 }
 
 function watchTestClient(raw: RawTestClient): TestSocketClient {

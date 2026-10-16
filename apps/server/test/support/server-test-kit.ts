@@ -1,4 +1,9 @@
-import { createHash, createHmac, generateKeyPairSync } from "node:crypto";
+import {
+  createHash,
+  createHmac,
+  generateKeyPairSync,
+  randomBytes,
+} from "node:crypto";
 import type { RegisterRequest, RegisterResponse } from "@newcord/shared";
 import type Database from "better-sqlite3";
 import type { FastifyInstance, LightMyRequestResponse } from "fastify";
@@ -260,4 +265,25 @@ export function hmacSignature(
 /** Seconds since the epoch, as JWT claims count time. */
 export function nowInSeconds(): number {
   return Math.floor(Date.now() / 1000);
+}
+
+/**
+ * Puts Devices in one new Group directly, as Group creation and accepted commits would, so
+ * their Accounts see each other online. Returns the Group's ID in base64url.
+ */
+export function shareGroup(
+  database: Database.Database,
+  deviceIds: readonly string[],
+): string {
+  const groupId = randomBytes(16);
+  database
+    .prepare(
+      "INSERT INTO groups (id, name, epoch, created_at) VALUES (?, 'friends', 0, 0)",
+    )
+    .run(groupId);
+  const addMember = database.prepare(
+    "INSERT INTO group_members (group_id, device_id) VALUES (?, ?)",
+  );
+  for (const deviceId of deviceIds) addMember.run(groupId, deviceId);
+  return groupId.toString("base64url");
 }

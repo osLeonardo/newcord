@@ -1,4 +1,5 @@
 import type { HubSocket } from "../../src/websocket/hub-socket.js";
+import type { PresenceAudience } from "../../src/websocket/presence.js";
 import type { SocketOwner } from "../../src/websocket/socket-registry.js";
 
 export interface SocketClosure {
@@ -47,4 +48,20 @@ export const BOB_PHONE: SocketOwner = {
   userId: 2,
   deviceId: "bob-phone",
   username: "bob",
+};
+
+/** Carla's only Device; she shares no Group with anyone unless a test says so. */
+export const CAROL_PHONE: SocketOwner = {
+  userId: 3,
+  deviceId: "carol-phone",
+  username: "carol",
+};
+
+/** A presence audience where Alice and Bob share a Group and Carol shares none. */
+export const ALICE_AND_BOB_SHARE_A_GROUP: PresenceAudience = {
+  coMemberUserIdsOf: (userId: number): number[] => {
+    if (userId === ALICE_PHONE.userId) return [BOB_PHONE.userId];
+    if (userId === BOB_PHONE.userId) return [ALICE_PHONE.userId];
+    return [];
+  },
 };
