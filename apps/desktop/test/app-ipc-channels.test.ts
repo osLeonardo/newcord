@@ -12,6 +12,9 @@ import {
   type AccountSwitchChoice,
   type Credentials,
   type LogInResult,
+  type PasswordChangeResult,
+  type PasswordRecovery,
+  type PasswordRecoveryResult,
   type SessionState,
   type SignUpResult,
 } from "../src/preload/desktop-api";
@@ -30,6 +33,17 @@ const signedUp: SignUpResult = {
 };
 const logInResult: LogInResult = { outcome: "logged-in", session: loggedIn };
 const onlineAccounts = ["bruno", "carla"];
+const passwordChanged: PasswordChangeResult = { outcome: "changed" };
+const recovered: PasswordRecoveryResult = {
+  outcome: "recovered",
+  recoveryCode: "0123456789ABCDEFGHJKMNPQ",
+  session: loggedOut,
+};
+const recovery: PasswordRecovery = {
+  username: "alice_01",
+  recoveryCode: "oi23-4567-89ab-cdef-ghjk-mnpq",
+  newPassword: "a brand new long password",
+};
 const appInvocation: IpcInvocation = {
   sender: { id: 1 },
   senderFrame: { url: "file:///app/index.html", parent: null },
@@ -49,6 +63,12 @@ function fakeActions(): FakeActions {
     logOut: vi.fn<AccountActions["logOut"]>(() => Promise.resolve(loggedOut)),
     readOnlineAccounts: vi.fn<AccountActions["readOnlineAccounts"]>(() =>
       Promise.resolve(onlineAccounts),
+    ),
+    changePassword: vi.fn<AccountActions["changePassword"]>(() =>
+      Promise.resolve(passwordChanged),
+    ),
+    recoverPassword: vi.fn<AccountActions["recoverPassword"]>(() =>
+      Promise.resolve(recovered),
     ),
   };
 }
@@ -206,5 +226,68 @@ describe.each([
     );
     await expect(call).rejects.not.toThrow("short");
     expect(actionOf(actions)).not.toHaveBeenCalled();
+  });
+});
+
+describe("the password change channel", () => {
+  it("passes the new password to its action", async () => {
+    const actions = fakeActions();
+    const channel = channelNamed(
+      createAppIpcChannels(actions),
+      desktopApiChannels.changePassword,
+    );
+
+    expect(channel.argumentsMatch([recovery.newPassword])).toBe(true);
+    await expect(channel.handle(recovery.newPassword)).resolves.toEqual(
+      passwordChanged,
+    );
+    expect(actions.changePassword).toHaveBeenCalledExactlyOnceWith(
+      recovery.newPassword,
+    );
+  });
+
+  it.each([
+    ["no arguments", []],
+    ["a password shorter than 12", ["short pass1"]],
+    ["a password longer than 256", ["p".repeat(257)]],
+    ["an object", [{ newPassword: recovery.newPassword }]],
+    ["a second argument", [recovery.newPassword, recovery.newPassword]],
+  ])("refuses %s", (_case, args) => {
+    const channel = channelNamed(
+      createAppIpcChannels(fakeActions()),
+      desktopApiChannels.changePassword,
+    );
+
+    expect(channel.argumentsMatch(args)).toBe(false);
+  });
+});
+
+describe("the password recovery channel", () => {
+  it("passes the recovery, with the code as typed, to its action", async () => {
+    const actions = fakeActions();
+    const channel = channelNamed(
+      createAppIpcChannels(actions),
+      desktopApiChannels.recoverPassword,
+    );
+
+    expect(channel.argumentsMatch([recovery])).toBe(true);
+    await expect(channel.handle(recovery)).resolves.toEqual(recovered);
+    expect(actions.recoverPassword).toHaveBeenCalledExactlyOnceWith(recovery);
+  });
+
+  it.each([
+    ["no arguments", []],
+    ["a code with too few symbols", [{ ...recovery, recoveryCode: "0123" }]],
+    ["a code with a U", [{ ...recovery, recoveryCode: "U".repeat(24) }]],
+    ["an invalid username", [{ ...recovery, username: "Alice" }]],
+    ["a short new password", [{ ...recovery, newPassword: "short pass1" }]],
+    ["a field outside the schema", [{ ...recovery, password: "x" }]],
+  ])("refuses %s", (_case, args) => {
+    const channel = channelNamed(
+      createAppIpcChannels(fakeActions()),
+      desktopApiChannels.recoverPassword,
+    );
+
+    expect(channel.argumentsMatch(args)).toBe(false);
   });
 });

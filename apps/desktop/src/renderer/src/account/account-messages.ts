@@ -2,7 +2,7 @@ import type { AccountRefusal } from "../../../preload/desktop-api";
 import {
   passwordLimits,
   usernameLimits,
-  type CredentialsProblem,
+  type InputProblem,
 } from "./credentials-check";
 
 /** Shown when the main process fails in a way the screens cannot explain. */
@@ -37,10 +37,20 @@ export function accountRefusalMessage(refusal: AccountRefusal): string {
 }
 
 /**
- * The sentence a screen shows for credentials it refuses before sending them.
- * @example credentialsProblemMessage("PASSWORD_TOO_SHORT") // "Passwords need at least 12 characters."
+ * The sentence a recovery screen shows when the main process refuses it; a wrong code is not a wrong password.
+ * @example recoveryRefusalMessage("INVALID_CREDENTIALS") // "Wrong username or Recovery code."
  */
-export function credentialsProblemMessage(problem: CredentialsProblem): string {
+export function recoveryRefusalMessage(refusal: AccountRefusal): string {
+  return refusal === "INVALID_CREDENTIALS"
+    ? "Wrong username or Recovery code."
+    : accountRefusalMessage(refusal);
+}
+
+/**
+ * The sentence a screen shows for what was typed, when it refuses it before sending.
+ * @example inputProblemMessage("PASSWORD_TOO_SHORT") // "Passwords need at least 12 characters."
+ */
+export function inputProblemMessage(problem: InputProblem): string {
   switch (problem) {
     case "INVALID_USERNAME":
       return `Usernames have ${usernameLimits.minLength} to ${usernameLimits.maxLength} characters: lowercase letters, digits and underscores.`;
@@ -48,5 +58,9 @@ export function credentialsProblemMessage(problem: CredentialsProblem): string {
       return `Passwords need at least ${passwordLimits.minLength} characters.`;
     case "PASSWORD_TOO_LONG":
       return `Passwords can have at most ${passwordLimits.maxLength} characters.`;
+    case "PASSWORDS_DIFFER":
+      return "The two passwords do not match.";
+    case "INVALID_RECOVERY_CODE":
+      return "A Recovery code has 24 letters and digits, as shown when it was made.";
   }
 }

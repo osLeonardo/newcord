@@ -1,23 +1,16 @@
-import { useId, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import {
   submitCredentials,
   type CredentialsSender,
 } from "../account/credentials-submission";
 import { screenStyles } from "./screen-styles";
+import { TextField } from "./TextField";
 
 interface CredentialsFormProps {
   readonly submitLabel: string;
   readonly passwordAutoComplete: "new-password" | "current-password";
   readonly initialUsername: string;
   readonly send: CredentialsSender;
-}
-
-interface TextFieldProps {
-  readonly label: string;
-  readonly type: "text" | "password";
-  readonly value: string;
-  readonly autoComplete: string;
-  readonly onChange: (value: string) => void;
 }
 
 /** The username and password form of the sign-up and login screens; it shows refusals as plain text. */
@@ -69,28 +62,5 @@ export function CredentialsForm(
         {props.submitLabel}
       </button>
     </form>
-  );
-}
-
-function TextField(props: TextFieldProps): React.JSX.Element {
-  const id = useId();
-  return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-sm text-zinc-300">
-        {props.label}
-      </label>
-      <input
-        id={id}
-        type={props.type}
-        value={props.value}
-        autoComplete={props.autoComplete}
-        autoCapitalize="none"
-        spellCheck={false}
-        className={screenStyles.textInput}
-        onChange={(event) => {
-          props.onChange(event.target.value);
-        }}
-      />
-    </div>
   );
 }

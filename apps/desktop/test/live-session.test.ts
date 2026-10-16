@@ -235,6 +235,28 @@ describe("renewing the access token", () => {
   });
 });
 
+describe("renewing on request", () => {
+  it("renews at once and schedules the next renewal from the new token", async () => {
+    await startConnected();
+    await clock.advance(5 * ONE_MINUTE);
+
+    await expect(liveSession.renewAccessToken()).resolves.toBe("renewed");
+    await clock.advance(FIFTEEN_MINUTES - ONE_MINUTE - 1);
+
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it("ends the session when the server refuses the refresh token", async () => {
+    refresh.mockImplementation(() =>
+      failingWith(ApiErrorCode.InvalidRefreshToken),
+    );
+    await startConnected();
+
+    await expect(liveSession.renewAccessToken()).resolves.toBe("session-ended");
+    expect(events.sessionEnded).toHaveBeenCalledOnce();
+  });
+});
+
 describe("reconnecting", () => {
   it("waits 1, 2 and 4 seconds after repeated drops", async () => {
     (await startConnected()).closeFromServer(NETWORK_DROP);

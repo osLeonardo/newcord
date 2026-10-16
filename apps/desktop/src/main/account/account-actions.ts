@@ -22,13 +22,17 @@ import {
   type AccountEntryPlan,
 } from "./account-switch";
 import { endServerSession } from "./server-session-end";
+import { createPasswordActions } from "./password-actions";
 import { sessionStateOf } from "./session-state";
 
 export interface AccountActionsDependencies {
   readonly store: LocalStore;
   readonly server: ServerApiClient;
   readonly createKeyPair: () => IdentityKeyPair;
-  readonly liveSession: Pick<LiveSession, "start" | "stop" | "onlineAccounts">;
+  readonly liveSession: Pick<
+    LiveSession,
+    "start" | "stop" | "onlineAccounts" | "renewAccessToken"
+  >;
 }
 
 /** What each desktop API call does in the main process. */
@@ -54,6 +58,7 @@ export function createAccountActions(
     logOut: () => logOut(dependencies),
     readOnlineAccounts: () =>
       Promise.resolve(dependencies.liveSession.onlineAccounts()),
+    ...createPasswordActions(dependencies),
   };
 }
 

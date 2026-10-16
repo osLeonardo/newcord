@@ -3,6 +3,8 @@ import {
   desktopApiEventChannels,
   type DesktopApi,
   type LogInResult,
+  type PasswordChangeResult,
+  type PasswordRecoveryResult,
   type SessionState,
   type SignUpResult,
   type Unsubscribe,
@@ -49,6 +51,16 @@ export function createDesktopApi(
       invoke(desktopApiChannels.readOnlineAccounts) as Promise<
         readonly string[]
       >,
+    changePassword: (newPassword) =>
+      invoke(
+        desktopApiChannels.changePassword,
+        newPassword,
+      ) as Promise<PasswordChangeResult>,
+    recoverPassword: (recovery) =>
+      invoke(
+        desktopApiChannels.recoverPassword,
+        recovery,
+      ) as Promise<PasswordRecoveryResult>,
     onSessionChanged: (listener) =>
       subscribe(desktopApiEventChannels.onSessionChanged, (payload) =>
         listener(payload as SessionState),

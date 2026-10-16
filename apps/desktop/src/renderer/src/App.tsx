@@ -4,6 +4,8 @@ import { viewForSessionState, type AppView } from "./app-view";
 import { AccountSwitchScreen } from "./screens/AccountSwitchScreen";
 import { HomeScreen } from "./screens/HomeScreen";
 import { LogInScreen } from "./screens/LogInScreen";
+import { PasswordChangeScreen } from "./screens/PasswordChangeScreen";
+import { PasswordRecoveryScreen } from "./screens/PasswordRecoveryScreen";
 import { RecoveryCodeScreen } from "./screens/RecoveryCodeScreen";
 import { SignUpScreen } from "./screens/SignUpScreen";
 
@@ -85,8 +87,24 @@ function CurrentScreen({
         <RecoveryCodeScreen
           recoveryCode={view.recoveryCode}
           onContinue={() => {
-            show(viewForSessionState(view.session));
+            show(view.next);
           }}
+        />
+      );
+    case "password-recovery":
+      return (
+        <PasswordRecoveryScreen
+          desktopApi={desktopApi}
+          storedUsername={view.storedUsername}
+          show={show}
+        />
+      );
+    case "password-change":
+      return (
+        <PasswordChangeScreen
+          desktopApi={desktopApi}
+          username={view.username}
+          show={show}
         />
       );
     case "account-switch":

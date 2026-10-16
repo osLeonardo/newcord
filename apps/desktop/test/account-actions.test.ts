@@ -59,6 +59,7 @@ interface FakeLiveSession {
   readonly start: Mock<LiveSessionControls["start"]>;
   readonly stop: Mock<LiveSessionControls["stop"]>;
   readonly onlineAccounts: Mock<LiveSessionControls["onlineAccounts"]>;
+  readonly renewAccessToken: Mock<LiveSessionControls["renewAccessToken"]>;
 }
 
 interface Installation {
@@ -100,6 +101,9 @@ function fakeLiveSession(): FakeLiveSession {
     start: vi.fn<LiveSessionControls["start"]>(),
     stop: vi.fn<LiveSessionControls["stop"]>(() => Promise.resolve()),
     onlineAccounts: vi.fn<LiveSessionControls["onlineAccounts"]>(() => []),
+    renewAccessToken: vi.fn<LiveSessionControls["renewAccessToken"]>(() =>
+      Promise.resolve("renewed"),
+    ),
   };
 }
 

@@ -1,9 +1,12 @@
 import {
   ApiErrorCode,
   LoginResponse,
+  PasswordRecoveryResponse,
   RefreshResponse,
   RegisterResponse,
   type LoginRequest,
+  type PasswordChangeRequest,
+  type PasswordRecoveryRequest,
   type RefreshRequest,
   type RegisterRequest,
 } from "@newcord/shared";
@@ -31,6 +34,13 @@ export interface ServerApiClient {
   logIn(request: LoginRequest): Promise<ServerCallResult<LoginResponse>>;
   refresh(request: RefreshRequest): Promise<ServerCallResult<RefreshResponse>>;
   logOut(accessToken: string): Promise<ServerCallResult<undefined>>;
+  changePassword(
+    accessToken: string,
+    request: PasswordChangeRequest,
+  ): Promise<ServerCallResult<undefined>>;
+  recoverPassword(
+    request: PasswordRecoveryRequest,
+  ): Promise<ServerCallResult<PasswordRecoveryResponse>>;
 }
 
 interface ExpectedReply<Schema extends TSchema> {
@@ -74,6 +84,18 @@ export function createServerApiClient(
         transport,
         { path: "/logout", accessToken },
         { status: 204, schema: NoBody },
+      ),
+    changePassword: (accessToken, request) =>
+      post(
+        transport,
+        { path: "/password/change", body: request, accessToken },
+        { status: 204, schema: NoBody },
+      ),
+    recoverPassword: (request) =>
+      post(
+        transport,
+        { path: "/password/recover", body: request },
+        { status: 200, schema: PasswordRecoveryResponse },
       ),
   };
 }

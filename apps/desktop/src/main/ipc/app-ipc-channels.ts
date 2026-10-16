@@ -1,8 +1,10 @@
-import { Password, Username } from "@newcord/shared";
+import { Password, TypedRecoveryCode, Username } from "@newcord/shared";
 import { Type, type Static } from "typebox";
 import {
   desktopApiChannels,
   type LogInResult,
+  type PasswordChangeResult,
+  type PasswordRecoveryResult,
   type SessionState,
   type SignUpResult,
 } from "../../preload/desktop-api";
@@ -22,6 +24,19 @@ const CredentialsArguments = Type.Tuple([
   ),
 ]);
 type CredentialsArguments = Static<typeof CredentialsArguments>;
+const PasswordChangeArguments = Type.Tuple([Password]);
+type PasswordChangeArguments = Static<typeof PasswordChangeArguments>;
+const PasswordRecoveryArguments = Type.Tuple([
+  Type.Object(
+    {
+      username: Username,
+      recoveryCode: TypedRecoveryCode,
+      newPassword: Password,
+    },
+    { additionalProperties: false },
+  ),
+]);
+type PasswordRecoveryArguments = Static<typeof PasswordRecoveryArguments>;
 const NoArguments = Type.Tuple([]);
 type NoArguments = Static<typeof NoArguments>;
 const CREDENTIALS_DESCRIPTION =
@@ -64,6 +79,19 @@ export function createAppIpcChannels(
       expectedArguments: "",
       argumentsMatch: argumentsMatching(NoArguments),
       handle: () => actions.readOnlineAccounts(),
+    }),
+    checkedChannel<PasswordChangeArguments, PasswordChangeResult>({
+      name: desktopApiChannels.changePassword,
+      expectedArguments: "newPassword: Password",
+      argumentsMatch: argumentsMatching(PasswordChangeArguments),
+      handle: (newPassword) => actions.changePassword(newPassword),
+    }),
+    checkedChannel<PasswordRecoveryArguments, PasswordRecoveryResult>({
+      name: desktopApiChannels.recoverPassword,
+      expectedArguments:
+        "recovery: { username: Username, recoveryCode: TypedRecoveryCode, newPassword: Password }",
+      argumentsMatch: argumentsMatching(PasswordRecoveryArguments),
+      handle: (recovery) => actions.recoverPassword(recovery),
     }),
   ];
 }

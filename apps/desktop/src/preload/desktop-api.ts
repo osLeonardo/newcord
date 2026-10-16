@@ -40,6 +40,27 @@ export type LogInResult =
   | { readonly outcome: "logged-in"; readonly session: SessionState }
   | { readonly outcome: "refused"; readonly refusal: AccountRefusal };
 
+/** A password change's outcome: this Device stays logged in, and the server logs out the Account's other Devices (D55, D66). */
+export type PasswordChangeResult =
+  | { readonly outcome: "changed" }
+  | { readonly outcome: "refused"; readonly refusal: AccountRefusal };
+
+/** What the recovery screen sends; the Recovery code may be typed with spaces, dashes, any letter case and look-alike letters. */
+export interface PasswordRecovery {
+  readonly username: string;
+  readonly recoveryCode: string;
+  readonly newPassword: string;
+}
+
+/** A recovery's outcome: the new Recovery code, shown once, and the session state to log in from (D55, D66). */
+export type PasswordRecoveryResult =
+  | {
+      readonly outcome: "recovered";
+      readonly recoveryCode: string;
+      readonly session: SessionState;
+    }
+  | { readonly outcome: "refused"; readonly refusal: AccountRefusal };
+
 /** Stops a listener from hearing any more changes. */
 export type Unsubscribe = () => void;
 
@@ -58,6 +79,10 @@ export interface DesktopApiCalls {
   logOut(): Promise<SessionState>;
   /** The other Accounts online now, sorted by username; empty while logged out or disconnected. */
   readOnlineAccounts(): Promise<readonly string[]>;
+  /** Sets a new password from this logged-in Device, without the old one (D55). */
+  changePassword(newPassword: string): Promise<PasswordChangeResult>;
+  /** Sets a new password with the Recovery code; it logs no Device in. */
+  recoverPassword(recovery: PasswordRecovery): Promise<PasswordRecoveryResult>;
 }
 
 /** The changes the main process tells the interface about. */
@@ -79,6 +104,8 @@ export const desktopApiChannels = {
   logIn: "account:log-in",
   logOut: "session:log-out",
   readOnlineAccounts: "presence:read-online",
+  changePassword: "password:change",
+  recoverPassword: "password:recover",
 } as const satisfies Record<keyof DesktopApiCalls, string>;
 
 /** The IPC channel the main process sends each change on. */

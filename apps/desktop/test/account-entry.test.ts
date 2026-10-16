@@ -77,7 +77,7 @@ describe("nextAfterAccountEntry", () => {
       view: {
         screen: "recovery-code",
         recoveryCode: "0123456789ABCDEFGHJKMNPQ",
-        session: { status: "logged-in", username: "bruno" },
+        next: { screen: "home", username: "bruno" },
       },
     });
   });

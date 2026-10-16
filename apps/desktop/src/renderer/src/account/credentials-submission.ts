@@ -1,6 +1,6 @@
 import type { Credentials } from "../../../preload/desktop-api";
 import {
-  credentialsProblemMessage,
+  inputProblemMessage,
   UNEXPECTED_FAILURE_MESSAGE,
 } from "./account-messages";
 import { credentialsProblem } from "./credentials-check";
@@ -19,7 +19,7 @@ export async function submitCredentials(
   send: CredentialsSender,
 ): Promise<string | undefined> {
   const problem = credentialsProblem(credentials);
-  if (problem !== undefined) return credentialsProblemMessage(problem);
+  if (problem !== undefined) return inputProblemMessage(problem);
   try {
     return await send(credentials);
   } catch {

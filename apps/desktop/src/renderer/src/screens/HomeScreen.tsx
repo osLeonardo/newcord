@@ -40,6 +40,16 @@ export function HomeScreen(props: HomeScreenProps): React.JSX.Element {
       )}
       <button
         type="button"
+        className={screenStyles.secondaryButton}
+        disabled={loggingOut}
+        onClick={() => {
+          props.show({ screen: "password-change", username: props.username });
+        }}
+      >
+        Change password
+      </button>
+      <button
+        type="button"
         className={screenStyles.primaryButton}
         disabled={loggingOut}
         onClick={() => void logOut()}

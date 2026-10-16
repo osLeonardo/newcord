@@ -31,6 +31,16 @@ export function LogInScreen(props: LogInScreenProps): React.JSX.Element {
         send={logIn}
       />
       <SwitchScreenLink
+        prompt="Forgot your password?"
+        label="Use your Recovery code"
+        onClick={() => {
+          props.show({
+            screen: "password-recovery",
+            storedUsername: props.storedUsername,
+          });
+        }}
+      />
+      <SwitchScreenLink
         prompt="New here?"
         label="Create an Account"
         onClick={() => {

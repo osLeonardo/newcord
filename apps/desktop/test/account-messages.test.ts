@@ -2,7 +2,7 @@ import { ApiErrorCode } from "@newcord/shared";
 import { describe, expect, it } from "vitest";
 import {
   accountRefusalMessage,
-  credentialsProblemMessage,
+  inputProblemMessage,
 } from "../src/renderer/src/account/account-messages";
 import type { AccountRefusal } from "../src/preload/desktop-api";
 
@@ -41,7 +41,7 @@ describe("accountRefusalMessage", () => {
   });
 });
 
-describe("credentialsProblemMessage", () => {
+describe("inputProblemMessage", () => {
   it.each([
     [
       "INVALID_USERNAME",
@@ -50,6 +50,6 @@ describe("credentialsProblemMessage", () => {
     ["PASSWORD_TOO_SHORT", "Passwords need at least 12 characters."],
     ["PASSWORD_TOO_LONG", "Passwords can have at most 256 characters."],
   ] as const)("explains %s with the shared limits", (problem, message) => {
-    expect(credentialsProblemMessage(problem)).toBe(message);
+    expect(inputProblemMessage(problem)).toBe(message);
   });
 });

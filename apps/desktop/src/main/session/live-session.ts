@@ -43,6 +43,8 @@ export interface LiveSession {
   stop(): Promise<void>;
   /** The other Accounts online now, sorted by username. */
   onlineAccounts(): readonly string[];
+  /** Renews the tokens now, as a refused access token asks; ends the session if the server refuses the refresh token. */
+  renewAccessToken(): Promise<RenewalOutcome>;
 }
 
 interface LiveSessionState {
@@ -75,6 +77,8 @@ export function createLiveSession(
     start: (): void => start(session),
     stop: (): Promise<void> => stop(session),
     onlineAccounts: (): readonly string[] => session.state.onlineAccounts,
+    renewAccessToken: (): Promise<RenewalOutcome> =>
+      renewNow(session, session.state.generation),
   };
 }
 

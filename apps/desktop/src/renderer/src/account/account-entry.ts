@@ -41,10 +41,13 @@ export function nextAfterAccountEntry(
   storedUsername: string | null,
 ): AccountEntryNext {
   if (result.outcome === "signed-up") {
-    const { recoveryCode, session } = result;
     return {
       kind: "show",
-      view: { screen: "recovery-code", recoveryCode, session },
+      view: {
+        screen: "recovery-code",
+        recoveryCode: result.recoveryCode,
+        next: viewForSessionState(result.session),
+      },
     };
   }
   if (result.outcome === "logged-in") {

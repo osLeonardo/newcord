@@ -28,7 +28,7 @@ function fakeServer(
   logOutResults: ServerCallResult<undefined>[],
   refreshResult: RefreshResult,
 ): {
-  server: ServerApiClient;
+  server: Pick<ServerApiClient, "logOut" | "refresh">;
   logOut: Mock<ServerApiClient["logOut"]>;
   refresh: Mock<ServerApiClient["refresh"]>;
 } {
@@ -38,11 +38,8 @@ function fakeServer(
   const refresh = vi.fn<ServerApiClient["refresh"]>(() =>
     Promise.resolve(refreshResult),
   );
-  const unused = (): never => {
-    throw new Error("endServerSession must not sign up or log in");
-  };
   return {
-    server: { register: unused, logIn: unused, refresh, logOut },
+    server: { refresh, logOut },
     logOut,
     refresh,
   };

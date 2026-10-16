@@ -1,6 +1,7 @@
 import {
   ApiErrorCode,
   LoginResponse,
+  PasswordRecoveryResponse,
   RefreshResponse,
   RegisterResponse,
   type RegisterRequest,
@@ -164,6 +165,56 @@ describe("logOut", () => {
       ok: false,
       failure: ApiErrorCode.InvalidAccessToken,
     });
+  });
+});
+
+describe("changePassword", () => {
+  const newPassword = "a brand new long password";
+
+  it("sets the new password, so the old one stops working", async () => {
+    const { accessToken } = bodyOf(await client.register(registerRequest()));
+
+    await expect(
+      client.changePassword(accessToken, { newPassword }),
+    ).resolves.toEqual({ ok: true, body: undefined });
+    await expect(
+      client.logIn({ ...registerRequest(), password: PASSWORD }),
+    ).resolves.toEqual({ ok: false, failure: ApiErrorCode.InvalidCredentials });
+  });
+
+  it("reports an access token the server does not accept", async () => {
+    await expect(
+      client.changePassword("not.a.token", { newPassword }),
+    ).resolves.toEqual({ ok: false, failure: ApiErrorCode.InvalidAccessToken });
+  });
+});
+
+describe("recoverPassword", () => {
+  const newPassword = "a brand new long password";
+
+  it("returns a new Recovery code for the right one", async () => {
+    const { recoveryCode } = bodyOf(await client.register(registerRequest()));
+
+    const result = await client.recoverPassword({
+      username: "alice",
+      recoveryCode,
+      newPassword,
+    });
+
+    expect(Value.Check(PasswordRecoveryResponse, bodyOf(result))).toBe(true);
+    expect(bodyOf(result).recoveryCode).not.toBe(recoveryCode);
+  });
+
+  it("reports a wrong Recovery code as wrong credentials", async () => {
+    await client.register(registerRequest());
+
+    await expect(
+      client.recoverPassword({
+        username: "alice",
+        recoveryCode: "0".repeat(24),
+        newPassword,
+      }),
+    ).resolves.toEqual({ ok: false, failure: ApiErrorCode.InvalidCredentials });
   });
 });
 

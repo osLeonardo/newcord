@@ -15,8 +15,14 @@ export type AppView =
   | {
       readonly screen: "recovery-code";
       readonly recoveryCode: string;
-      readonly session: SessionState;
+      /** The screen shown once the person confirms they saved the code. */
+      readonly next: AppView;
     }
+  | {
+      readonly screen: "password-recovery";
+      readonly storedUsername: string | null;
+    }
+  | { readonly screen: "password-change"; readonly username: string }
   | {
       readonly screen: "account-switch";
       readonly storedUsername: string;

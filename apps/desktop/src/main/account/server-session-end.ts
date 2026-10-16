@@ -8,7 +8,7 @@ import type { ServerApiClient } from "../server-api/server-api-client";
  * @example await endServerSession(serverApiClient, storedTokens);
  */
 export async function endServerSession(
-  server: ServerApiClient,
+  server: Pick<ServerApiClient, "logOut" | "refresh">,
   tokens: SessionTokens,
 ): Promise<void> {
   const loggedOut = await server.logOut(tokens.accessToken);
