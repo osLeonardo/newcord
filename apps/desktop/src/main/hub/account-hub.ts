@@ -1,4 +1,11 @@
+import { PROTOCOL_VERSION } from "@newcord/shared";
+import type { GroupEvents } from "../groups/group-context";
+import { groupIdText } from "../groups/group-context";
+import { createGroupLanes } from "../groups/group-lanes";
+import { createGroupService, type GroupService } from "../groups/group-service";
+import type { LocalGroups } from "../local-store/local-groups";
 import type { LocalStore } from "../local-store/local-store";
+import { credentialIdentity } from "../mls/credential-identity";
 import type { MlsStateStore } from "../local-store/mls-state-store";
 import {
   createKeyPackageUpkeep,
@@ -16,6 +23,8 @@ import { createHubRequester, type HubRequester } from "./hub-requester";
 export interface AccountHubDependencies {
   readonly store: LocalStore;
   readonly mlsStateStore: MlsStateStore;
+  readonly localGroups: LocalGroups;
+  readonly groupEvents: GroupEvents;
   readonly createEngine: () => MlsEngine;
   readonly server: Pick<ServerApiClient, "uploadKeyPackages">;
   readonly liveSession: Pick<LiveSession, "send" | "renewAccessToken">;
@@ -29,6 +38,7 @@ export interface AccountHub {
   readonly deviceId: string;
   readonly mls: MlsSession;
   readonly requester: HubRequester;
+  readonly groups: GroupService;
   envelopeReceived(envelope: HubEnvelope): void;
   connectionChanged(ready: boolean): void;
 }
@@ -54,11 +64,29 @@ export function openAccountHub(
     clock: dependencies.clock,
   });
   const upkeep = keyPackageUpkeepFor(dependencies, mls);
+  const groups = createGroupService({
+    mls,
+    requester,
+    localGroups: dependencies.localGroups,
+    lanes: createGroupLanes(),
+    ownIdentity: credentialIdentity(account),
+    sendAck: (groupId, seq) =>
+      dependencies.liveSession.send({
+        v: PROTOCOL_VERSION,
+        type: "ack",
+        groupId: groupIdText(groupId),
+        seq,
+      }),
+    events: dependencies.groupEvents,
+    reportError: dependencies.reportError,
+  });
   return {
     deviceId: account.deviceId,
     mls,
     requester,
+    groups,
     envelopeReceived: createHubInbox({
+      ...groups.inboxHandlers,
       reply: (reply) => requester.replyReceived(reply),
       "keypackage.count": (envelope) =>
         void upkeep

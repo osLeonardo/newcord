@@ -1,26 +1,15 @@
 import Database from "better-sqlite3";
 import { vi } from "vitest";
-import {
-  createAccountActions,
-  type AccountActions,
-} from "../../src/main/account/account-actions";
-import {
-  createIdentityKeyPair,
-  loadOrCreateIdentityKey,
-} from "../../src/main/identity/identity-key";
-import {
-  createSqliteLocalStore,
-  type LocalStore,
-} from "../../src/main/local-store/local-store";
-import { createDeviceHub, type DeviceHub } from "../../src/main/hub/device-hub";
-import { createMlsStateStore } from "../../src/main/local-store/mls-state-store";
+import { startAppServices } from "../../src/main/app-services";
+import type { DeviceHub } from "../../src/main/hub/device-hub";
+import type { LocalStore } from "../../src/main/local-store/local-store";
 import { createServerApiClient } from "../../src/main/server-api/server-api-client";
+import type { LiveSession } from "../../src/main/session/live-session";
 import {
-  createLiveSession,
-  type LiveSession,
-} from "../../src/main/session/live-session";
-import { createTokenRenewal } from "../../src/main/session/token-renewal";
-import type { Credentials } from "../../src/preload/desktop-api";
+  desktopApiEventChannels,
+  type Credentials,
+  type DesktopApiCalls,
+} from "../../src/preload/desktop-api";
 import { createFakeMlsEngine } from "./fake-mls-engine";
 import { createInjectedSocketOpener } from "./injected-socket-opener";
 import type { InProcessServer } from "./in-process-server";
@@ -35,7 +24,7 @@ export interface LiveInstallation {
   readonly clock: ManualClock;
   readonly liveSession: LiveSession;
   readonly sessionEnded: ReturnType<typeof vi.fn<() => void>>;
-  readonly actions: AccountActions;
+  readonly actions: DesktopApiCalls;
   readonly deviceHub: DeviceHub;
   /** Failures the hub reported instead of throwing; tests expect none. */
   readonly hubErrors: unknown[];
@@ -83,50 +72,30 @@ function installApp(
   view: LiveInstallation;
   resources: { database: Database.Database; liveSession: LiveSession };
 } {
-  const store = createSqliteLocalStore(database);
-  loadOrCreateIdentityKey(store, createIdentityKeyPair);
-  const serverApi = createServerApiClient(server.transport);
   const clock = createManualClock();
   const sessionEnded = vi.fn<() => void>();
   const hubErrors: unknown[] = [];
-  // The live session's events reach the hub, which needs the live session to send.
-  const hubHolder: { hub?: DeviceHub } = {};
-  const liveSession = createLiveSession({
-    store,
-    renewal: createTokenRenewal({ store, server: serverApi }),
+  const services = startAppServices({
+    database,
+    server: createServerApiClient(server.transport),
     openSocket: createInjectedSocketOpener(server.app),
     clock,
-    events: {
-      sessionEnded,
-      onlineAccountsChanged: () => undefined,
-      envelopeReceived: (envelope) => hubHolder.hub?.envelopeReceived(envelope),
-      connectionChanged: (ready) => hubHolder.hub?.connectionChanged(ready),
-    },
-  });
-  const deviceHub = createDeviceHub({
-    store,
-    mlsStateStore: createMlsStateStore(database),
     createEngine: createFakeMlsEngine,
-    server: serverApi,
-    liveSession,
-    clock,
+    notify: (channel) => {
+      if (channel === desktopApiEventChannels.onSessionChanged) sessionEnded();
+    },
     reportError: (error) => hubErrors.push(error),
   });
-  hubHolder.hub = deviceHub;
-  const actions = createAccountActions({
-    store,
-    server: serverApi,
-    createKeyPair: createIdentityKeyPair,
-    liveSession,
-  });
+  if (services.deviceHub === undefined) throw new Error("no Group hub");
+  const { store, liveSession } = services;
   return {
     view: {
       store,
       clock,
       liveSession,
       sessionEnded,
-      actions,
-      deviceHub,
+      actions: services.calls,
+      deviceHub: services.deviceHub,
       hubErrors,
     },
     resources: { database, liveSession },

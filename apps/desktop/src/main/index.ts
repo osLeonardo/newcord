@@ -4,38 +4,22 @@ import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { APP_NAME } from "@newcord/shared";
 import Database from "better-sqlite3";
 import icon from "../../resources/icon.png?asset";
-import { desktopApiEventChannels } from "../preload/desktop-api";
-import {
-  createAccountActions,
-  type AccountActions,
-} from "./account/account-actions";
-import { sessionStateOf } from "./account/session-state";
+import type { DesktopApiCalls } from "../preload/desktop-api";
 import { appPageUrl } from "./app-page";
+import { startAppServices } from "./app-services";
 import { builtInServerAddress } from "./built-in-server-address";
-import {
-  createIdentityKeyPair,
-  loadOrCreateIdentityKey,
-} from "./identity/identity-key";
 import { createAppIpcChannels } from "./ipc/app-ipc-channels";
 import { isAppIpcSender } from "./ipc/app-ipc-sender";
 import {
   registerCheckedIpcHandler,
   type IpcInvocation,
 } from "./ipc/checked-ipc-handler";
-import {
-  createSqliteLocalStore,
-  type LocalStore,
-} from "./local-store/local-store";
+import { loadMlsEngineFactory } from "./mls/mls-module";
 import { refuseEveryPermission } from "./permissions";
 import { createFetchTransport } from "./server-api/fetch-transport";
-import {
-  createServerApiClient,
-  type ServerApiClient,
-} from "./server-api/server-api-client";
-import { createLiveSession, type LiveSession } from "./session/live-session";
+import { createServerApiClient } from "./server-api/server-api-client";
 import { createStandardSocketOpener } from "./session/live-socket";
 import { systemSessionClock } from "./session/session-clock";
-import { createTokenRenewal } from "./session/token-renewal";
 import { hardenWebContents } from "./web-contents-hardening";
 import { hardenedWebPreferences } from "./window-preferences";
 
@@ -85,7 +69,7 @@ function isTrustedIpcSender(invocation: IpcInvocation): boolean {
 }
 
 /** Sends a change to every window of the app, and to nothing else. */
-function sendToAppWindows(channel: string, payload: unknown): void {
+function sendToAppWindows(channel: string, payload?: unknown): void {
   for (const window of BrowserWindow.getAllWindows()) {
     if (appWebContentsIds.has(window.webContents.id)) {
       window.webContents.send(channel, payload);
@@ -93,62 +77,36 @@ function sendToAppWindows(channel: string, payload: unknown): void {
   }
 }
 
-function startLiveSession(
-  store: LocalStore,
-  server: ServerApiClient,
-): LiveSession {
-  const liveSession = createLiveSession({
-    store,
-    renewal: createTokenRenewal({ store, server }),
+/** Opens the local database and starts the main process's services on it. */
+function startServices(): DesktopApiCalls {
+  const database = new Database(
+    join(app.getPath("userData"), LOCAL_DATABASE_FILE_NAME),
+  );
+  const services = startAppServices({
+    database,
+    server: createServerApiClient(
+      createFetchTransport(builtInServerAddress, fetch),
+    ),
     openSocket: createStandardSocketOpener(
       builtInServerAddress,
       (url) => new WebSocket(url),
     ),
     clock: systemSessionClock,
-    events: {
-      sessionEnded: () => {
-        sendToAppWindows(
-          desktopApiEventChannels.onSessionChanged,
-          sessionStateOf(store),
-        );
-      },
-      onlineAccountsChanged: (usernames) => {
-        sendToAppWindows(
-          desktopApiEventChannels.onOnlineAccountsChanged,
-          usernames,
-        );
-      },
+    createEngine: loadMlsEngineFactory(),
+    notify: sendToAppWindows,
+    reportError: (error) => {
+      console.error("A background task failed", error);
     },
   });
-  if (sessionStateOf(store).status === "logged-in") liveSession.start();
-  return liveSession;
-}
-
-/** Opens the local database, creates the identity key on first start, and builds the account flows. */
-function startAccountActions(): AccountActions {
-  const database = new Database(
-    join(app.getPath("userData"), LOCAL_DATABASE_FILE_NAME),
-  );
-  const store = createSqliteLocalStore(database);
-  loadOrCreateIdentityKey(store, createIdentityKeyPair);
-  const server = createServerApiClient(
-    createFetchTransport(builtInServerAddress, fetch),
-  );
-  const liveSession = startLiveSession(store, server);
   app.once("will-quit", () => {
-    void liveSession.stop();
+    void services.stop();
     database.close();
   });
-  return createAccountActions({
-    store,
-    server,
-    createKeyPair: createIdentityKeyPair,
-    liveSession,
-  });
+  return services.calls;
 }
 
-function registerAppIpcHandlers(accountActions: AccountActions): void {
-  for (const channel of createAppIpcChannels(accountActions)) {
+function registerAppIpcHandlers(calls: DesktopApiCalls): void {
+  for (const channel of createAppIpcChannels(calls)) {
     registerCheckedIpcHandler(ipcMain, isTrustedIpcSender, channel);
   }
 }
@@ -179,7 +137,7 @@ void app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window);
   });
 
-  registerAppIpcHandlers(startAccountActions());
+  registerAppIpcHandlers(startServices());
   createWindow();
   console.log(`${APP_NAME} desktop ready, server ${builtInServerAddress}`);
 

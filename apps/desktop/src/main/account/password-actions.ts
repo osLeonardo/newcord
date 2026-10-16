@@ -1,6 +1,6 @@
 import { normalizeRecoveryCode } from "@newcord/shared";
 import type {
-  DesktopApiCalls,
+  AccountApiCalls,
   PasswordChangeResult,
   PasswordRecovery,
   PasswordRecoveryResult,
@@ -21,7 +21,7 @@ export interface PasswordActionsDependencies {
 }
 
 export type PasswordActions = Pick<
-  DesktopApiCalls,
+  AccountApiCalls,
   "changePassword" | "recoverPassword"
 >;
 

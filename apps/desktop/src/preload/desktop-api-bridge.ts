@@ -9,6 +9,12 @@ import {
   type SignUpResult,
   type Unsubscribe,
 } from "./desktop-api";
+import type {
+  CreateGroupResult,
+  GroupActionResult,
+  GroupSummary,
+  InvitationSummary,
+} from "./group-api";
 
 /** `ipcRenderer.invoke`, which stays inside the preload and never reaches the interface. */
 export type IpcInvoke = (
@@ -61,6 +67,33 @@ export function createDesktopApi(
         desktopApiChannels.recoverPassword,
         recovery,
       ) as Promise<PasswordRecoveryResult>,
+    listGroups: () =>
+      invoke(desktopApiChannels.listGroups) as Promise<readonly GroupSummary[]>,
+    createGroup: (name) =>
+      invoke(
+        desktopApiChannels.createGroup,
+        name,
+      ) as Promise<CreateGroupResult>,
+    inviteToGroup: (groupId, username) =>
+      invoke(
+        desktopApiChannels.inviteToGroup,
+        groupId,
+        username,
+      ) as Promise<GroupActionResult>,
+    listInvitations: () =>
+      invoke(desktopApiChannels.listInvitations) as Promise<
+        readonly InvitationSummary[]
+      >,
+    answerInvitation: (invitationId, accept) =>
+      invoke(
+        desktopApiChannels.answerInvitation,
+        invitationId,
+        accept,
+      ) as Promise<GroupActionResult>,
+    onGroupsChanged: (listener) =>
+      subscribe(desktopApiEventChannels.onGroupsChanged, () => listener()),
+    onInvitationsChanged: (listener) =>
+      subscribe(desktopApiEventChannels.onInvitationsChanged, () => listener()),
     onSessionChanged: (listener) =>
       subscribe(desktopApiEventChannels.onSessionChanged, (payload) =>
         listener(payload as SessionState),
