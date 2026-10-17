@@ -32,6 +32,8 @@ describe("the Group channels", () => {
     [desktopApiChannels.listBlocked, []],
     [desktopApiChannels.blockAccount, ["bruno"]],
     [desktopApiChannels.unblockAccount, ["bruno"]],
+    [desktopApiChannels.readSafetyNumber, [groupId, "bruno"]],
+    [desktopApiChannels.markVerified, [groupId, "bruno", "0".repeat(60)]],
   ])("%s accepts %j", (name, args) => {
     expect(channelNamed(name).channel.argumentsMatch(args)).toBe(true);
   });
@@ -54,6 +56,9 @@ describe("the Group channels", () => {
     [desktopApiChannels.blockAccount, ["Bruno"]],
     [desktopApiChannels.blockAccount, []],
     [desktopApiChannels.unblockAccount, [groupId, "bruno"]],
+    [desktopApiChannels.readSafetyNumber, [groupId]],
+    [desktopApiChannels.markVerified, [groupId, "bruno", "0".repeat(59)]],
+    [desktopApiChannels.markVerified, [groupId, "bruno", "x".repeat(60)]],
   ])("%s refuses %j", (name, args) => {
     expect(channelNamed(name).channel.argumentsMatch(args)).toBe(false);
   });

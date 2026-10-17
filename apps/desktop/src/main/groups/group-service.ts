@@ -19,6 +19,7 @@ import {
   listChatMessages,
   sendChatMessage,
 } from "./group-chat";
+import { markVerified, readSafetyNumber } from "../safety/safety-numbers";
 import { recordReceivedCommit } from "./commit-notices";
 import { addAccount } from "./group-commits";
 import {
@@ -85,6 +86,10 @@ export function createGroupService(
     listBlocked: () => Promise.resolve(context.blockList.usernames()),
     blockAccount: (username) => changeBlock(context, "block", username),
     unblockAccount: (username) => changeBlock(context, "unblock", username),
+    readSafetyNumber: (groupId, username) =>
+      Promise.resolve(readSafetyNumber(context, groupId, username)),
+    markVerified: (groupId, username, safetyNumber) =>
+      Promise.resolve(markVerified(context, groupId, username, safetyNumber)),
     inboxHandlers: {
       "mls.welcome": (delivery) => receiveDelivery(context, delivery, hooks),
       "mls.commit": (delivery) => receiveDelivery(context, delivery, hooks),

@@ -13,6 +13,7 @@ import {
 } from "./identity/identity-key";
 import { createLocalGroups } from "./local-store/local-groups";
 import { createLocalMessages } from "./local-store/local-messages";
+import { createVerifiedMarks } from "./local-store/verified-marks";
 import {
   createSqliteLocalStore,
   type LocalStore,
@@ -118,6 +119,7 @@ function createGroupHub(
     mlsStateStore: createMlsStateStore(database),
     localGroups: createLocalGroups(database),
     localMessages: createLocalMessages(database),
+    verifiedMarks: createVerifiedMarks(database),
     groupEvents: {
       groupsChanged: () => notify(desktopApiEventChannels.onGroupsChanged),
       invitationsChanged: () =>

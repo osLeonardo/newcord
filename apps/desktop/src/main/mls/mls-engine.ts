@@ -30,11 +30,18 @@ export type IncomingMls =
       readonly removes: readonly string[];
     };
 
+/** A Member's credential identity and the identity key it signs with: its M1 Ed25519 key. */
+export interface MemberKey {
+  readonly identity: string;
+  readonly signatureKey: Uint8Array;
+}
+
 /**
  * The MLS operations the main process uses, as `@newcord/mls` (#4) provides them over OpenMLS with
  * cipher suite 1. Identities are credential identities, `<username>:<deviceId>` (D70). Every call
  * changes the state blob, which the caller saves before sending anything (D39).
  * `groupEpoch` and `groupMembers` go beyond #4's API table; #6 needs them for declared epochs and the member list.
+ * `groupMemberKeys` goes beyond it too: #11 reads Safety numbers from the Group's credentials.
  */
 export interface MlsEngine {
   loadState(state: Uint8Array): void;
@@ -70,4 +77,5 @@ export interface MlsEngine {
   clearPendingCommit(groupId: Uint8Array): void;
   groupEpoch(groupId: Uint8Array): number;
   groupMembers(groupId: Uint8Array): string[];
+  groupMemberKeys(groupId: Uint8Array): MemberKey[];
 }

@@ -5,6 +5,8 @@ import { createGroupLanes } from "../groups/group-lanes";
 import { createGroupService, type GroupService } from "../groups/group-service";
 import type { LocalGroups } from "../local-store/local-groups";
 import type { LocalMessages } from "../local-store/local-messages";
+import type { VerifiedMarks } from "../local-store/verified-marks";
+import { createSafetyHalves } from "../safety/safety-numbers";
 import type { LocalStore } from "../local-store/local-store";
 import { credentialIdentity } from "../mls/credential-identity";
 import type { MlsStateStore } from "../local-store/mls-state-store";
@@ -26,6 +28,7 @@ export interface AccountHubDependencies {
   readonly mlsStateStore: MlsStateStore;
   readonly localGroups: LocalGroups;
   readonly localMessages: LocalMessages;
+  readonly verifiedMarks: VerifiedMarks;
   readonly groupEvents: GroupEvents;
   readonly createEngine: () => MlsEngine;
   readonly server: Pick<ServerApiClient, "uploadKeyPackages">;
@@ -72,6 +75,8 @@ export function openAccountHub(
     localGroups: dependencies.localGroups,
     localMessages: dependencies.localMessages,
     blockList: createBlockList(),
+    verifiedMarks: dependencies.verifiedMarks,
+    safetyHalves: createSafetyHalves(),
     lanes: createGroupLanes(),
     ownIdentity: credentialIdentity(account),
     sendAck: (groupId, seq) =>

@@ -40,5 +40,11 @@ export function createGroupActions(
     unblockAccount: (username) =>
       currentService()?.unblockAccount(username) ??
       Promise.resolve(unavailable),
+    readSafetyNumber: (groupId, username) =>
+      currentService()?.readSafetyNumber(groupId, username) ??
+      Promise.resolve(unavailable),
+    markVerified: (groupId, username, safetyNumber) =>
+      currentService()?.markVerified(groupId, username, safetyNumber) ??
+      Promise.resolve(unavailable),
   };
 }

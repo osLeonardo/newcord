@@ -46,5 +46,15 @@ export function fakeGroupActions(): FakeGroupActions {
     unblockAccount: vi.fn<GroupApiCalls["unblockAccount"]>(() =>
       Promise.resolve({ outcome: "done" }),
     ),
+    readSafetyNumber: vi.fn<GroupApiCalls["readSafetyNumber"]>(() =>
+      Promise.resolve({
+        outcome: "found",
+        safetyNumber: "0".repeat(60),
+        verified: false,
+      }),
+    ),
+    markVerified: vi.fn<GroupApiCalls["markVerified"]>(() =>
+      Promise.resolve({ outcome: "done" }),
+    ),
   };
 }

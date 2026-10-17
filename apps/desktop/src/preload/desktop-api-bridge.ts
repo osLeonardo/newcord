@@ -13,6 +13,7 @@ import type {
   ChatEntry,
   CreateGroupResult,
   GroupActionResult,
+  SafetyNumberResult,
   GroupLeftNotice,
   GroupMemberSummary,
   GroupSummary,
@@ -130,6 +131,19 @@ export function createDesktopApi(
       invoke(
         desktopApiChannels.unblockAccount,
         username,
+      ) as Promise<GroupActionResult>,
+    readSafetyNumber: (groupId, username) =>
+      invoke(
+        desktopApiChannels.readSafetyNumber,
+        groupId,
+        username,
+      ) as Promise<SafetyNumberResult>,
+    markVerified: (groupId, username, safetyNumber) =>
+      invoke(
+        desktopApiChannels.markVerified,
+        groupId,
+        username,
+        safetyNumber,
       ) as Promise<GroupActionResult>,
     onBlocksChanged: (listener) =>
       subscribe(desktopApiEventChannels.onBlocksChanged, () => listener()),

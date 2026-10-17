@@ -32,6 +32,9 @@ const groupRefusalMessages: ReadonlyMap<string, string> = new Map(
     CANNOT_REMOVE_SELF: "Leave the Group instead of removing yourself.",
     NOT_IN_GROUP: "You are not in this Group.",
     UNAVAILABLE: "Groups are not available yet.",
+    CANNOT_VERIFY_SELF: "Compare safety numbers with someone else.",
+    SAFETY_NUMBER_CHANGED:
+      "The safety number changed while it was open. Compare the new one.",
   } satisfies Record<GroupRefusal, string>),
 );
 

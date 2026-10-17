@@ -11,6 +11,7 @@ import type {
   ChatEntry,
   CreateGroupResult,
   GroupActionResult,
+  SafetyNumberResult,
   GroupApiCalls,
   GroupMemberSummary,
   GroupSummary,
@@ -41,6 +42,9 @@ const MemberArguments = Type.Tuple([GroupId, Username]);
 type MemberArguments = Static<typeof MemberArguments>;
 const UsernameArguments = Type.Tuple([Username]);
 type UsernameArguments = Static<typeof UsernameArguments>;
+const SafetyNumber = Type.String({ pattern: "^[0-9]{60}$" });
+const VerifyArguments = Type.Tuple([GroupId, Username, SafetyNumber]);
+type VerifyArguments = Static<typeof VerifyArguments>;
 
 /**
  * The channels of the desktop API's Group calls (#6), each behind the sender and argument checks.
@@ -129,6 +133,21 @@ export function createGroupIpcChannels(
       expectedArguments: "username: Username",
       argumentsMatch: argumentsMatching(UsernameArguments),
       handle: (username) => actions.unblockAccount(username),
+    }),
+    checkedChannel<MemberArguments, SafetyNumberResult>({
+      name: desktopApiChannels.readSafetyNumber,
+      expectedArguments: "groupId: GroupId, username: Username",
+      argumentsMatch: argumentsMatching(MemberArguments),
+      handle: (groupId, username) =>
+        actions.readSafetyNumber(groupId, username),
+    }),
+    checkedChannel<VerifyArguments, GroupActionResult>({
+      name: desktopApiChannels.markVerified,
+      expectedArguments:
+        "groupId: GroupId, username: Username, safetyNumber: 60 digits",
+      argumentsMatch: argumentsMatching(VerifyArguments),
+      handle: (groupId, username, safetyNumber) =>
+        actions.markVerified(groupId, username, safetyNumber),
     }),
   ];
 }

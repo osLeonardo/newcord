@@ -1,6 +1,7 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import type {
   IncomingMls,
+  MemberKey,
   MlsEngine,
   OwnCommit,
 } from "../../src/main/mls/mls-engine";
@@ -214,6 +215,11 @@ export function createFakeMlsEngine(): MlsEngine {
     },
     groupEpoch: (groupId): number => groupOf(hex(groupId)).epoch,
     groupMembers: (groupId): string[] => [...groupOf(hex(groupId)).members],
+    groupMemberKeys: (groupId): MemberKey[] =>
+      groupOf(hex(groupId)).members.map((identity) => ({
+        identity,
+        signatureKey: fakeSignatureKey(identity),
+      })),
   };
 }
 
@@ -283,4 +289,11 @@ function applyFakeCommit(
     removed,
     epoch: group.epoch,
   };
+}
+
+/** Each Device has one key for life, and a reinstall is a new Device, so a hash of the identity will do. */
+function fakeSignatureKey(identity: string): Uint8Array {
+  return new Uint8Array(
+    createHash("sha256").update(`fake signature key ${identity}`).digest(),
+  );
 }

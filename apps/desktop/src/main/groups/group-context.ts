@@ -2,6 +2,8 @@ import type { GroupLeftNotice } from "../../preload/group-api";
 import type { HubRequester } from "../hub/hub-requester";
 import type { LocalGroups } from "../local-store/local-groups";
 import type { LocalMessages } from "../local-store/local-messages";
+import type { VerifiedMarks } from "../local-store/verified-marks";
+import type { SafetyHalves } from "../safety/safety-numbers";
 import type { MlsSession } from "../mls/mls-session";
 import type { GroupLanes } from "./group-lanes";
 
@@ -44,6 +46,8 @@ export interface GroupContext {
   readonly localGroups: LocalGroups;
   readonly localMessages: LocalMessages;
   readonly blockList: BlockList;
+  readonly verifiedMarks: VerifiedMarks;
+  readonly safetyHalves: SafetyHalves;
   readonly lanes: GroupLanes;
   /** This Device's credential identity, `<username>:<deviceId>` (D70). */
   readonly ownIdentity: string;

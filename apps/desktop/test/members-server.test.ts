@@ -109,8 +109,8 @@ describe("the member list (#6, Step 04)", () => {
 
     await vi.waitFor(async () => {
       expect(await (await hubOf(bruno)).groups.listMembers(groupId)).toEqual([
-        { username: "alice", deviceCount: 2, self: false },
-        { username: "bruno", deviceCount: 1, self: true },
+        { username: "alice", deviceCount: 2, self: false, verified: false },
+        { username: "bruno", deviceCount: 1, self: true, verified: false },
       ]);
     }, WAIT);
   });

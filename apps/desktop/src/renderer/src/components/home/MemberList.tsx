@@ -7,6 +7,7 @@ import {
   memberDevicesLabel,
 } from "../../groups/group-text";
 import { screenStyles } from "../screen-styles";
+import { SafetyNumberPanel } from "./SafetyNumberPanel";
 
 interface MemberListProps {
   readonly desktopApi: DesktopApi;
@@ -22,6 +23,7 @@ export function MemberList(props: MemberListProps): React.JSX.Element {
   const [members, setMembers] = useState<readonly GroupMemberSummary[]>([]);
   const blocked = useBlockedUsernames(desktopApi);
   const [confirming, setConfirming] = useState<string>();
+  const [comparing, setComparing] = useState<string>();
   const [message, setMessage] = useState<string>();
 
   useEffect(() => {
@@ -42,6 +44,14 @@ export function MemberList(props: MemberListProps): React.JSX.Element {
       unsubscribe();
     };
   }, [desktopApi, groupId]);
+
+  async function refreshMembers(): Promise<void> {
+    try {
+      setMembers(await desktopApi.listMembers(groupId));
+    } catch {
+      setMessage(UNEXPECTED_FAILURE_MESSAGE);
+    }
+  }
 
   async function remove(username: string): Promise<void> {
     setConfirming(undefined);
@@ -84,6 +94,9 @@ export function MemberList(props: MemberListProps): React.JSX.Element {
             <span>
               {member.username}
               {member.self && <span className="text-zinc-500"> (you)</span>}
+              {member.verified && (
+                <span className="text-emerald-400"> ✓ verified</span>
+              )}
               {blocked.has(member.username) && (
                 <span className="text-zinc-500"> (blocked)</span>
               )}
@@ -94,6 +107,15 @@ export function MemberList(props: MemberListProps): React.JSX.Element {
             </span>
             {!member.self && (
               <span className="flex gap-1">
+                <button
+                  type="button"
+                  className={screenStyles.smallSecondaryButton}
+                  onClick={() => {
+                    setComparing(member.username);
+                  }}
+                >
+                  Safety number
+                </button>
                 <button
                   type="button"
                   className={screenStyles.smallSecondaryButton}
@@ -121,6 +143,18 @@ export function MemberList(props: MemberListProps): React.JSX.Element {
           </li>
         ))}
       </ul>
+      {comparing !== undefined && (
+        <SafetyNumberPanel
+          key={comparing}
+          desktopApi={desktopApi}
+          groupId={groupId}
+          username={comparing}
+          onClose={() => {
+            setComparing(undefined);
+          }}
+          onVerified={() => void refreshMembers()}
+        />
+      )}
       {message !== undefined && (
         <p role="alert" className={screenStyles.errorMessage}>
           {message}

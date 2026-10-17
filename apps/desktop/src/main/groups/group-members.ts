@@ -8,6 +8,7 @@ import {
   type DeviceIdentity,
 } from "../mls/credential-identity";
 import type { IncomingMls } from "../mls/mls-engine";
+import { isVerified } from "../safety/safety-numbers";
 import { commitChange, type CommitOutcome } from "./group-commits";
 import {
   forgetGroup,
@@ -42,6 +43,8 @@ export function listGroupMembers(
       username,
       deviceCount,
       self: username === ownUsername,
+      verified:
+        username !== ownUsername && isVerified(context, groupId, username),
     }));
 }
 

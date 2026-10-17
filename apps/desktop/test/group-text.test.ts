@@ -72,10 +72,20 @@ describe("groupLeftMessage", () => {
 describe("memberDevicesLabel", () => {
   it("counts Devices in words", () => {
     expect(
-      memberDevicesLabel({ username: "a", deviceCount: 1, self: false }),
+      memberDevicesLabel({
+        username: "a",
+        deviceCount: 1,
+        self: false,
+        verified: false,
+      }),
     ).toBe("1 Device");
     expect(
-      memberDevicesLabel({ username: "a", deviceCount: 3, self: false }),
+      memberDevicesLabel({
+        username: "a",
+        deviceCount: 3,
+        self: false,
+        verified: false,
+      }),
     ).toBe("3 Devices");
   });
 });

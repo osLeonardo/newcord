@@ -133,6 +133,8 @@ export const desktopApiChannels = {
   listBlocked: "blocks:list",
   blockAccount: "blocks:block",
   unblockAccount: "blocks:unblock",
+  readSafetyNumber: "safety:read",
+  markVerified: "safety:verify",
 } as const satisfies Record<keyof DesktopApiCalls, string>;
 
 /** The IPC channel the main process sends each change on. */

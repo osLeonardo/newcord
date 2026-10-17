@@ -30,7 +30,9 @@ export type GroupRefusal =
   | "PERSON_NOT_IN_GROUP"
   | "CANNOT_REMOVE_SELF"
   | "NOT_IN_GROUP"
-  | "UNAVAILABLE";
+  | "UNAVAILABLE"
+  | "CANNOT_VERIFY_SELF"
+  | "SAFETY_NUMBER_CHANGED";
 
 export type CreateGroupResult =
   | { readonly outcome: "created"; readonly group: GroupSummary }
@@ -95,7 +97,18 @@ export interface GroupMemberSummary {
   readonly username: string;
   readonly deviceCount: number;
   readonly self: boolean;
+  /** Marked verified for the Safety number they have now (#11). */
+  readonly verified: boolean;
 }
+
+/** A Safety number of 60 digits between this Account and a Member (D45). */
+export type SafetyNumberResult =
+  | {
+      readonly outcome: "found";
+      readonly safetyNumber: string;
+      readonly verified: boolean;
+    }
+  | { readonly outcome: "refused"; readonly refusal: GroupRefusal };
 
 /** Told when this Device is no longer in a Group: it left, or someone removed it. */
 export interface GroupLeftNotice {
@@ -126,4 +139,15 @@ export interface GroupApiCalls {
   /** Blocks someone: their Invitations stop and their messages are hidden on every Device of the Account. */
   blockAccount(username: string): Promise<GroupActionResult>;
   unblockAccount(username: string): Promise<GroupActionResult>;
+  /** The Safety number with a Member, from the Group's MLS credentials (D45, D70). */
+  readSafetyNumber(
+    groupId: string,
+    username: string,
+  ): Promise<SafetyNumberResult>;
+  /** Marks a Member verified for the number shown; refused if the number changed meanwhile. */
+  markVerified(
+    groupId: string,
+    username: string,
+    safetyNumber: string,
+  ): Promise<GroupActionResult>;
 }
