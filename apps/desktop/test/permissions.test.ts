@@ -54,6 +54,10 @@ describe("grantCallPermissionsOnly (security checklist, M3)", () => {
     expect(decisionFor("display-capture")).toBe(true);
   });
 
+  it("grants a screen capture as Electron 44 asks for it: media with no media types", () => {
+    expect(decisionFor("media", { mediaTypes: [] })).toBe(true);
+  });
+
   it.each([
     ["the camera", { mediaTypes: ["video"] }],
     ["the microphone with the camera", { mediaTypes: ["audio", "video"] }],
