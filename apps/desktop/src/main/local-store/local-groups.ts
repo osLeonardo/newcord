@@ -14,9 +14,19 @@ export interface LocalInvitation {
   readonly from: string;
 }
 
+/** A Group as the list shows it, with the messages not read yet (#10's spec). */
+export interface ListedGroup extends LocalGroup {
+  readonly unread: number;
+}
+
 /** The Groups this Device is in, how far it got in each one's queue, and pending Invitations. */
 export interface LocalGroups {
-  list(): LocalGroup[];
+  list(): ListedGroup[];
+  nameOf(groupId: Uint8Array): string | undefined;
+  /** Counts one more message nobody read yet. */
+  addUnread(groupId: Uint8Array): void;
+  /** True when there was anything to clear. */
+  clearUnread(groupId: Uint8Array): boolean;
   has(groupId: Uint8Array): boolean;
   /** Adds a Group the Device joined; the queue counts from `seq`, the welcome or creation. */
   add(group: LocalGroup, seq: number): void;
@@ -38,6 +48,11 @@ CREATE TABLE IF NOT EXISTS groups (
   last_seq INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS group_unread (
+  group_id BLOB PRIMARY KEY,
+  count    INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS invitations (
   id         TEXT PRIMARY KEY,
   group_id   BLOB NOT NULL,
@@ -54,6 +69,7 @@ export function createLocalGroups(database: Database.Database): LocalGroups {
   database.exec(CREATE_GROUP_TABLES_SQL);
   return {
     ...groupQueries(database),
+    ...unreadQueries(database),
     ...progressQueries(database),
     ...invitationQueries(database),
   };
@@ -61,10 +77,18 @@ export function createLocalGroups(database: Database.Database): LocalGroups {
 
 function groupQueries(
   database: Database.Database,
-): Pick<LocalGroups, "list" | "has" | "add" | "rename" | "remove"> {
-  const list = database.prepare<[], { groupId: Buffer; name: string }>(
-    "SELECT id AS groupId, name FROM groups ORDER BY name COLLATE NOCASE, id",
+): Pick<LocalGroups, "list" | "nameOf" | "has" | "add" | "rename" | "remove"> {
+  const list = database.prepare<
+    [],
+    { groupId: Buffer; name: string; unread: number }
+  >(
+    `SELECT id AS groupId, name, coalesce(group_unread.count, 0) AS unread
+       FROM groups LEFT JOIN group_unread ON group_unread.group_id = groups.id
+      ORDER BY name COLLATE NOCASE, id`,
   );
+  const name = database
+    .prepare<[Buffer], string>("SELECT name FROM groups WHERE id = ?")
+    .pluck();
   const find = database
     .prepare<[Buffer], number>("SELECT 1 FROM groups WHERE id = ?")
     .pluck();
@@ -75,8 +99,12 @@ function groupQueries(
     "UPDATE groups SET name = ? WHERE id = ?",
   );
   const remove = database.prepare<[Buffer]>("DELETE FROM groups WHERE id = ?");
+  const removeUnread = database.prepare<[Buffer]>(
+    "DELETE FROM group_unread WHERE group_id = ?",
+  );
   return {
-    list: (): LocalGroup[] => list.all(),
+    list: (): ListedGroup[] => list.all(),
+    nameOf: (groupId): string | undefined => name.get(Buffer.from(groupId)),
     has: (groupId): boolean => find.get(Buffer.from(groupId)) !== undefined,
     add: (group, seq): void => {
       insert.run(Buffer.from(group.groupId), group.name, seq);
@@ -86,7 +114,27 @@ function groupQueries(
     },
     remove: (groupId): void => {
       remove.run(Buffer.from(groupId));
+      removeUnread.run(Buffer.from(groupId));
     },
+  };
+}
+
+function unreadQueries(
+  database: Database.Database,
+): Pick<LocalGroups, "addUnread" | "clearUnread"> {
+  const add = database.prepare<[Buffer]>(
+    `INSERT INTO group_unread (group_id, count) VALUES (?, 1)
+       ON CONFLICT (group_id) DO UPDATE SET count = count + 1`,
+  );
+  const clear = database.prepare<[Buffer]>(
+    "DELETE FROM group_unread WHERE group_id = ?",
+  );
+  return {
+    addUnread: (groupId): void => {
+      add.run(Buffer.from(groupId));
+    },
+    clearUnread: (groupId): boolean =>
+      clear.run(Buffer.from(groupId)).changes > 0,
   };
 }
 

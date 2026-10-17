@@ -49,6 +49,8 @@ const ADD_ATTEMPTS = 3;
 /** The Group features the interface calls, and what the service does with the server's Envelopes. */
 export interface GroupService extends GroupApiCalls {
   readonly inboxHandlers: HubEnvelopeHandlers;
+  /** Clears a Group's unread count once it is open and focused. */
+  markRead(groupId: string): void;
 }
 
 export interface GroupServiceOptions {
@@ -97,6 +99,11 @@ export function createGroupService(
       Promise.resolve(readSafetyNumber(context, groupId, username)),
     markVerified: (groupId, username, safetyNumber) =>
       Promise.resolve(markVerified(context, groupId, username, safetyNumber)),
+    markRead: (groupId): void => {
+      if (context.localGroups.clearUnread(groupIdFromText(groupId))) {
+        context.events.groupsChanged();
+      }
+    },
     inboxHandlers: {
       "mls.welcome": (delivery) => receiveDelivery(context, delivery, hooks),
       "mls.commit": (delivery) => receiveDelivery(context, delivery, hooks),
@@ -132,6 +139,7 @@ function groupSummaries(context: GroupContext): GroupSummary[] {
   return context.localGroups.list().map((group) => ({
     groupId: groupIdText(group.groupId),
     name: group.name,
+    unread: group.unread,
   }));
 }
 
@@ -168,7 +176,7 @@ async function createGroup(
     context.events.groupsChanged();
     return {
       outcome: "created",
-      group: { groupId: groupIdText(groupId), name },
+      group: { groupId: groupIdText(groupId), name, unread: 0 },
     };
   });
 }

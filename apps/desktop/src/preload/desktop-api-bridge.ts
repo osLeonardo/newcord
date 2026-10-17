@@ -46,7 +46,7 @@ export function createDesktopApi(
   // The main process answers each channel, and sends each change, with the type its action returns.
   return {
     ...createCallApi(invoke, subscribe),
-    ...createShellApi(invoke),
+    ...createShellApi(invoke, subscribe),
     readSessionState: () =>
       invoke(desktopApiChannels.readSessionState) as Promise<SessionState>,
     signUp: (credentials, choice) =>

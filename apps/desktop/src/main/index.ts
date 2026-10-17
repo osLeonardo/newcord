@@ -30,6 +30,7 @@ import {
   startsHidden,
   type LoginItems,
 } from "./app-shell/app-closing";
+import type { NotificationPort } from "./app-shell/message-notices";
 import { trayItems, type TrayAction } from "./app-shell/tray-menu";
 import type { AppServices } from "./app-services";
 import { appPageUrl } from "./app-page";
@@ -115,6 +116,14 @@ function createWindow(services: AppServices, startHidden: boolean): void {
     },
   });
 
+  // Notifications skip the Group open in the focused window (#10's spec).
+  const focusChanged = (): void => {
+    services.windowFocusChanged(window.isVisible() && window.isFocused());
+  };
+  for (const event of ["focus", "blur", "show", "hide"] as const) {
+    window.on(event as "focus", focusChanged);
+  }
+
   window.on("ready-to-show", () => {
     // Started at login, the app opens hidden in the tray (D46).
     if (!startHidden) window.show();
@@ -178,6 +187,29 @@ function runTrayAction(services: AppServices, action: TrayAction): void {
       // Quit works even during a Call (#10's spec).
       app.quit();
   }
+}
+
+/** One notification per Group; a new message replaces the Group's last one (11-m4-build Settings). */
+const shownNotifications = new Map<string, Notification>();
+
+function notificationPort(services: () => AppServices): NotificationPort {
+  return {
+    show: (groupId, content): void => {
+      shownNotifications.get(groupId)?.close();
+      const notification = new Notification(content);
+      notification.on("click", () => {
+        showMainWindow(services());
+        // Clicking opens the window on that Group (11-m4-build step 7).
+        sendToAppWindows(desktopApiEventChannels.onOpenGroup, groupId);
+      });
+      shownNotifications.set(groupId, notification);
+      notification.show();
+    },
+    close: (groupId): void => {
+      shownNotifications.get(groupId)?.close();
+      shownNotifications.delete(groupId);
+    },
+  };
 }
 
 /** The tray follows whether this Device is in a Call and muted. */
@@ -260,6 +292,7 @@ function startServices(): AppServices {
         type: metric.type,
         percentCpu: metric.cpu.percentCPUUsage,
       })),
+    notifications: notificationPort(() => services),
     shell: {
       callChanged: (call) => {
         shellEvents.callChanged(services, call);

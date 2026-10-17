@@ -11,4 +11,6 @@ export interface ShellApiCalls {
   dismissStartupNotice(): Promise<void>;
   /** Keeps the tray's Mute or Unmute, and the notifications' privacy while sharing (D15), up to date. */
   reportCallMedia(report: CallMediaReport): Promise<void>;
+  /** The Group open in the window, or null on other screens: its messages need no notification. */
+  setViewedGroup(groupId: string | null): Promise<void>;
 }

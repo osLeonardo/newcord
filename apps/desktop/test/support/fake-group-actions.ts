@@ -9,12 +9,14 @@ export type FakeGroupActions = {
 export function fakeGroupActions(): FakeGroupActions {
   return {
     listGroups: vi.fn<GroupApiCalls["listGroups"]>(() =>
-      Promise.resolve([{ groupId: "MgZoqEdt4EEfhsMd_7xNqw", name: "friends" }]),
+      Promise.resolve([
+        { groupId: "MgZoqEdt4EEfhsMd_7xNqw", name: "friends", unread: 0 },
+      ]),
     ),
     createGroup: vi.fn<GroupApiCalls["createGroup"]>((name) =>
       Promise.resolve({
         outcome: "created",
-        group: { groupId: "MgZoqEdt4EEfhsMd_7xNqw", name },
+        group: { groupId: "MgZoqEdt4EEfhsMd_7xNqw", name, unread: 0 },
       }),
     ),
     inviteToGroup: vi.fn<GroupApiCalls["inviteToGroup"]>(() =>

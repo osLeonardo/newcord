@@ -35,6 +35,34 @@ export function HomeScreen(props: HomeScreenProps): React.JSX.Element {
     [props.desktopApi],
   );
 
+  // Messages in the Group open in the focused window need no notification (#10's spec).
+  const { desktopApi } = props;
+  const openGroupId = openGroup?.groupId;
+  useEffect(() => {
+    desktopApi.setViewedGroup(openGroupId ?? null).catch(() => undefined);
+  }, [desktopApi, openGroupId]);
+  useEffect(
+    () => (): void => {
+      desktopApi.setViewedGroup(null).catch(() => undefined);
+    },
+    [desktopApi],
+  );
+
+  // Clicking a notification opens its Group (11-m4-build step 7).
+  useEffect(
+    () =>
+      props.desktopApi.onOpenGroup((groupId) => {
+        props.desktopApi.listGroups().then(
+          (groups) => {
+            const group = groups.find((entry) => entry.groupId === groupId);
+            if (group !== undefined) setOpenGroup(group);
+          },
+          () => undefined,
+        );
+      }),
+    [props.desktopApi],
+  );
+
   return (
     <div className="flex h-screen w-full">
       <RemoteAudio streams={callSession.remoteStreams} />

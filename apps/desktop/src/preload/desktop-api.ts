@@ -127,6 +127,8 @@ export interface DesktopApiSubscriptions {
   onCallChanged(listener: (call: CallSummary) => void): Unsubscribe;
   /** Hears the WebRTC signals other Participants send this Device. */
   onCallSignal(listener: (signal: ReceivedCallSignal) => void): Unsubscribe;
+  /** Hears a click on a message notification: the window opens that Group (11-m4-build step 7). */
+  onOpenGroup(listener: (groupId: string) => void): Unsubscribe;
   /** Hears the global mute hotkey (D44c). */
   onMuteToggled(listener: () => void): Unsubscribe;
   /** Hears the push-to-talk key going down and up, wherever the focus is (D44b). */
@@ -177,6 +179,7 @@ export const desktopApiChannels = {
   readStartupNotice: "shell:read-startup-notice",
   dismissStartupNotice: "shell:dismiss-startup-notice",
   reportCallMedia: "shell:report-call-media",
+  setViewedGroup: "shell:set-viewed-group",
 } as const satisfies Record<keyof DesktopApiCalls, string>;
 
 /** The IPC channel the main process sends each change on. */
@@ -190,6 +193,7 @@ export const desktopApiEventChannels = {
   onBlocksChanged: "blocks:changed",
   onCallChanged: "calls:changed",
   onCallSignal: "calls:signal",
+  onOpenGroup: "shell:open-group",
   onMuteToggled: "calls:mute-toggled",
   onPushToTalk: "calls:push-to-talk",
   onSettingsChanged: "settings:changed",

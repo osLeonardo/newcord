@@ -103,6 +103,34 @@ export function chatMessageReceived(
     sentAt: payload.sentAt,
   });
   context.events.messagesChanged(delivery.groupId);
+  if (needsAttention(context, delivery.groupId, sender)) {
+    context.localGroups.addUnread(groupId);
+    context.events.groupsChanged();
+    context.events.chatMessageArrived({
+      groupId: delivery.groupId,
+      groupName: context.localGroups.nameOf(groupId) ?? "",
+      sender: sender.username,
+      text: payload.text,
+    });
+  }
+}
+
+/**
+ * Whether a message counts as unread and earns a notification: not from this Account, not from
+ * someone it blocks (D57), and not in a chat open and focused (#10's spec).
+ */
+function needsAttention(
+  context: GroupContext,
+  groupId: string,
+  sender: DeviceIdentity,
+): boolean {
+  if (
+    sender.username === parseCredentialIdentity(context.ownIdentity)?.username
+  ) {
+    return false;
+  }
+  if (context.blockList.usernames().includes(sender.username)) return false;
+  return !context.inView(groupId);
 }
 
 /**

@@ -13,6 +13,10 @@ const CallMediaArguments = Type.Tuple([
   ),
 ]);
 type CallMediaArguments = Static<typeof CallMediaArguments>;
+const ViewedGroupArguments = Type.Tuple([
+  Type.Union([Type.String({ pattern: "^[A-Za-z0-9_-]{22}$" }), Type.Null()]),
+]);
+type ViewedGroupArguments = Static<typeof ViewedGroupArguments>;
 
 /**
  * The shell channels, each checked for its sender and arguments.
@@ -39,6 +43,12 @@ export function createShellIpcChannels(
       expectedArguments: "report: { muted: boolean, sharing: boolean }",
       argumentsMatch: argumentsMatching(CallMediaArguments),
       handle: (report) => actions.reportCallMedia(report),
+    }),
+    checkedChannel<ViewedGroupArguments, void>({
+      name: desktopApiChannels.setViewedGroup,
+      expectedArguments: "groupId: GroupId or null",
+      argumentsMatch: argumentsMatching(ViewedGroupArguments),
+      handle: (groupId) => actions.setViewedGroup(groupId),
     }),
   ];
 }

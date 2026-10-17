@@ -49,11 +49,30 @@ describe("local Groups", () => {
 
     groups.rename(friends, "old friends");
     expect(groups.list()).toEqual([
-      { groupId: Buffer.from(friends), name: "old friends" },
+      { groupId: Buffer.from(friends), name: "old friends", unread: 0 },
     ]);
+    expect(groups.nameOf(friends)).toBe("old friends");
     groups.remove(friends);
 
     expect(groups.list()).toEqual([]);
+    expect(groups.nameOf(friends)).toBeUndefined();
+  });
+
+  it("counts unread messages until cleared, and forgets them with the Group (#10's spec)", () => {
+    groups.add({ groupId: friends, name: "friends" }, 0);
+
+    groups.addUnread(friends);
+    groups.addUnread(friends);
+    expect(groups.list()[0]?.unread).toBe(2);
+
+    expect(groups.clearUnread(friends)).toBe(true);
+    expect(groups.clearUnread(friends)).toBe(false);
+    expect(groups.list()[0]?.unread).toBe(0);
+
+    groups.addUnread(friends);
+    groups.remove(friends);
+    groups.add({ groupId: friends, name: "friends" }, 0);
+    expect(groups.list()[0]?.unread).toBe(0);
   });
 
   it("is erased with the rest of the local data (D60)", () => {

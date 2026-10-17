@@ -65,7 +65,17 @@ export function GroupList(props: GroupListProps): React.JSX.Element {
                 select(group);
               }}
             >
-              {group.name}
+              <span className="flex items-center justify-between gap-2">
+                <span className="truncate">{group.name}</span>
+                {group.unread > 0 && (
+                  <span
+                    aria-label={`${group.unread} unread`}
+                    className="rounded-full bg-indigo-600 px-2 text-xs font-semibold text-white"
+                  >
+                    {group.unread > 99 ? "99+" : group.unread}
+                  </span>
+                )}
+              </span>
             </button>
           </li>
         ))}

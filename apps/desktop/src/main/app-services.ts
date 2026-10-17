@@ -41,6 +41,12 @@ import {
   type AppShellEvents,
 } from "./app-shell/shell-actions";
 import { createAppFlags, type AppFlags } from "./local-store/app-flags";
+import {
+  isInView,
+  noticeContent,
+  type NotificationPort,
+  type ViewState,
+} from "./app-shell/message-notices";
 import { measureCpu, type ProcessCpu } from "./calls/cpu-measurement";
 import type { ServerApiClient } from "./server-api/server-api-client";
 import { createLiveSession, type LiveSession } from "./session/live-session";
@@ -68,6 +74,8 @@ export interface AppServicesDependencies {
   readonly processCpu?: () => readonly ProcessCpu[];
   /** The tray, login items and notifications of the Electron app; none in tests. */
   readonly shell?: AppShellEvents;
+  /** Windows notifications for new messages (#10's spec); none in tests. */
+  readonly notifications?: NotificationPort;
 }
 
 /** The main process's services: the desktop API's calls, and a way to stop before quitting. */
@@ -76,6 +84,8 @@ export interface AppServices {
   readonly store: LocalStore;
   readonly deviceSettings: SettingsStore;
   readonly flags: AppFlags;
+  /** The window gained or lost the focus, or was shown or hidden. */
+  windowFocusChanged(focused: boolean): void;
   readonly liveSession: LiveSession;
   /** The Group hub, when the MLS module is there. */
   readonly deviceHub: DeviceHub | undefined;
@@ -97,6 +107,11 @@ export function startAppServices(
   const store = createSqliteLocalStore(dependencies.database);
   loadOrCreateIdentityKey(store, createIdentityKeyPair);
   const holder: HubHolder = {};
+  const view: ViewState = { windowFocused: false, sharing: false };
+  const groupViewed = (groupId: string): void => {
+    holder.hub?.current()?.groups.markRead(groupId);
+    dependencies.notifications?.close(groupId);
+  };
   const deviceSettings = createSettingsStore(dependencies.database);
   const voiceControls = createVoiceControls({
     ...(dependencies.hotkeys === undefined
@@ -116,6 +131,7 @@ export function startAppServices(
   holder.hub = createGroupHub(dependencies, store, liveSession, {
     deviceSettings,
     voiceControls,
+    view,
   });
   const accountActions = createAccountActions({
     store,
@@ -134,11 +150,19 @@ export function startAppServices(
         flags,
         settings: deviceSettings,
         shell: dependencies.shell,
+        view,
+        groupViewed,
       }),
     },
     store,
     deviceSettings,
     flags,
+    windowFocusChanged: (focused): void => {
+      view.windowFocused = focused;
+      if (focused && view.viewedGroup !== undefined) {
+        groupViewed(view.viewedGroup);
+      }
+    },
     liveSession,
     deviceHub: holder.hub,
     stop: (): Promise<void> => {
@@ -177,7 +201,7 @@ function startLiveSession(
 /** The calls that belong to this computer rather than an Account: settings, sharing, measuring. */
 function deviceActions(
   dependencies: AppServicesDependencies,
-  parts: CallParts,
+  parts: Pick<CallParts, "deviceSettings" | "voiceControls">,
 ): SettingsApiCalls & ScreenShareApiCalls & DiagnosticsApiCalls {
   const { notify, shareSources, processCpu, shell } = dependencies;
   return {
@@ -206,13 +230,14 @@ function deviceActions(
 interface CallParts {
   readonly deviceSettings: SettingsStore;
   readonly voiceControls: VoiceControls;
+  readonly view: ViewState;
 }
 
 function createGroupHub(
   dependencies: AppServicesDependencies,
   store: LocalStore,
   liveSession: LiveSession,
-  { deviceSettings, voiceControls }: CallParts,
+  { deviceSettings, voiceControls, view }: CallParts,
 ): DeviceHub | undefined {
   const { createEngine, database, notify } = dependencies;
   if (createEngine === undefined) return undefined;
@@ -239,11 +264,22 @@ function createGroupHub(
       },
       callSignalReceived: (signal) =>
         notify(desktopApiEventChannels.onCallSignal, signal),
+      chatMessageArrived: (message) => {
+        dependencies.notifications?.show(
+          message.groupId,
+          noticeContent(
+            deviceSettings.read().previewMode,
+            view.sharing,
+            message,
+          ),
+        );
+      },
     },
     createEngine,
     server: dependencies.server,
     liveSession,
     clock: dependencies.clock,
     reportError: dependencies.reportError,
+    inView: (groupId) => isInView(view, groupId),
   });
 }

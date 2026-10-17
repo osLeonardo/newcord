@@ -1,5 +1,6 @@
 import type { CallSummary, ReceivedCallSignal } from "../../preload/call-api";
 import type { GroupLeftNotice } from "../../preload/group-api";
+import type { ArrivedMessage } from "../app-shell/message-notices";
 import { callSelfOf, callSummaryOf, type CallState } from "../calls/call-state";
 import type { HubRequester } from "../hub/hub-requester";
 import type { LocalGroups } from "../local-store/local-groups";
@@ -23,6 +24,8 @@ export interface GroupEvents {
   callChanged(call: CallSummary): void;
   /** A Participant sent this Device a WebRTC offer, answer or candidate. */
   callSignalReceived(signal: ReceivedCallSignal): void;
+  /** Someone else's Chat message arrived in a Group that is not open and focused (#10's spec). */
+  chatMessageArrived(message: ArrivedMessage): void;
 }
 
 /** The Account's block list as the server last sent it (D57); kept in memory only. */
@@ -64,6 +67,8 @@ export interface GroupContext {
   readonly reportError: (error: unknown) => void;
   /** The current time, in milliseconds. */
   readonly now: () => number;
+  /** Whether the Group's chat is open and the window has the focus. */
+  readonly inView: (groupId: string) => boolean;
 }
 
 /**

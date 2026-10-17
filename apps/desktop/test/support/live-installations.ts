@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import type { NoticeContent } from "../../src/main/app-shell/message-notices";
 import { vi } from "vitest";
 import { startAppServices } from "../../src/main/app-services";
 import type { DeviceHub } from "../../src/main/hub/device-hub";
@@ -32,6 +33,10 @@ export interface LiveInstallation {
   readonly hubErrors: unknown[];
   /** Every change sent to the app's windows, by event channel. */
   readonly notifications: { channel: string; payload: unknown }[];
+  /** The Windows notifications on screen, one per Group (#10's spec). */
+  readonly shownNotices: Map<string, NoticeContent>;
+  /** Tells the services the window gained or lost the focus. */
+  windowFocusChanged(focused: boolean): void;
 }
 
 /** Builds installations talking to one in-process server, and tears them all down. */
@@ -91,6 +96,7 @@ function installApp(
   const sessionEnded = vi.fn<() => void>();
   const hubErrors: unknown[] = [];
   const notifications: { channel: string; payload: unknown }[] = [];
+  const shownNotices = new Map<string, NoticeContent>();
   const services = startAppServices({
     database,
     server: createServerApiClient(server.transport),
@@ -102,6 +108,14 @@ function installApp(
       if (channel === desktopApiEventChannels.onSessionChanged) sessionEnded();
     },
     reportError: (error) => hubErrors.push(error),
+    notifications: {
+      show: (groupId, content) => {
+        shownNotices.set(groupId, content);
+      },
+      close: (groupId) => {
+        shownNotices.delete(groupId);
+      },
+    },
   });
   if (services.deviceHub === undefined) throw new Error("no Group hub");
   const { store, liveSession } = services;
@@ -116,6 +130,10 @@ function installApp(
       deviceHub: services.deviceHub,
       hubErrors,
       notifications,
+      shownNotices,
+      windowFocusChanged: (focused): void => {
+        services.windowFocusChanged(focused);
+      },
     },
     resources: { database, liveSession },
   };

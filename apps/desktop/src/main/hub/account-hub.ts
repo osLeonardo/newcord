@@ -47,6 +47,8 @@ export interface AccountHubDependencies {
   readonly clock: SessionClock;
   /** Told about failures no request can report, such as a Key package upload that threw. */
   readonly reportError: (error: unknown) => void;
+  /** Whether a Group's chat is open and focused in the window (#10's spec). */
+  readonly inView: (groupId: string) => boolean;
 }
 
 /** Everything the logged-in Device does with the hub, for the Account stored on this installation. */
@@ -102,6 +104,7 @@ export function openAccountHub(
     events: dependencies.groupEvents,
     reportError: dependencies.reportError,
     now: () => dependencies.clock.now(),
+    inView: (groupId) => dependencies.inView(groupId),
   };
   const groups = createGroupService(context);
   const callAuthenticated = createAuthenticatedCall(dependencies);

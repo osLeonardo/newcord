@@ -6,6 +6,7 @@ const channels = createShellIpcChannels({
   readStartupNotice: vi.fn(() => Promise.resolve(true)),
   dismissStartupNotice: vi.fn(() => Promise.resolve()),
   reportCallMedia: vi.fn(() => Promise.resolve()),
+  setViewedGroup: vi.fn(() => Promise.resolve()),
 });
 
 function channelNamed(name: string): (typeof channels)[number] {
@@ -19,6 +20,8 @@ describe("the shell channels", () => {
     [desktopApiChannels.readStartupNotice, []],
     [desktopApiChannels.dismissStartupNotice, []],
     [desktopApiChannels.reportCallMedia, [{ muted: true, sharing: false }]],
+    [desktopApiChannels.setViewedGroup, ["MgZoqEdt4EEfhsMd_7xNqw"]],
+    [desktopApiChannels.setViewedGroup, [null]],
   ])("%s accepts %j", (name, args) => {
     expect(channelNamed(name).argumentsMatch(args)).toBe(true);
   });
@@ -31,6 +34,8 @@ describe("the shell channels", () => {
       desktopApiChannels.reportCallMedia,
       [{ muted: true, sharing: false, groupId: "x" }],
     ],
+    [desktopApiChannels.setViewedGroup, ["friends"]],
+    [desktopApiChannels.setViewedGroup, []],
   ])("%s refuses %j", (name, args) => {
     expect(channelNamed(name).argumentsMatch(args)).toBe(false);
   });

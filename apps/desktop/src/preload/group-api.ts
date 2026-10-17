@@ -4,6 +4,8 @@ import type { HubErrorCode } from "@newcord/shared";
 export interface GroupSummary {
   readonly groupId: string;
   readonly name: string;
+  /** Messages that arrived while the Group was not open and focused (#10's spec). */
+  readonly unread: number;
 }
 
 /** A pending Invitation, with the Group's name and who sent it (D13). */
