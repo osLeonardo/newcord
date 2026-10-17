@@ -3,7 +3,7 @@
 
 M5 takes the app to release: your security review, hardened packaging, automatic updates, and builds on GitHub Actions published to GitHub Releases. M5 is done when every check in the Security checklist passes and the installer runs on a clean Windows machine. Deploying the server comes after D52 is settled.
 
-Before M5 starts: choose the app's final name and replace the working title "newcord" everywhere, including the `appId`, window titles and DuckDNS names (D58).
+The app's name is "newcord" (D92): the `appId` is `com.newcord.desktop`, and the DuckDNS names are `newcord.duckdns.org` and `newcord-turn.duckdns.org`.
 
 ## Settings
 

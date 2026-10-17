@@ -40,7 +40,7 @@ Based on Electron's official security recommendations ([source](https://www.elec
 | --- | --- |
 | The MLS state saved before anything is sent (D39) | M2 |
 | SQLite's secure\_delete on in the app's database, so deleted keys are erased | M2 |
-| The AES implementation inside WebAssembly confirmed constant-time (D38) | M2 |
+| The AES implementation inside WebAssembly confirmed constant-time (D38). Confirmed in #4: on `wasm32-unknown-unknown`, `aes` 0.8.4 (through `aes-gcm` 0.10.3 in `openmls_rust_crypto` 0.6.0) has no CPU intrinsics to use and compiles only its portable "soft" backend, which its documentation describes as "a constant-time pure Rust implementation based on fixslicing … with no use of any lookup tables or data-dependent branches"; GCM's GHASH uses `polyval` 0.6.2, whose soft backend is likewise documented as constant-time | M2 |
 | Every commit checked against its declared change and the 10-person limit, with a notice naming the sender when it fails (D41, D71) | M2 |
 | Call setup accepted only as MLS-encrypted messages, never in plain form (D18) | M3 |
 | Safety numbers in the interface, so members can verify each other's keys (D7) | M4 |

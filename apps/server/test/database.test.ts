@@ -38,7 +38,7 @@ function insertDevice(id: string, userId: number, identityKey: Buffer): void {
 }
 
 describe("openDatabase", () => {
-  it("creates the users, devices and refresh_tokens tables", () => {
+  it("creates M1's and M2's tables", () => {
     const tables = database
       .prepare(
         "SELECT name FROM sqlite_schema WHERE type = 'table' ORDER BY name",
@@ -46,7 +46,90 @@ describe("openDatabase", () => {
       .pluck()
       .all();
 
-    expect(tables).toEqual(["devices", "refresh_tokens", "users"]);
+    expect(tables).toEqual([
+      "blocks",
+      "deliveries",
+      "devices",
+      "group_members",
+      "groups",
+      "invitations",
+      "key_packages",
+      "messages",
+      "refresh_tokens",
+      "users",
+    ]);
+  });
+
+  it("gives M2's tables the guide's columns plus #5's additions", () => {
+    expect(columnsOf("groups")).toEqual([
+      "id",
+      "name",
+      "epoch",
+      "last_seq",
+      "created_at",
+    ]);
+    expect(columnsOf("group_members")).toEqual([
+      "group_id",
+      "device_id",
+      "leaving",
+      "needs_resync",
+    ]);
+    expect(columnsOf("invitations")).toEqual([
+      "id",
+      "group_id",
+      "from_user",
+      "to_user",
+      "status",
+      "hidden",
+      "created_at",
+    ]);
+    expect(columnsOf("key_packages")).toEqual([
+      "id",
+      "device_id",
+      "data",
+      "last_resort",
+    ]);
+    expect(columnsOf("messages")).toEqual([
+      "group_id",
+      "seq",
+      "sender",
+      "kind",
+      "payload",
+      "declared",
+      "created_at",
+    ]);
+    expect(columnsOf("deliveries")).toEqual(["group_id", "seq", "device_id"]);
+    expect(columnsOf("blocks")).toEqual(["blocker", "blocked"]);
+  });
+
+  it("accepts only the four Invitation statuses", () => {
+    const userId = insertUser("alice");
+    database
+      .prepare(
+        "INSERT INTO groups (id, name, epoch, created_at) VALUES (?, 'g', 0, 0)",
+      )
+      .run(Buffer.alloc(16));
+    const insertInvitation = (status: string): unknown =>
+      database
+        .prepare(
+          "INSERT INTO invitations (id, group_id, from_user, to_user, status, created_at) VALUES (?, ?, ?, ?, ?, 0)",
+        )
+        .run(status, Buffer.alloc(16), userId, userId, status);
+
+    for (const status of ["pending", "accepted", "declined", "expired"]) {
+      expect(() => insertInvitation(status)).not.toThrow();
+    }
+    expect(() => insertInvitation("joined")).toThrow(/CHECK/);
+  });
+
+  it("refuses a block of oneself", () => {
+    const userId = insertUser("alice");
+
+    expect(() =>
+      database
+        .prepare("INSERT INTO blocks (blocker, blocked) VALUES (?, ?)")
+        .run(userId, userId),
+    ).toThrow(/CHECK/);
   });
 
   it("gives each table the columns of the PRD's Schema Changes", () => {

@@ -1,4 +1,6 @@
 import { WebSocketCloseCode } from "@newcord/shared";
+import type { HubContext } from "../hub/hub-messenger.js";
+import { parseHubRequest, type HubEndpoints } from "../hub/hub-requests.js";
 import { authenticateHello, type HelloDependencies } from "./hello.js";
 import { closeHubSocket, type IncomingSocket } from "./hub-socket.js";
 import type { Presence } from "./presence.js";
@@ -9,6 +11,7 @@ export const HELLO_DEADLINE_MS = 5000;
 
 export interface HubConnectionDependencies extends HelloDependencies {
   presence: Presence;
+  hub: HubEndpoints;
 }
 
 type ConnectionPhase = "awaiting-hello" | "authenticated" | "closed";
@@ -18,11 +21,13 @@ interface HubConnection {
   phase: ConnectionPhase;
   helloDeadline: NodeJS.Timeout;
   dependencies: HubConnectionDependencies;
+  /** Set once `hello` is accepted. */
+  context?: HubContext;
 }
 
 /**
- * Runs one `/ws` connection: waits up to 5 seconds for a valid `hello`, then joins presence.
- * M1 clients send nothing after `hello`, so any later message is rejected.
+ * Runs one `/ws` connection: waits up to 5 seconds for a valid `hello`, then joins presence and
+ * hands every later request Envelope to the hub. A message breaking every schema closes the socket.
  * Example: `app.get("/ws", { websocket: true }, (socket) => openHubConnection(socket, dependencies));`
  */
 export function openHubConnection(
@@ -52,7 +57,22 @@ function receiveMessage(
     receiveHello(connection, messageText);
     return;
   }
-  if (connection.phase === "authenticated") rejectEnvelope(connection);
+  if (connection.phase === "authenticated") {
+    receiveRequest(connection, messageText);
+  }
+}
+
+function receiveRequest(
+  connection: HubConnection,
+  messageText: string | undefined,
+): void {
+  const envelope =
+    messageText === undefined ? undefined : parseHubRequest(messageText);
+  if (envelope === undefined || connection.context === undefined) {
+    rejectEnvelope(connection);
+    return;
+  }
+  connection.dependencies.hub.received(connection.context, envelope);
 }
 
 function receiveHello(
@@ -69,7 +89,9 @@ function receiveHello(
     return;
   }
   connection.phase = "authenticated";
+  connection.context = { socket: connection.socket, owner };
   connection.dependencies.presence.join(connection.socket, owner);
+  connection.dependencies.hub.opened(connection.context);
 }
 
 function refuseAuthentication(connection: HubConnection): void {

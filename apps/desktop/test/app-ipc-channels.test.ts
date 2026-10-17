@@ -1,5 +1,8 @@
 import { describe, expect, it, vi, type Mock } from "vitest";
 import type { AccountActions } from "../src/main/account/account-actions";
+import type { DesktopApiCalls } from "../src/preload/desktop-api";
+import { fakeCallActions } from "./support/fake-call-actions";
+import { fakeGroupActions } from "./support/fake-group-actions";
 import { createAppIpcChannels } from "../src/main/ipc/app-ipc-channels";
 import {
   registerCheckedIpcHandler,
@@ -50,7 +53,7 @@ const appInvocation: IpcInvocation = {
 };
 
 type FakeActions = {
-  [Name in keyof AccountActions]: Mock<AccountActions[Name]>;
+  [Name in keyof DesktopApiCalls]: Mock<DesktopApiCalls[Name]>;
 };
 
 function fakeActions(): FakeActions {
@@ -70,6 +73,12 @@ function fakeActions(): FakeActions {
     recoverPassword: vi.fn<AccountActions["recoverPassword"]>(() =>
       Promise.resolve(recovered),
     ),
+    ...fakeGroupActions(),
+    ...fakeCallActions(),
+    readStartupNotice: vi.fn(() => Promise.resolve(false)),
+    dismissStartupNotice: vi.fn(() => Promise.resolve()),
+    reportCallMedia: vi.fn(() => Promise.resolve()),
+    setViewedGroup: vi.fn(() => Promise.resolve()),
   };
 }
 

@@ -1,4 +1,14 @@
 import type { ApiErrorCode } from "@newcord/shared";
+import type {
+  CallApiCalls,
+  CallSummary,
+  DiagnosticsApiCalls,
+  ReceivedCallSignal,
+  ScreenShareApiCalls,
+} from "./call-api";
+import type { DeviceSettings, SettingsApiCalls } from "./settings-api";
+import type { GroupApiCalls, GroupLeftNotice } from "./group-api";
+import type { ShellApiCalls } from "./shell-api";
 
 /** A username and password as typed on the sign-up or login screen. */
 export interface Credentials {
@@ -64,8 +74,8 @@ export type PasswordRecoveryResult =
 /** Stops a listener from hearing any more changes. */
 export type Unsubscribe = () => void;
 
-/** The desktop API's calls into the main process, each checked there for its sender and arguments. */
-export interface DesktopApiCalls {
+/** The desktop API's account and session calls (#3). */
+export interface AccountApiCalls {
   readSessionState(): Promise<SessionState>;
   signUp(
     credentials: Credentials,
@@ -85,6 +95,17 @@ export interface DesktopApiCalls {
   recoverPassword(recovery: PasswordRecovery): Promise<PasswordRecoveryResult>;
 }
 
+/** The desktop API's calls into the main process, each checked there for its sender and arguments. */
+export interface DesktopApiCalls
+  extends
+    AccountApiCalls,
+    GroupApiCalls,
+    CallApiCalls,
+    SettingsApiCalls,
+    ScreenShareApiCalls,
+    DiagnosticsApiCalls,
+    ShellApiCalls {}
+
 /** The changes the main process tells the interface about. */
 export interface DesktopApiSubscriptions {
   /** Hears the session state whenever the server ends the session (D62, D66). */
@@ -92,6 +113,28 @@ export interface DesktopApiSubscriptions {
   onOnlineAccountsChanged(
     listener: (usernames: readonly string[]) => void,
   ): Unsubscribe;
+  /** Hears that the Group list changed; the interface reads it again. */
+  onGroupsChanged(listener: () => void): Unsubscribe;
+  /** Hears that the pending Invitations changed; the interface reads them again. */
+  onInvitationsChanged(listener: () => void): Unsubscribe;
+  /** Hears which Group's chat history changed; the interface reads it again. */
+  onMessagesChanged(listener: (groupId: string) => void): Unsubscribe;
+  /** Hears that this Device left a Group or was removed from it. */
+  onGroupLeft(listener: (notice: GroupLeftNotice) => void): Unsubscribe;
+  /** Hears that the Account's block list changed; chats and member lists read again. */
+  onBlocksChanged(listener: () => void): Unsubscribe;
+  /** Hears a Group's Call whenever someone joins or leaves it, this Device included. */
+  onCallChanged(listener: (call: CallSummary) => void): Unsubscribe;
+  /** Hears the WebRTC signals other Participants send this Device. */
+  onCallSignal(listener: (signal: ReceivedCallSignal) => void): Unsubscribe;
+  /** Hears a click on a message notification: the window opens that Group (11-m4-build step 7). */
+  onOpenGroup(listener: (groupId: string) => void): Unsubscribe;
+  /** Hears the global mute hotkey (D44c). */
+  onMuteToggled(listener: () => void): Unsubscribe;
+  /** Hears the push-to-talk key going down and up, wherever the focus is (D44b). */
+  onPushToTalk(listener: (held: boolean) => void): Unsubscribe;
+  /** Hears the settings after any window changed them. */
+  onSettingsChanged(listener: (settings: DeviceSettings) => void): Unsubscribe;
 }
 
 /** The named functions the preload gives the interface as `window.desktopApi`; keys and tokens never cross it. */
@@ -106,10 +149,52 @@ export const desktopApiChannels = {
   readOnlineAccounts: "presence:read-online",
   changePassword: "password:change",
   recoverPassword: "password:recover",
+  listGroups: "groups:list",
+  createGroup: "groups:create",
+  inviteToGroup: "groups:invite",
+  listInvitations: "invitations:list",
+  answerInvitation: "invitations:answer",
+  listMessages: "messages:list",
+  sendMessage: "messages:send",
+  listMembers: "members:list",
+  removeMember: "members:remove",
+  leaveGroup: "groups:leave",
+  listBlocked: "blocks:list",
+  blockAccount: "blocks:block",
+  unblockAccount: "blocks:unblock",
+  readSafetyNumber: "safety:read",
+  markVerified: "safety:verify",
+  readCall: "calls:read",
+  joinCall: "calls:join",
+  leaveCall: "calls:leave",
+  sendCallSignal: "calls:send-signal",
+  dropCallParticipant: "calls:drop",
+  readIceConfiguration: "calls:read-ice",
+  readSettings: "settings:read",
+  changeSettings: "settings:change",
+  readVoiceControls: "settings:read-voice-controls",
+  listShareSources: "share:list-sources",
+  chooseShareSource: "share:choose-source",
+  measureCpu: "diagnostics:measure-cpu",
+  readStartupNotice: "shell:read-startup-notice",
+  dismissStartupNotice: "shell:dismiss-startup-notice",
+  reportCallMedia: "shell:report-call-media",
+  setViewedGroup: "shell:set-viewed-group",
 } as const satisfies Record<keyof DesktopApiCalls, string>;
 
 /** The IPC channel the main process sends each change on. */
 export const desktopApiEventChannels = {
   onSessionChanged: "session:changed",
   onOnlineAccountsChanged: "presence:changed",
+  onGroupsChanged: "groups:changed",
+  onInvitationsChanged: "invitations:changed",
+  onMessagesChanged: "messages:changed",
+  onGroupLeft: "groups:left",
+  onBlocksChanged: "blocks:changed",
+  onCallChanged: "calls:changed",
+  onCallSignal: "calls:signal",
+  onOpenGroup: "shell:open-group",
+  onMuteToggled: "calls:mute-toggled",
+  onPushToTalk: "calls:push-to-talk",
+  onSettingsChanged: "settings:changed",
 } as const satisfies Record<keyof DesktopApiSubscriptions, string>;

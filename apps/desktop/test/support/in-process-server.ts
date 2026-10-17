@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import type Database from "better-sqlite3";
 import type { FastifyInstance } from "fastify";
 import { buildServerApp } from "server/src/app";
@@ -23,7 +24,14 @@ export interface InProcessServer {
 /** Starts the server app on a fresh in-memory database. */
 export async function startInProcessServer(): Promise<InProcessServer> {
   const database = openDatabase(":memory:");
-  const app = await buildServerApp({ jwtSecret: TEST_JWT_SECRET, database });
+  const app = await buildServerApp({
+    jwtSecret: TEST_JWT_SECRET,
+    database,
+    relay: {
+      secret: "a desktop-test-only relay secret, longer than 32 bytes",
+      urls: ["stun:relay.test:3478", "turn:relay.test:3478"],
+    },
+  });
   return {
     app,
     database,
@@ -41,6 +49,7 @@ export async function startInProcessServer(): Promise<InProcessServer> {
 /** A transport for a server that cannot be reached, as when it is down or the network is out. */
 export const unreachableTransport: ServerTransport = {
   post: () => Promise.reject(new TypeError("fetch failed")),
+  get: () => Promise.reject(new TypeError("fetch failed")),
 };
 
 /** Counts the server's rows of an Account's Devices and of a Device's refresh tokens. */
@@ -75,4 +84,21 @@ function injectFetch(app: FastifyInstance): FetchFunction {
       text: () => Promise.resolve(response.body),
     };
   };
+}
+
+/** Puts Devices in one new Group directly on the server, so their Accounts see each other online (M2). */
+export function shareGroup(
+  database: Database.Database,
+  deviceIds: readonly string[],
+): void {
+  const groupId = randomBytes(16);
+  database
+    .prepare(
+      "INSERT INTO groups (id, name, epoch, created_at) VALUES (?, 'friends', 0, 0)",
+    )
+    .run(groupId);
+  const addMember = database.prepare(
+    "INSERT INTO group_members (group_id, device_id) VALUES (?, ?)",
+  );
+  for (const deviceId of deviceIds) addMember.run(groupId, deviceId);
 }

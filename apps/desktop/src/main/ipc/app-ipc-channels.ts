@@ -8,8 +8,12 @@ import {
   type SessionState,
   type SignUpResult,
 } from "../../preload/desktop-api";
+import type { DesktopApiCalls } from "../../preload/desktop-api";
 import type { AccountActions } from "../account/account-actions";
-import type { CheckedIpcChannel } from "./checked-ipc-handler";
+import { createCallIpcChannels } from "./call-ipc-channels";
+import { createGroupIpcChannels } from "./group-ipc-channels";
+import { createShellIpcChannels } from "./shell-ipc-channels";
+import { checkedChannel, type CheckedIpcChannel } from "./checked-ipc-handler";
 import { argumentsMatching } from "./typebox-arguments";
 
 /** The screens check the same rules first, so a refused call means the interface misbehaved. */
@@ -47,8 +51,17 @@ const CREDENTIALS_DESCRIPTION =
  * @example for (const channel of createAppIpcChannels(accountActions)) registerCheckedIpcHandler(ipcMain, isTrustedSender, channel);
  */
 export function createAppIpcChannels(
-  actions: AccountActions,
+  actions: DesktopApiCalls,
 ): readonly CheckedIpcChannel[] {
+  return [
+    ...accountIpcChannels(actions),
+    ...createGroupIpcChannels(actions),
+    ...createCallIpcChannels(actions),
+    ...createShellIpcChannels(actions),
+  ];
+}
+
+function accountIpcChannels(actions: AccountActions): CheckedIpcChannel[] {
   return [
     checkedChannel<NoArguments, SessionState>({
       name: desktopApiChannels.readSessionState,
@@ -94,11 +107,4 @@ export function createAppIpcChannels(
       handle: (recovery) => actions.recoverPassword(recovery),
     }),
   ];
-}
-
-/** Ties a channel's `handle` to the argument types its schema check guarantees. */
-function checkedChannel<Arguments extends readonly unknown[], Result>(
-  channel: CheckedIpcChannel<Arguments, Result>,
-): CheckedIpcChannel<Arguments, Result> {
-  return channel;
 }

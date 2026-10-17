@@ -1,7 +1,7 @@
 # Decision log
 
 
-Every decision so far, D1 to D82, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
+Every decision so far, D1 to D94, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
 
 | Decision | Your choice |
 | --- | --- |
@@ -89,6 +89,18 @@ Every decision so far, D1 to D82, is made and summarized below. Each one records
 | D80 better-sqlite3 install script | Denied; its prebuilt Node-API binaries are used |
 | D81 Logging in again on a device | Deletes that device's other refresh tokens |
 | D82 Values filled in while building M1 | See the entry: status codes, database path, secret length, cleanup interval, release address, IPC checks, key directory, WebSocket codes, heartbeat (#17) |
+| D83 Where the MLS welcome travels | Inside the commit that adds the devices, stored with it in one step |
+| D84 Where the relay's addresses come from | The server's `RELAY_URLS`, returned with each relay password |
+| D85 Call messages and time | `call.join`, `call.leave` and `call.signal` carry the sender's time; older than 60 seconds is ignored |
+| D86 Who is in a call for a device that missed its start | Learned when it joins, from the Participants' signals; no re-announcing |
+| D87 What switching accounts erases | The account's data only; this computer's settings and one-time flags stay |
+| D88 Unblocking someone you share no group with | A Blocked list in Settings, under Privacy |
+| D89 How production runs the server | Through tsx, with no separate build |
+| D90 MLS module functions beyond the guide's table | `groupEpoch`, `groupMembers`, `groupMemberKeys`, and one past epoch kept readable |
+| D91 Server behaviour added while building M2 | Leaving devices get the commit removing them; groups re-prompted on key-package upload and on creation; no-recipient messages not stored |
+| D92 The app's final name | newcord |
+| D93 uiohook-napi's install script | Approved; it only picks the prebuilt binary |
+| D94 Rust toolchain on Windows | The GNU toolchain, wasm-bindgen-cli's prebuilt binary, and the crate's tests run as WebAssembly in Node |
 
 ## D1 — Architecture: who carries messages and calls?
 
@@ -1335,3 +1347,164 @@ Values the guide did not give, proposed while building M1 and accepted on Octobe
 | WebSocket Envelope version field and close codes | The field is `v`. `4001` authentication failed or `hello` too late (the app renews its token and reconnects); `4002` session ended (the app shows the login screen); `1008` for any message after `hello` in M1 |
 | Types for the WebSocket library | `@types/ws` as a development dependency of the server, so the hub's socket interfaces are checked against `ws` |
 | Detecting dead WebSocket connections | A server heartbeat, built in its own follow-up issue (#17) |
+
+## D83 — Where the MLS welcome travels
+
+Raised while building M2 (#5). `06-message-formats.md` listed a separate client `mls.welcome` envelope after the commit that adds devices.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. Inside `mls.commit`, as an optional `welcome` field required when the commit adds devices; the server stores the commit at sequence N and the welcome at N+1 in one transaction and delivers the welcome only to the added devices | An added device can never miss its welcome; nothing can arrive before it | Differs from the guide's table |
+| B. A separate envelope, as listed | Matches the guide | Messages can arrive before the welcome, and an adder crashing between the two leaves the added device stuck |
+
+Recommendation: A.
+
+Your choice: A (decided October 17, 2026). `06-message-formats.md` is updated to match.
+
+## D84 — Where the relay's addresses come from
+
+Raised while building M3 (#8). The server returns the relay's addresses with each 1-hour password; #8's spec also had the desktop build them in, D65-style.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. Only the server's required `RELAY_URLS` setting, returned by `GET /relay/credentials` | One place to change; no new app build when the relay moves | The app learns the relay only once logged in, which calls need anyway |
+| B. Built into each app build, the route returning only username and password | No relay setting on the server | Two places to keep in step; every relay change needs a new build |
+
+Recommendation: A.
+
+Your choice: A (decided October 17, 2026).
+
+## D85 — Call messages carry the sender's time
+
+Raised while building M3 (#9). `06-message-formats.md` says `call.join` and `call.leave` carry only their type, but #9's spec ignores call messages more than 60 seconds old by the sender's time, so a device back from offline does not act on old joins and offers.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. `call.join`, `call.leave` and `call.signal` carry `sentAt`, the sender's clock in milliseconds, inside MLS | The staleness rule works; the server still sees nothing | One more field than the table listed |
+| B. Only the type | Matches the table | A returning device may list people who left long ago, and act on stale offers |
+
+Recommendation: A.
+
+Your choice: A (decided October 17, 2026). `06-message-formats.md` is updated to match.
+
+## D86 — Who is in a call for a device that missed its start
+
+Raised while building M3 (#9). With stale joins ignored (D85), a device that comes online during a call started more than 60 seconds earlier does not know who is in it. Until it joins, its list and the call-full check undercount; once it joins, it learns each participant from their signals.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. Participants re-send `call.join` about every 50 seconds while in a call | Accurate lists for everyone | Many more queued MLS messages, also kept up to 30 days for offline devices |
+| B. Keep it: a joiner learns from signals | Nothing more to send | A seventh joiner who did not know may briefly connect to some participants |
+| C. A new `call.present` payload answering each join | Accurate for joiners | A new payload type |
+
+Recommendation: B, enough for a small group of friends.
+
+Your choice: B (decided October 17, 2026).
+
+## D87 — What switching accounts erases
+
+Raised while building M4 (#10). D60's switch erases every local table, which since M3 and M4 includes this computer's settings (microphone, hotkeys, codec, Hide my IP, previews, start at login, close behaviour) and its one-time flags. After a switch, start at login turned back on and the one-time notices repeated.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. Erase everything, as before | The strictest reading of D60 | Settings that belong to the computer reset, and start at login turns on again |
+| B. Erase the account's data only: identity, session, groups, messages, MLS state, verified marks; keep the device settings and one-time flags | Accounts still cannot be linked (D60); the computer keeps its setup | Settings chosen under one account carry to the next |
+
+Recommendation: B.
+
+Your choice: B (decided October 17, 2026). This narrows what D60's switch erases.
+
+## D88 — Unblocking someone you share no group with
+
+Raised while building M2 (#6). Blocking and unblocking happen from a group's member list, so a blocked person who no longer shares any group could not be unblocked.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. A Blocked list with Unblock buttons in Settings, under Privacy | Every block can be undone | One more small list |
+| B. Member lists only | As specified | Such a block lasts forever |
+
+Recommendation: A.
+
+Your choice: A (decided October 17, 2026).
+
+## D89 — How production runs the server
+
+Raised while preparing the deployment (#14). The guide's systemd unit runs `node dist/index.js`, but the server has no build step: it runs TypeScript through tsx, and `@newcord/shared` ships TypeScript source.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. Bundle the server into `dist/` | Faster start-up | A bundler such as esbuild runs an install script |
+| B. Run through tsx in production (`node --import tsx src/index.ts`, tsx a server dependency) | Nothing new to install; development and production run the same way | tsx compiles at start-up |
+| C. Compile the server and the shared package with tsc | No new tool | More build configuration, and the shared package's exports change |
+
+Recommendation: B.
+
+Your choice: B (decided October 17, 2026).
+
+## D90 — MLS module functions beyond the guide's table
+
+Raised while building M2's desktop work (#6) and safety numbers (#11) against an engine port mirroring #4's API.
+
+| Function | Why |
+| --- | --- |
+| `groupEpoch(groupId)` | Every `mls.commit` carries the epoch it builds on |
+| `groupMembers(groupId)` | The member list is read from the MLS state (D70) |
+| `groupMemberKeys(groupId)` | Safety numbers read each member's identity key from the credentials, not the server (D45) |
+| One past epoch kept readable | Messages sent just before a commit still decrypt after it |
+
+Recommendation: add all four to `@newcord/mls`, each with its own Rust tests.
+
+Your choice: add all four (decided October 17, 2026).
+
+## D91 — Server behaviour added while building M2
+
+Found while building the desktop's groups (#6) against the server (#5); each fixes a case where a device got stuck or a message could never be deleted.
+
+| Change | Why |
+| --- | --- |
+| A leaving account's devices receive the one commit that removes them (#5's spec said they receive nothing more) | Its other devices learn the group is gone |
+| Groups are prompted again when a device uploads key packages | A `device.new` prompt sent before the new device had packages could never succeed |
+| A new group is prompted right after `group.create` | The creator's other devices join at once |
+| A queued message with no recipients is not stored | It would never be acknowledged or deleted |
+
+Recommendation: keep all four.
+
+Your choice: keep all four (decided October 17, 2026).
+
+## D92 — The app's final name
+
+The name chosen before M5 (D58, #12).
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. Keep "newcord" | No rename pass; everything already uses it | The DuckDNS names `newcord.duckdns.org` and `newcord-turn.duckdns.org` must be free |
+| B. A new name | | A search-and-replace pass before M5 |
+
+Your choice: A, "newcord" is the final name (decided October 17, 2026). The appId stays `com.newcord.desktop`. On October 17, 2026 neither `newcord.duckdns.org` nor `newcord-turn.duckdns.org` resolved in DNS, so both looked unclaimed; they are registered with the machine (#14).
+
+## D93 — uiohook-napi's install script
+
+Raised while building M3's push-to-talk (#9). `uiohook-napi` (D74) is a native module whose install script, `node-gyp-build`, picks the prebuilt binary for the platform and compiles only when none fits; the package ships prebuilt binaries for Windows on x64 and Arm.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. Approve it (`uiohook-napi: true` in `allowBuilds`) | Push-to-talk works while a game is in front (D44b) | One more install script runs |
+| B. Deny it | Nothing runs | No global push-to-talk |
+
+Recommendation: A.
+
+Your choice: A, approved (decided October 17, 2026). Push-to-talk keys are keyboard keys, stored as `KeyboardEvent.code`; mouse buttons are not offered.
+
+## D94 — The Rust toolchain on Windows
+
+Raised while setting up the MLS module (#4). Rust's default Windows toolchain links with Microsoft's C++ build tools, which this development computer does not have (D80). The GNU toolchain links on its own, but anything built for Windows itself that creates import libraries (getrandom and windows-sys) needs an assembler it does not bundle; the WebAssembly build is not affected.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. GNU toolchain; wasm-bindgen-cli's official prebuilt binary from its GitHub release, its SHA-256 checked; the crate's Rust tests compiled to WebAssembly and run in Node by wasm-bindgen-test | Nothing else to install; the tests run on the target the app uses | A downloaded binary instead of one compiled locally; tests cannot use native-only code |
+| B. GNU toolchain plus a MinGW-w64 toolchain on PATH | Native Rust tests, and wasm-bindgen-cli compiles from source | Another toolchain to keep |
+| C. Visual Studio Build Tools and the MSVC toolchain | Rust's default on Windows | Several gigabytes and an administrator install |
+
+Recommendation: A.
+
+Your choice: A (decided October 17, 2026). The toolchain is stable-x86_64-pc-windows-gnu with the wasm32-unknown-unknown target, and wasm-bindgen-cli 0.2.129 matches the crate's pinned wasm-bindgen.

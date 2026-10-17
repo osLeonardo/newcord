@@ -72,3 +72,13 @@ function argumentType(argument: unknown): string {
   if (argument === null) return "null";
   return Array.isArray(argument) ? "array" : typeof argument;
 }
+
+/**
+ * Ties a channel's `handle` to the argument types its schema check guarantees.
+ * @example checkedChannel<NoArguments, SessionState>({ name, expectedArguments: "", argumentsMatch, handle })
+ */
+export function checkedChannel<Arguments extends readonly unknown[], Result>(
+  channel: CheckedIpcChannel<Arguments, Result>,
+): CheckedIpcChannel<Arguments, Result> {
+  return channel;
+}

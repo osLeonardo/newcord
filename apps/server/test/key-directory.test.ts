@@ -6,15 +6,20 @@ import { openDatabase } from "../src/database/open-database.js";
 import { createDeviceStore } from "../src/devices/device-store.js";
 import {
   createKeyDirectory,
+  keyDirectoryAudience,
   type KeyDirectory,
 } from "../src/key-directory/key-directory.js";
+
+/** The caller in these tests; the audience lets it look up everyone unless a test says otherwise. */
+const CALLER = 1_000;
+const everyone = { mayLookUp: (): boolean => true };
 
 let database: Database.Database;
 let keyDirectory: KeyDirectory;
 
 beforeEach(() => {
   database = openDatabase(":memory:");
-  keyDirectory = createKeyDirectory(database);
+  keyDirectory = createKeyDirectory(database, everyone);
 });
 
 afterEach(() => {
@@ -51,14 +56,18 @@ function addDevice(
 
 describe("KeyDirectory.identityKeysOf", () => {
   it("returns undefined for a username no Account has", () => {
-    expect(keyDirectory.identityKeysOf("nobody_here")).toBeUndefined();
+    expect(
+      keyDirectory.identityKeysVisibleTo(CALLER, "nobody_here"),
+    ).toBeUndefined();
   });
 
   it("returns the identity key of an Account's only Device", () => {
     const identityKey = randomBytes(32);
     createAccount("bruno", identityKey);
 
-    expect(keyDirectory.identityKeysOf("bruno")).toEqual([identityKey]);
+    expect(keyDirectory.identityKeysVisibleTo(CALLER, "bruno")).toEqual([
+      identityKey,
+    ]);
   });
 
   it("returns the keys of every Device of the Account, oldest Device first", () => {
@@ -71,7 +80,7 @@ describe("KeyDirectory.identityKeysOf", () => {
     addDevice(userId, third, 3_000);
     addDevice(userId, second, 2_000);
 
-    expect(keyDirectory.identityKeysOf("bruno")).toEqual([
+    expect(keyDirectory.identityKeysVisibleTo(CALLER, "bruno")).toEqual([
       first,
       second,
       third,
@@ -83,7 +92,9 @@ describe("KeyDirectory.identityKeysOf", () => {
     createAccount("alice", randomBytes(32));
     createAccount("bruno", brunoKey);
 
-    expect(keyDirectory.identityKeysOf("bruno")).toEqual([brunoKey]);
+    expect(keyDirectory.identityKeysVisibleTo(CALLER, "bruno")).toEqual([
+      brunoKey,
+    ]);
   });
 
   it("returns an empty list for an Account without Devices", () => {
@@ -93,6 +104,43 @@ describe("KeyDirectory.identityKeysOf", () => {
       )
       .run();
 
-    expect(keyDirectory.identityKeysOf("carla")).toEqual([]);
+    expect(keyDirectory.identityKeysVisibleTo(CALLER, "carla")).toEqual([]);
+  });
+});
+
+describe("KeyDirectory.identityKeysVisibleTo with a narrowed audience (D64)", () => {
+  it("answers about an Account the audience allows, and like an unknown username otherwise", () => {
+    const bruno = createAccount("bruno", randomBytes(32));
+    createAccount("carla", randomBytes(32));
+    const narrowed = createKeyDirectory(database, {
+      mayLookUp: (caller, target): boolean =>
+        caller === CALLER && target === bruno,
+    });
+
+    expect(narrowed.identityKeysVisibleTo(CALLER, "bruno")).toHaveLength(1);
+    expect(narrowed.identityKeysVisibleTo(CALLER, "carla")).toBeUndefined();
+  });
+});
+
+describe("keyDirectoryAudience", () => {
+  const groups = {
+    coMemberUserIdsOf: (userId: number): number[] => (userId === 1 ? [2] : []),
+  };
+  const invitations = {
+    isOpenBetween: (first: number, second: number): boolean =>
+      (first === 1 && second === 3) || (first === 3 && second === 1),
+  };
+  const audience = keyDirectoryAudience(groups, invitations);
+
+  it("lets an Account look up itself, its co-Members and Accounts with an open Invitation either way", () => {
+    expect(audience.mayLookUp(1, 1)).toBe(true);
+    expect(audience.mayLookUp(1, 2)).toBe(true);
+    expect(audience.mayLookUp(1, 3)).toBe(true);
+    expect(audience.mayLookUp(3, 1)).toBe(true);
+  });
+
+  it("refuses anyone else", () => {
+    expect(audience.mayLookUp(1, 4)).toBe(false);
+    expect(audience.mayLookUp(2, 3)).toBe(false);
   });
 });

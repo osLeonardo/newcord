@@ -1,3 +1,5 @@
+import { createCallApi } from "./call-api-bridge";
+import { createShellApi } from "./shell-api-bridge";
 import {
   desktopApiChannels,
   desktopApiEventChannels,
@@ -9,6 +11,17 @@ import {
   type SignUpResult,
   type Unsubscribe,
 } from "./desktop-api";
+import type {
+  ChatEntry,
+  CreateGroupResult,
+  GroupActionResult,
+  SafetyNumberResult,
+  GroupLeftNotice,
+  GroupMemberSummary,
+  GroupSummary,
+  InvitationSummary,
+  SendMessageResult,
+} from "./group-api";
 
 /** `ipcRenderer.invoke`, which stays inside the preload and never reaches the interface. */
 export type IpcInvoke = (
@@ -32,6 +45,8 @@ export function createDesktopApi(
 ): DesktopApi {
   // The main process answers each channel, and sends each change, with the type its action returns.
   return {
+    ...createCallApi(invoke, subscribe),
+    ...createShellApi(invoke, subscribe),
     readSessionState: () =>
       invoke(desktopApiChannels.readSessionState) as Promise<SessionState>,
     signUp: (credentials, choice) =>
@@ -61,6 +76,93 @@ export function createDesktopApi(
         desktopApiChannels.recoverPassword,
         recovery,
       ) as Promise<PasswordRecoveryResult>,
+    listGroups: () =>
+      invoke(desktopApiChannels.listGroups) as Promise<readonly GroupSummary[]>,
+    createGroup: (name) =>
+      invoke(
+        desktopApiChannels.createGroup,
+        name,
+      ) as Promise<CreateGroupResult>,
+    inviteToGroup: (groupId, username) =>
+      invoke(
+        desktopApiChannels.inviteToGroup,
+        groupId,
+        username,
+      ) as Promise<GroupActionResult>,
+    listInvitations: () =>
+      invoke(desktopApiChannels.listInvitations) as Promise<
+        readonly InvitationSummary[]
+      >,
+    answerInvitation: (invitationId, accept) =>
+      invoke(
+        desktopApiChannels.answerInvitation,
+        invitationId,
+        accept,
+      ) as Promise<GroupActionResult>,
+    listMessages: (groupId) =>
+      invoke(desktopApiChannels.listMessages, groupId) as Promise<
+        readonly ChatEntry[]
+      >,
+    sendMessage: (groupId, text) =>
+      invoke(
+        desktopApiChannels.sendMessage,
+        groupId,
+        text,
+      ) as Promise<SendMessageResult>,
+    listMembers: (groupId) =>
+      invoke(desktopApiChannels.listMembers, groupId) as Promise<
+        readonly GroupMemberSummary[]
+      >,
+    removeMember: (groupId, username) =>
+      invoke(
+        desktopApiChannels.removeMember,
+        groupId,
+        username,
+      ) as Promise<GroupActionResult>,
+    leaveGroup: (groupId) =>
+      invoke(
+        desktopApiChannels.leaveGroup,
+        groupId,
+      ) as Promise<GroupActionResult>,
+    listBlocked: () =>
+      invoke(desktopApiChannels.listBlocked) as Promise<readonly string[]>,
+    blockAccount: (username) =>
+      invoke(
+        desktopApiChannels.blockAccount,
+        username,
+      ) as Promise<GroupActionResult>,
+    unblockAccount: (username) =>
+      invoke(
+        desktopApiChannels.unblockAccount,
+        username,
+      ) as Promise<GroupActionResult>,
+    readSafetyNumber: (groupId, username) =>
+      invoke(
+        desktopApiChannels.readSafetyNumber,
+        groupId,
+        username,
+      ) as Promise<SafetyNumberResult>,
+    markVerified: (groupId, username, safetyNumber) =>
+      invoke(
+        desktopApiChannels.markVerified,
+        groupId,
+        username,
+        safetyNumber,
+      ) as Promise<GroupActionResult>,
+    onBlocksChanged: (listener) =>
+      subscribe(desktopApiEventChannels.onBlocksChanged, () => listener()),
+    onGroupLeft: (listener) =>
+      subscribe(desktopApiEventChannels.onGroupLeft, (payload) =>
+        listener(payload as GroupLeftNotice),
+      ),
+    onMessagesChanged: (listener) =>
+      subscribe(desktopApiEventChannels.onMessagesChanged, (payload) =>
+        listener(payload as string),
+      ),
+    onGroupsChanged: (listener) =>
+      subscribe(desktopApiEventChannels.onGroupsChanged, () => listener()),
+    onInvitationsChanged: (listener) =>
+      subscribe(desktopApiEventChannels.onInvitationsChanged, () => listener()),
     onSessionChanged: (listener) =>
       subscribe(desktopApiEventChannels.onSessionChanged, (payload) =>
         listener(payload as SessionState),

@@ -7,5 +7,7 @@ allowBuilds:
   better-sqlite3: false
   electron-winstaller: false
   esbuild: true
+  # Push-to-talk's global keyboard hook (D74); its script only picks the prebuilt binary.
+  uiohook-napi: true
 
 nodeLinker: hoisted

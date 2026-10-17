@@ -1,4 +1,8 @@
-import { createPresence, type Presence } from "./presence.js";
+import {
+  createPresence,
+  type Presence,
+  type PresenceAudience,
+} from "./presence.js";
 import {
   createSessionSockets,
   type SessionSockets,
@@ -16,12 +20,12 @@ export interface LiveHub {
 }
 
 /**
- * Creates the hub's parts around one empty socket registry.
- * Example: `const { presence, sessionSockets } = createLiveHub();`
+ * Creates the hub's parts around one empty socket registry, with presence shared among Group Members.
+ * Example: `const { presence, sessionSockets } = createLiveHub(groupStore);`
  */
-export function createLiveHub(): LiveHub {
+export function createLiveHub(audience: PresenceAudience): LiveHub {
   const socketRegistry = createSocketRegistry();
-  const presence = createPresence(socketRegistry);
+  const presence = createPresence(socketRegistry, audience);
   return {
     socketRegistry,
     presence,

@@ -55,7 +55,9 @@ function bodyOf<Body>(result: ServerCallResult<Body>): Body {
 }
 
 function replyingTransport(status: number, body: unknown): ServerTransport {
-  return { post: () => Promise.resolve({ status, body }) };
+  const reply = (): Promise<{ status: number; body: unknown }> =>
+    Promise.resolve({ status, body });
+  return { post: reply, get: reply };
 }
 
 describe("register", () => {

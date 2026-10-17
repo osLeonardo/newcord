@@ -28,10 +28,42 @@ import { registerPasswordRecoveryRoute } from "./accounts/password-recovery-rout
 import { registerSignUpRoute } from "./accounts/register-route.js";
 import { createSignUp } from "./accounts/sign-up.js";
 import { createDeviceStore, type DeviceStore } from "./devices/device-store.js";
-import { createKeyDirectory } from "./key-directory/key-directory.js";
+import {
+  createInvitationRequestHandlers,
+  sendInvitationsOnHello,
+} from "./invitations/invitation-requests.js";
+import {
+  createInvitationStore,
+  type InvitationStore,
+} from "./invitations/invitation-store.js";
+import {
+  createKeyDirectory,
+  keyDirectoryAudience,
+} from "./key-directory/key-directory.js";
+import {
+  createKeyPackageRequestHandlers,
+  sendKeyPackageCountOnHello,
+} from "./key-packages/key-package-requests.js";
+import { registerKeyPackageRoute } from "./key-packages/key-package-route.js";
+import {
+  createKeyPackageStore,
+  type KeyPackageStore,
+} from "./key-packages/key-package-store.js";
 import { registerKeyDirectoryRoute } from "./key-directory/key-directory-route.js";
 import { createLoggerOptions, type ServerLogOptions } from "./logging.js";
-import { RATE_LIMIT_PLUGIN_OPTIONS } from "./rate-limits.js";
+import {
+  INVITATION_RATE_LIMIT,
+  KEY_PACKAGE_REQUEST_RATE_LIMIT,
+  RATE_LIMIT_PLUGIN_OPTIONS,
+} from "./rate-limits.js";
+import {
+  createRequestRateLimit,
+  type RequestRateLimit,
+} from "./hub/request-rate-limit.js";
+import {
+  registerRelayCredentialsRoute,
+  type RelaySettings,
+} from "./relay/relay-credentials.js";
 import { registerHealthRoute } from "./routes/health.js";
 import { registerAccessTokenCheck } from "./sessions/access-token-check.js";
 import {
@@ -57,6 +89,35 @@ import {
   type SessionTokenIssuer,
 } from "./sessions/session-tokens.js";
 import { createTokenRefresh } from "./sessions/token-refresh.js";
+import { createCommitAcceptance } from "./commits/commit-acceptance.js";
+import { createCommitRequestHandlers } from "./commits/commit-requests.js";
+import {
+  createMessageQueue,
+  type MessageQueue,
+} from "./queue/message-queue.js";
+import {
+  createQueueRequestHandlers,
+  replayQueueOnHello,
+} from "./queue/queue-requests.js";
+import {
+  createBlockRequestHandlers,
+  sendBlockListOnHello,
+} from "./blocks/block-requests.js";
+import { createBlockStore, type BlockStore } from "./blocks/block-store.js";
+import {
+  createGroupPrompter,
+  type GroupPrompter,
+} from "./groups/group-prompter.js";
+import { createGroupRequestHandlers } from "./groups/group-requests.js";
+import { createLeaveRequestHandlers } from "./groups/leave-requests.js";
+import { createPromptStore } from "./groups/prompt-store.js";
+import {
+  createQueueCleanup,
+  scheduleQueueCleanup,
+} from "./queue/queue-cleanup.js";
+import { createGroupStore, type GroupStore } from "./groups/group-store.js";
+import { createHubMessenger, type HubMessenger } from "./hub/hub-messenger.js";
+import { createHubEndpoints, type HubEndpoints } from "./hub/hub-requests.js";
 import { createLiveHub, type LiveHub } from "./websocket/live-hub.js";
 import { scheduleLiveSessionCheck } from "./websocket/session-check.js";
 import {
@@ -74,11 +135,17 @@ export const MAX_REQUEST_BODY_BYTES = 64 * 1024;
 export interface ServerAppOptions {
   jwtSecret: string;
   database: Database.Database;
+  relay: RelaySettings;
   log?: ServerLogOptions;
   passwordHasher?: PasswordHasher;
   clock?: () => number;
   /** Told when a Device's session ends by logout or a reused refresh token (D62), after its sockets close. */
   onDeviceSessionEnded?: DeviceSessionEndedListener;
+  /**
+   * The proxy whose client-address header is believed, so per-IP rate limits and logs see the real
+   * client (14-server-deployment step 5); none in development.
+   */
+  trustProxy?: string;
 }
 
 /** The session services the routes share; the WebSocket's `hello` reuses the verifier. */
@@ -94,11 +161,21 @@ interface SessionParts {
 /** The stores and services the routes share, built once per app. */
 interface ServerParts extends SessionParts, LiveHub {
   database: Database.Database;
+  relay: RelaySettings;
   clock: () => number;
   passwordHasher: PasswordHasher;
   accountStore: AccountStore;
   credentialStore: CredentialStore;
   deviceStore: DeviceStore;
+  groupStore: GroupStore;
+  blockStore: BlockStore;
+  invitationStore: InvitationStore;
+  invitationRateLimit: RequestRateLimit;
+  keyPackageStore: KeyPackageStore;
+  keyPackageRateLimit: RequestRateLimit;
+  messageQueue: MessageQueue;
+  messenger: HubMessenger;
+  prompter: GroupPrompter;
 }
 
 /**
@@ -108,7 +185,7 @@ interface ServerParts extends SessionParts, LiveHub {
 export async function buildServerApp(
   options: ServerAppOptions,
 ): Promise<FastifyInstance> {
-  const app = Fastify(createFastifyOptions(options.log));
+  const app = Fastify(createFastifyOptions(options.log, options.trustProxy));
   await app.register(websocket, WEBSOCKET_PLUGIN_OPTIONS);
   await app.register(fastifyJwt, accessTokenPluginOptions(options.jwtSecret));
   await app.register(rateLimit, RATE_LIMIT_PLUGIN_OPTIONS);
@@ -116,17 +193,24 @@ export async function buildServerApp(
   registerHealthRoute(app);
   registerAccountRoutes(app, parts);
   registerSessionRoutes(app, parts);
-  registerWebSocketRoute(app, parts);
+  registerWebSocketRoute(app, { ...parts, hub: createHub(parts) });
   scheduleRefreshTokenCleanup(app, parts);
   scheduleLiveSessionCheck(app, parts);
+  scheduleQueueCleanup(
+    app,
+    createQueueCleanup(parts.database, parts.clock),
+    (groupId) => parts.prompter.promptGroup(groupId),
+  );
   return app;
 }
 
 function createFastifyOptions(
   log: ServerLogOptions | undefined,
+  trustProxy: string | undefined,
 ): FastifyServerOptions {
   return {
     bodyLimit: MAX_REQUEST_BODY_BYTES,
+    ...(trustProxy === undefined ? {} : { trustProxy }),
     logger: log ? createLoggerOptions(log) : false,
     // Fastify's defaults strip unknown fields and coerce types; schemas must reject both.
     ajv: { customOptions: { removeAdditional: false, coerceTypes: false } },
@@ -138,14 +222,33 @@ function createServerParts(
   options: ServerAppOptions,
 ): ServerParts {
   const clock = options.clock ?? ((): number => Date.now());
-  const liveHub = createLiveHub();
+  const groupStore = createGroupStore(options.database);
+  const liveHub = createLiveHub(groupStore);
+  const messenger = createHubMessenger(liveHub.socketRegistry);
   return {
     database: options.database,
+    relay: options.relay,
     clock,
     passwordHasher: options.passwordHasher ?? createArgon2idHasher(),
     accountStore: createAccountStore(options.database),
     credentialStore: createCredentialStore(options.database),
     deviceStore: createDeviceStore(options.database),
+    groupStore,
+    blockStore: createBlockStore(options.database),
+    invitationStore: createInvitationStore(options.database),
+    invitationRateLimit: createRequestRateLimit(INVITATION_RATE_LIMIT, clock),
+    keyPackageStore: createKeyPackageStore(options.database),
+    messageQueue: createMessageQueue(options.database),
+    keyPackageRateLimit: createRequestRateLimit(
+      KEY_PACKAGE_REQUEST_RATE_LIMIT,
+      clock,
+    ),
+    messenger,
+    prompter: createGroupPrompter({
+      promptStore: createPromptStore(options.database),
+      groupStore,
+      messenger,
+    }),
     ...liveHub,
     ...createSessionParts(app, options, clock, liveHub.sessionSockets),
   };
@@ -181,11 +284,26 @@ function createSessionParts(
 
 function registerAccountRoutes(app: FastifyInstance, parts: ServerParts): void {
   registerSignUpRoute(app, createSignUp(parts));
-  registerLoginRoute(app, createLogin(parts));
+  registerLoginRoute(
+    app,
+    createLogin({
+      ...parts,
+      onDeviceCreated: (userId) => parts.prompter.promptAccountGroups(userId),
+    }),
+  );
   registerPasswordRoutes(app, parts);
+  registerKeyPackageRoute(app, {
+    ...parts,
+    onKeyPackagesUploaded: (userId) =>
+      parts.prompter.promptAccountGroups(userId),
+  });
+  registerRelayCredentialsRoute(app, parts);
   registerKeyDirectoryRoute(app, {
     checkAccessToken: parts.checkAccessToken,
-    keyDirectory: createKeyDirectory(parts.database),
+    keyDirectory: createKeyDirectory(
+      parts.database,
+      keyDirectoryAudience(parts.groupStore, parts.invitationStore),
+    ),
   });
 }
 
@@ -203,4 +321,35 @@ function registerPasswordRoutes(
 function registerSessionRoutes(app: FastifyInstance, parts: ServerParts): void {
   registerRefreshRoute(app, createTokenRefresh(parts));
   registerLogoutRoute(app, parts);
+}
+
+/** The hub's endpoints: what a Device gets after `hello`, and the handler of each request Envelope. */
+function createHub(parts: ServerParts): HubEndpoints {
+  return createHubEndpoints(
+    [
+      (context): void => sendBlockListOnHello(parts, context),
+      (context): void => sendKeyPackageCountOnHello(parts, context),
+      (context): void => sendInvitationsOnHello(parts, context),
+      (context): void => replayQueueOnHello(parts, context),
+      (context): void => parts.prompter.promptOnHello(context),
+    ],
+    {
+      ...createGroupRequestHandlers({
+        ...parts,
+        onGroupCreated: (groupId) => parts.prompter.promptGroup(groupId),
+      }),
+      ...createBlockRequestHandlers(parts),
+      ...createInvitationRequestHandlers({
+        ...parts,
+        onInvitationAccepted: (groupId) => parts.prompter.promptGroup(groupId),
+      }),
+      ...createLeaveRequestHandlers(parts),
+      ...createKeyPackageRequestHandlers(parts),
+      ...createQueueRequestHandlers(parts),
+      ...createCommitRequestHandlers({
+        ...parts,
+        acceptCommit: createCommitAcceptance(parts),
+      }),
+    },
+  );
 }

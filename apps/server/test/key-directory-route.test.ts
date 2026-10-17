@@ -16,6 +16,7 @@ import {
   hmacSignature,
   login,
   nowInSeconds,
+  shareGroup,
   signUp,
   startTestServer,
   type TestServer,
@@ -32,6 +33,7 @@ beforeEach(async () => {
   server = await startTestServer({ passwordHasher: fastFakeHasher });
   alice = await signUp(server.app, { username: "alice", password: PASSWORD });
   bruno = await signUp(server.app, { username: "bruno", password: PASSWORD });
+  shareGroup(server.database, [alice.body.deviceId, bruno.body.deviceId]);
 });
 
 afterEach(async () => {

@@ -14,10 +14,12 @@ export interface SocketRegistry {
   remove(socket: HubSocket): SocketOwner | undefined;
   socketsOfDevice(deviceId: string): HubSocket[];
   socketsOfAccount(userId: number): HubSocket[];
+  /** Every socket of one Account, with the owner it was registered with. */
+  connectionsOfAccount(userId: number): [HubSocket, SocketOwner][];
   allSockets(): HubSocket[];
   isAccountOnline(userId: number): boolean;
-  /** Each online Account's username once, sorted. */
-  onlineUsernames(): string[];
+  /** The usernames of the online Accounts among `userIds`, once each, sorted. */
+  onlineUsernamesAmong(userIds: readonly number[]): string[];
   /** Each Device with at least one socket, once. */
   connectedDeviceIds(): string[];
 }
@@ -56,11 +58,16 @@ function createRegistryQueries(
       socketsWhere((owner) => owner.deviceId === deviceId),
     socketsOfAccount: (userId): HubSocket[] =>
       socketsWhere((owner) => owner.userId === userId),
+    connectionsOfAccount: (userId): [HubSocket, SocketOwner][] =>
+      [...owners].filter(([, owner]) => owner.userId === userId),
     allSockets: (): HubSocket[] => [...owners.keys()],
     isAccountOnline: (userId): boolean =>
       ownerList().some((owner) => owner.userId === userId),
-    onlineUsernames: (): string[] =>
-      uniqueValues(ownerList().map((owner) => owner.username)).sort(),
+    onlineUsernamesAmong: (userIds): string[] => {
+      const wanted = new Set(userIds);
+      const online = ownerList().filter((owner) => wanted.has(owner.userId));
+      return uniqueValues(online.map((owner) => owner.username)).sort();
+    },
     connectedDeviceIds: (): string[] =>
       uniqueValues(ownerList().map((owner) => owner.deviceId)),
   };

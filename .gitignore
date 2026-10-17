@@ -6,6 +6,10 @@ out/
 dist/
 *.tsbuildinfo
 
+# The MLS crate's Rust build and its generated Node.js module (#4)
+packages/mls/target/
+packages/mls/pkg/
+
 # Test coverage
 coverage/
 

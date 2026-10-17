@@ -1,9 +1,17 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { DesktopApi } from "../../../preload/desktop-api";
-import { UNEXPECTED_FAILURE_MESSAGE } from "../account/account-messages";
-import { viewForSessionState, type AppView } from "../app-view";
-import { ScreenCard } from "../components/ScreenCard";
+import type { GroupSummary } from "../../../preload/group-api";
+import type { AppView } from "../app-view";
+import { useCallSession } from "../calls/use-call-session";
+import { AccountHeader } from "../components/home/AccountHeader";
+import { GroupList } from "../components/home/GroupList";
+import { GroupPane } from "../components/home/GroupPane";
+import { InvitationList } from "../components/home/InvitationList";
+import { OnlineNow } from "../components/home/OnlineNow";
+import { RemoteAudio } from "../components/home/RemoteAudio";
+import { SettingsScreen } from "../components/settings/SettingsScreen";
 import { screenStyles } from "../components/screen-styles";
+import { groupLeftMessage } from "../groups/group-text";
 
 interface HomeScreenProps {
   readonly desktopApi: DesktopApi;
@@ -11,94 +19,132 @@ interface HomeScreenProps {
   readonly show: (view: AppView) => void;
 }
 
-interface OnlineNowProps {
-  readonly desktopApi: DesktopApi;
-}
-
-/** The logged-in home: who else is online now, and logging out. */
+/** The logged-in home: the sidebar with the account, who is online, Groups and Invitations, and the open Group. */
 export function HomeScreen(props: HomeScreenProps): React.JSX.Element {
-  const [loggingOut, setLoggingOut] = useState(false);
-  const [message, setMessage] = useState<string>();
+  const [openGroup, setOpenGroup] = useState<GroupSummary>();
+  const [leftNotice, setLeftNotice] = useState<string>();
+  const [showsSettings, setShowsSettings] = useState(false);
+  const callSession = useCallSession(props.desktopApi);
+  const select = useCallback((group: GroupSummary | undefined): void => {
+    setOpenGroup(group);
+    setShowsSettings(false);
+  }, []);
 
-  async function logOut(): Promise<void> {
-    setLoggingOut(true);
-    try {
-      props.show(viewForSessionState(await props.desktopApi.logOut()));
-    } catch {
-      setMessage(UNEXPECTED_FAILURE_MESSAGE);
-      setLoggingOut(false);
-    }
-  }
-
-  return (
-    <ScreenCard title={`Logged in as ${props.username}`}>
-      <OnlineNow desktopApi={props.desktopApi} />
-      {message !== undefined && (
-        <p role="alert" className={screenStyles.errorMessage}>
-          {message}
-        </p>
-      )}
-      <button
-        type="button"
-        className={screenStyles.secondaryButton}
-        disabled={loggingOut}
-        onClick={() => {
-          props.show({ screen: "password-change", username: props.username });
-        }}
-      >
-        Change password
-      </button>
-      <button
-        type="button"
-        className={screenStyles.primaryButton}
-        disabled={loggingOut}
-        onClick={() => void logOut()}
-      >
-        Log out
-      </button>
-    </ScreenCard>
+  useEffect(
+    () =>
+      props.desktopApi.onGroupLeft((notice) => {
+        setLeftNotice(groupLeftMessage(notice));
+      }),
+    [props.desktopApi],
   );
-}
 
-/** The other Accounts online now, kept up to date by the main process. */
-function OnlineNow({ desktopApi }: OnlineNowProps): React.JSX.Element {
-  const [usernames, setUsernames] = useState<readonly string[]>([]);
-
+  // Messages in the Group open in the focused window need no notification (#10's spec).
+  const { desktopApi } = props;
+  const openGroupId = showsSettings ? undefined : openGroup?.groupId;
   useEffect(() => {
-    let showsThisList = true;
-    const unsubscribe = desktopApi.onOnlineAccountsChanged(setUsernames);
-    desktopApi.readOnlineAccounts().then(
-      (online) => {
-        if (showsThisList) setUsernames(online);
-      },
-      () => undefined,
-    );
-    return (): void => {
-      showsThisList = false;
-      unsubscribe();
-    };
-  }, [desktopApi]);
+    desktopApi.setViewedGroup(openGroupId ?? null).catch(() => undefined);
+  }, [desktopApi, openGroupId]);
+  useEffect(
+    () => (): void => {
+      desktopApi.setViewedGroup(null).catch(() => undefined);
+    },
+    [desktopApi],
+  );
+
+  // Clicking a notification opens its Group (11-m4-build step 7).
+  useEffect(
+    () =>
+      desktopApi.onOpenGroup((groupId) => {
+        desktopApi.listGroups().then(
+          (groups) => {
+            const group = groups.find((entry) => entry.groupId === groupId);
+            if (group !== undefined) select(group);
+          },
+          () => undefined,
+        );
+      }),
+    [desktopApi, select],
+  );
 
   return (
-    <section aria-labelledby="online-now" className="flex flex-col gap-2">
-      <h2 id="online-now" className="text-sm font-medium text-zinc-300">
-        Online now
-      </h2>
-      {usernames.length === 0 ? (
-        <p className={screenStyles.hint}>Nobody else is online.</p>
-      ) : (
-        <ul className="flex flex-col gap-1 text-sm">
-          {usernames.map((username) => (
-            <li key={username} className="flex items-center gap-2">
-              <span
-                aria-hidden
-                className="size-2 rounded-full bg-emerald-500"
-              />
-              {username}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+    <div className="flex h-screen w-full">
+      <RemoteAudio streams={callSession.remoteStreams} />
+      <nav
+        aria-label="Groups and people"
+        className="flex w-72 shrink-0 flex-col overflow-y-auto border-r border-zinc-800 bg-zinc-900"
+      >
+        <AccountHeader
+          desktopApi={props.desktopApi}
+          username={props.username}
+          show={props.show}
+          openSettings={() => {
+            setShowsSettings(true);
+          }}
+        />
+        {leftNotice !== undefined && (
+          <p
+            role="status"
+            className="flex items-start justify-between gap-2 border-b border-zinc-800 p-4 text-sm text-zinc-300"
+          >
+            {leftNotice}
+            <button
+              type="button"
+              className={screenStyles.linkButton}
+              onClick={() => {
+                setLeftNotice(undefined);
+              }}
+            >
+              Dismiss
+            </button>
+          </p>
+        )}
+        <OnlineNow desktopApi={props.desktopApi} />
+        <InvitationList desktopApi={props.desktopApi} />
+        <GroupList
+          desktopApi={props.desktopApi}
+          selectedGroupId={openGroup?.groupId}
+          select={select}
+        />
+      </nav>
+      <main className="flex min-w-0 flex-1 flex-col">
+        {callSession.sharing && (
+          <p
+            role="status"
+            className="flex items-center justify-between gap-4 bg-red-900 px-6 py-2 text-sm text-red-50"
+          >
+            You are sharing your screen.
+            <button
+              type="button"
+              className={screenStyles.smallSecondaryButton}
+              onClick={() => {
+                callSession.stopSharing();
+              }}
+            >
+              Stop sharing
+            </button>
+          </p>
+        )}
+        <div className="min-h-0 flex-1">
+          {showsSettings ? (
+            <SettingsScreen
+              desktopApi={desktopApi}
+              close={() => {
+                setShowsSettings(false);
+              }}
+            />
+          ) : openGroup === undefined ? (
+            <p className={`${screenStyles.hint} p-6`}>
+              Open a Group, or create one to start.
+            </p>
+          ) : (
+            <GroupPane
+              desktopApi={props.desktopApi}
+              group={openGroup}
+              callSession={callSession}
+            />
+          )}
+        </div>
+      </main>
+    </div>
   );
 }

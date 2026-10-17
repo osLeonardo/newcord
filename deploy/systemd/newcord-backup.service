@@ -1,0 +1,13 @@
+# The nightly backup (14-server-deployment step 10), started by newcord-backup.timer.
+# Runs as the backend's user, which owns the database and Oracle's CLI configuration.
+
+[Unit]
+Description=newcord nightly database backup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=newcord
+EnvironmentFile=/etc/newcord/backup.env
+ExecStart=/opt/newcord/deploy/scripts/backup.sh

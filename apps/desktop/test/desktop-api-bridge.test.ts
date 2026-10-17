@@ -78,6 +78,11 @@ describe("createDesktopApi", () => {
       channel: desktopApiChannels.readOnlineAccounts,
       call: (api: DesktopApi): Promise<unknown> => api.readOnlineAccounts(),
     },
+    {
+      functionName: "listBlocked",
+      channel: desktopApiChannels.listBlocked,
+      call: (api: DesktopApi): Promise<unknown> => api.listBlocked(),
+    },
   ])(
     "$functionName invokes $channel with no arguments",
     async ({ channel, call }) => {

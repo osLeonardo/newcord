@@ -43,4 +43,23 @@ describe("starting the server", () => {
     },
     GIVE_UP_AFTER_MS + 5_000,
   );
+
+  it(
+    "refuses to start without RELAY_SECRET and says why",
+    async () => {
+      const env: NodeJS.ProcessEnv = {
+        ...process.env,
+        DATABASE_PATH: ":memory:",
+        JWT_SECRET: "a startup-test-only JWT secret, longer than 32 bytes",
+        RELAY_URLS: "stun:127.0.0.1:3478",
+      };
+      delete env.RELAY_SECRET;
+
+      const run = await runServerEntry(env);
+
+      expect(run.exitCode).toBe(1);
+      expect(run.stderr).toMatch(/RELAY_SECRET is missing/);
+    },
+    GIVE_UP_AFTER_MS + 5_000,
+  );
 });

@@ -65,7 +65,7 @@ describe("SocketRegistry lookups", () => {
     ]);
   });
 
-  it("lists each online Account's username once, sorted", () => {
+  it("lists the online usernames among the Accounts asked about, once each, sorted", () => {
     const zoe = createFakeHubSocket();
     registry.add(zoe, { userId: 3, deviceId: "zoe-phone", username: "zoe" });
     registry.add(createFakeHubSocket(), {
@@ -74,7 +74,18 @@ describe("SocketRegistry lookups", () => {
       username: "ana",
     });
 
-    expect(registry.onlineUsernames()).toEqual(["alice", "ana", "bob", "zoe"]);
+    expect(registry.onlineUsernamesAmong([1, 2, 3, 4, 99])).toEqual([
+      "alice",
+      "ana",
+      "bob",
+      "zoe",
+    ]);
+    expect(registry.onlineUsernamesAmong([3, 1])).toEqual(["alice", "zoe"]);
+    expect(registry.onlineUsernamesAmong([])).toEqual([]);
+  });
+
+  it("lists every socket of one Account with its owner", () => {
+    expect(registry.connectionsOfAccount(2)).toEqual([[bob, BOB_PHONE]]);
   });
 
   it("keeps an Account online while any socket of any of its Devices is registered", () => {

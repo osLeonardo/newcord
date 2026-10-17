@@ -1,7 +1,6 @@
-import { ApiErrorCode, normalizeRecoveryCode } from "@newcord/shared";
+import { normalizeRecoveryCode } from "@newcord/shared";
 import type {
-  AccountRefusal,
-  DesktopApiCalls,
+  AccountApiCalls,
   PasswordChangeResult,
   PasswordRecovery,
   PasswordRecoveryResult,
@@ -11,8 +10,8 @@ import type {
   ServerApiClient,
   ServerCallResult,
 } from "../server-api/server-api-client";
+import { createAuthenticatedCall } from "../session/authenticated-call";
 import type { LiveSession } from "../session/live-session";
-import type { RenewalOutcome } from "../session/token-renewal";
 import { sessionStateOf } from "./session-state";
 
 export interface PasswordActionsDependencies {
@@ -22,7 +21,7 @@ export interface PasswordActionsDependencies {
 }
 
 export type PasswordActions = Pick<
-  DesktopApiCalls,
+  AccountApiCalls,
   "changePassword" | "recoverPassword"
 >;
 
@@ -44,43 +43,12 @@ async function changePassword(
   dependencies: PasswordActionsDependencies,
   newPassword: string,
 ): Promise<PasswordChangeResult> {
-  const first = await sendPasswordChange(dependencies, newPassword);
-  if (first.ok || first.failure !== ApiErrorCode.InvalidAccessToken) {
-    return passwordChangeResult(first);
-  }
-  const renewal = await dependencies.liveSession.renewAccessToken();
-  const renewalRefusal = refusalAfterRenewal(renewal);
-  if (renewalRefusal !== undefined) {
-    return { outcome: "refused", refusal: renewalRefusal };
-  }
+  const callAuthenticated = createAuthenticatedCall(dependencies);
   return passwordChangeResult(
-    await sendPasswordChange(dependencies, newPassword),
+    await callAuthenticated((accessToken) =>
+      dependencies.server.changePassword(accessToken, { newPassword }),
+    ),
   );
-}
-
-function sendPasswordChange(
-  dependencies: PasswordActionsDependencies,
-  newPassword: string,
-): Promise<ServerCallResult<undefined>> {
-  const tokens = dependencies.store.readSessionTokens();
-  if (tokens === undefined) {
-    return Promise.resolve({
-      ok: false,
-      failure: ApiErrorCode.InvalidRefreshToken,
-    });
-  }
-  return dependencies.server.changePassword(tokens.accessToken, {
-    newPassword,
-  });
-}
-
-function refusalAfterRenewal(
-  renewal: RenewalOutcome,
-): AccountRefusal | undefined {
-  if (renewal === "session-ended") return ApiErrorCode.InvalidRefreshToken;
-  // A renewal fails for now when the server is out of reach, limits the rate or answers oddly.
-  if (renewal === "failed") return "SERVER_UNREACHABLE";
-  return undefined;
 }
 
 function passwordChangeResult(

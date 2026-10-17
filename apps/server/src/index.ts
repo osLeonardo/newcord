@@ -7,9 +7,11 @@ const config = loadConfigOrExit();
 const app = await buildServerApp({
   jwtSecret: config.jwtSecret,
   database: openDatabase(config.databasePath),
+  relay: config.relay,
   log: { level: "info" },
+  ...(config.trustProxy === undefined ? {} : { trustProxy: config.trustProxy }),
 });
-await app.listen({ port: 3000 });
+await app.listen({ host: config.listenHost, port: 3000 });
 app.log.info(`${APP_NAME} server ready`);
 
 function loadConfigOrExit(): ServerConfig {

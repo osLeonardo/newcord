@@ -1,0 +1,22 @@
+{
+  "name": "@newcord/mls",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./pkg/newcord_mls.d.ts",
+      "default": "./pkg/newcord_mls.js"
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test:rust": "cargo test --target wasm32-unknown-unknown",
+    "typecheck": "node scripts/build.mjs --if-missing && tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "~6.0.3"
+  }
+}

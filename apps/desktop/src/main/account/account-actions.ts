@@ -3,7 +3,7 @@ import type {
   AccountRefusal,
   AccountSwitchChoice,
   Credentials,
-  DesktopApiCalls,
+  AccountApiCalls,
   LogInResult,
   SessionState,
   SignUpResult,
@@ -35,8 +35,8 @@ export interface AccountActionsDependencies {
   >;
 }
 
-/** What each desktop API call does in the main process. */
-export type AccountActions = DesktopApiCalls;
+/** What each account and session call of the desktop API does in the main process. */
+export type AccountActions = AccountApiCalls;
 
 interface Refused {
   readonly outcome: "refused";

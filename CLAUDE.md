@@ -21,7 +21,7 @@ The full design lives in `docs/guide/`. `docs/README.md` explains which file to 
 
 ## Before writing any code
 
-1. **Use the working title "newcord" (D58).** The final name is chosen before M5 starts. Until then, "newcord" replaces every placeholder in the guide: `your-app`, `yourapp`, `Your App`, `@your-app/shared`, `com.yourapp.desktop`, `your-app.example`, `yourapp.duckdns.org` and `yourapp-turn.duckdns.org`.
+1. **The app is named "newcord" (D58, D92).** "newcord" replaces every placeholder in the guide: `your-app`, `yourapp`, `Your App`, `@your-app/shared`, `com.yourapp.desktop`, `your-app.example`, `yourapp.duckdns.org` and `yourapp-turn.duckdns.org`.
 2. This folder is the repository root. In M1 setup step 2, do not create a new folder: run `git init` here if it is not a repository yet, and create `apps/` and `packages/shared` here.
 3. Then follow `docs/guide/07-m1-setup.md` step by step, followed by `docs/guide/08-m1-build.md`.
 
@@ -57,8 +57,10 @@ Run every command from the repository root:
 
 - `pnpm install` installs all packages; after adding a package that runs install scripts, run `pnpm approve-builds <package>`. pnpm 11 stops the install until each one is approved or denied, and its settings live in `pnpm-workspace.yaml`, not `.npmrc`
 - `pnpm --filter desktop dev` runs the desktop app in development mode (electron-vite with hot reload) and opens its window
-- `pnpm --filter server dev` runs the server in watch mode (http://localhost:3000/health should answer `{"ok":true}`). It reads `apps/server/.env` with Node's `--env-file-if-exists`: copy `apps/server/.env.example` to `apps/server/.env` (ignored by git) and set `JWT_SECRET` to the output of `openssl rand -base64 48`, because the server refuses to start without a secret of at least 32 bytes. `DATABASE_PATH` names the SQLite file, `newcord.db` by default
-- `pnpm test` runs every package's tests once with Vitest; `pnpm exec vitest --project server` runs one package's tests in watch mode
+- `pnpm --filter server dev` runs the server in watch mode (http://localhost:3000/health should answer `{"ok":true}`). It reads `apps/server/.env` with Node's `--env-file-if-exists`: copy `apps/server/.env.example` to `apps/server/.env` (ignored by git) and set `JWT_SECRET` to the output of `openssl rand -base64 48`, because the server refuses to start without a secret of at least 32 bytes. Set `RELAY_SECRET` the same way (the secret shared with coturn, #8) and `RELAY_URLS` to the relay's `stun:`/`turn:` addresses separated by commas; the server refuses to start without them too. `DATABASE_PATH` names the SQLite file, `newcord.db` by default. In production only, `LISTEN_HOST=127.0.0.1` and `TRUST_PROXY=127.0.0.1` keep the server behind nginx (`deploy/`, #14)
+- `pnpm --filter server start` runs the server as production does, through tsx without watching (D89); systemd sets its settings from `/etc/newcord/env` (`deploy/`)
+- `pnpm --filter @newcord/mls build` builds the MLS module (#4): the crate for `wasm32-unknown-unknown`, then wasm-bindgen's Node.js module in `packages/mls/pkg/` (not committed). It needs Rust's GNU toolchain (`stable-x86_64-pc-windows-gnu`) with the `wasm32-unknown-unknown` target, and `wasm-bindgen` plus `wasm-bindgen-test-runner` 0.2.129 from wasm-bindgen's GitHub release, all on PATH (`%USERPROFILE%\.cargo\bin`, D94); `pnpm --filter @newcord/mls test:rust` runs the crate's Rust tests as WebAssembly in Node
+- `pnpm test` builds the MLS module, runs its Rust tests, then every package's tests once with Vitest; `pnpm exec vitest --project server` runs one package's tests in watch mode
 - `pnpm lint` runs ESLint over the whole repository with type-aware rules and explicit return types, and any warning fails it (D77)
 - `pnpm format` rewrites code and configuration files with Prettier (Markdown and the lockfile are excluded in `.prettierignore`)
 - `pnpm typecheck` runs each package's `typecheck` script (`tsc --noEmit`)
@@ -114,5 +116,4 @@ These come from the decisions and the security checklist (`13-security-checklist
 
 ## Known pending items
 
-- Before M5 starts: choose the app's final name and replace "newcord" everywhere (D58).
 - Out of scope for version 1, so do not build them: webcam video, phone apps, macOS, editing or deleting messages, reactions, typing indicators, file sharing, deleting an account (D67) and removing a single lost device (D72), and Linux desktop builds (D73).

@@ -11,6 +11,7 @@ import {
   type SocketRegistry,
 } from "../src/websocket/socket-registry.js";
 import {
+  ALICE_AND_BOB_SHARE_A_GROUP,
   ALICE_LAPTOP,
   ALICE_PHONE,
   BOB_PHONE,
@@ -28,7 +29,7 @@ let bob: FakeHubSocket;
 
 beforeEach(() => {
   registry = createSocketRegistry();
-  presence = createPresence(registry);
+  presence = createPresence(registry, ALICE_AND_BOB_SHARE_A_GROUP);
   sessionSockets = createSessionSockets({ socketRegistry: registry, presence });
   phone = createFakeHubSocket();
   laptop = createFakeHubSocket();

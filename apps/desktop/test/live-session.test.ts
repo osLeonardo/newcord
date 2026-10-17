@@ -40,8 +40,8 @@ let store: LocalStore;
 let refresh: ReturnType<typeof vi.fn<Refresh>>;
 let opener: FakeSocketOpener;
 let events: {
-  [Event in keyof LiveSessionEvents]: ReturnType<
-    typeof vi.fn<LiveSessionEvents[Event]>
+  [Event in keyof LiveSessionEvents]-?: ReturnType<
+    typeof vi.fn<NonNullable<LiveSessionEvents[Event]>>
   >;
 };
 let liveSession: LiveSession;
@@ -60,7 +60,12 @@ beforeEach(() => {
     Promise.resolve({ ok: true, body: tokensExpiringIn(FIFTEEN_MINUTES) }),
   );
   opener = createFakeSocketOpener();
-  events = { sessionEnded: vi.fn(), onlineAccountsChanged: vi.fn() };
+  events = {
+    sessionEnded: vi.fn(),
+    onlineAccountsChanged: vi.fn(),
+    envelopeReceived: vi.fn(),
+    connectionChanged: vi.fn(),
+  };
   liveSession = createLiveSession({
     store,
     renewal: createTokenRenewal({ store, server: { refresh } }),
@@ -254,6 +259,36 @@ describe("renewing on request", () => {
 
     await expect(liveSession.renewAccessToken()).resolves.toBe("session-ended");
     expect(events.sessionEnded).toHaveBeenCalledOnce();
+  });
+});
+
+describe("hub Envelopes and requests (#6)", () => {
+  it("hands every Envelope but presence to the rest of the main process, in order", async () => {
+    const connection = await startConnected();
+    const blocks = { v: PROTOCOL_VERSION, type: "blocks", usernames: [] };
+    const count = { v: PROTOCOL_VERSION, type: "keypackage.count", count: 3 };
+
+    connection.receive(blocks);
+    connection.receive(count);
+
+    expect(events.envelopeReceived.mock.calls).toEqual([[blocks], [count]]);
+  });
+
+  it("is ready to send once the server accepted hello, and not after the connection drops", async () => {
+    liveSession.start();
+    await clock.advance(0);
+    const connection = opener.latest();
+    connection.open();
+    await clock.advance(0);
+    expect(liveSession.send({ type: "ack" })).toBe(false);
+
+    connection.receive(snapshot("alice"));
+    expect(liveSession.send({ type: "ack" })).toBe(true);
+    connection.closeFromServer(NETWORK_DROP);
+
+    expect(liveSession.send({ type: "ack" })).toBe(false);
+    expect(events.connectionChanged.mock.calls).toEqual([[true], [false]]);
+    expect(connection.sent.at(-1)).toBe('{"type":"ack"}');
   });
 });
 

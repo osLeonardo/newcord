@@ -12,16 +12,23 @@ import type {
   LiveSocketListener,
   LiveSocketOpener,
 } from "./live-socket";
-import { applyPresence } from "./online-accounts";
+import { applyPresence, type PresenceEnvelope } from "./online-accounts";
 import { createRetryBackoff, type RetryBackoff } from "./reconnect-backoff";
 import type { CancelTimer, SessionClock } from "./session-clock";
 import type { RenewalOutcome, TokenRenewal } from "./token-renewal";
+
+/** Every Envelope the server sends besides presence, which the live session follows itself. */
+export type HubEnvelope = Exclude<ServerEnvelope, PresenceEnvelope>;
 
 /** What the live session tells the rest of the main process. */
 export interface LiveSessionEvents {
   /** The server ended the session; the stored tokens are already deleted. */
   sessionEnded(): void;
   onlineAccountsChanged(usernames: readonly string[]): void;
+  /** Every other Envelope, in the order the server sent it (#6). */
+  envelopeReceived?(envelope: HubEnvelope): void;
+  /** The server accepted `hello` on a new connection (true), or the connection is gone (false). */
+  connectionChanged?(ready: boolean): void;
 }
 
 export interface LiveSessionDependencies {
@@ -45,6 +52,8 @@ export interface LiveSession {
   onlineAccounts(): readonly string[];
   /** Renews the tokens now, as a refused access token asks; ends the session if the server refuses the refresh token. */
   renewAccessToken(): Promise<RenewalOutcome>;
+  /** Sends a request Envelope on the connection the server accepted; false while there is none. */
+  send(envelope: object): boolean;
 }
 
 interface LiveSessionState {
@@ -52,6 +61,8 @@ interface LiveSessionState {
   /** Counts starts, so work begun before a stop never continues after the next start. */
   generation: number;
   socket: LiveSocket | undefined;
+  /** Whether the server accepted `hello` on the current socket. */
+  ready: boolean;
   onlineAccounts: readonly string[];
   cancelRenewal: CancelTimer | undefined;
   cancelReconnect: CancelTimer | undefined;
@@ -77,6 +88,7 @@ export function createLiveSession(
     start: (): void => start(session),
     stop: (): Promise<void> => stop(session),
     onlineAccounts: (): readonly string[] => session.state.onlineAccounts,
+    send: (envelope): boolean => send(session, envelope),
     renewAccessToken: (): Promise<RenewalOutcome> =>
       renewNow(session, session.state.generation),
   };
@@ -87,6 +99,7 @@ function initialState(): LiveSessionState {
     running: false,
     generation: 0,
     socket: undefined,
+    ready: false,
     onlineAccounts: [],
     cancelRenewal: undefined,
     cancelReconnect: undefined,
@@ -116,6 +129,7 @@ function halt(session: Session): void {
   state.cancelReconnect = undefined;
   const socket = state.socket;
   state.socket = undefined;
+  markReady(session, false);
   socket?.close();
   state.reconnectBackoff.reset();
   state.renewalBackoff.reset();
@@ -227,8 +241,15 @@ async function sendHello(
 function receiveEnvelope(session: Session, text: string): void {
   const envelope = parseServerEnvelope(text);
   if (envelope === undefined) return;
+  if (envelope.type !== "presence") {
+    session.dependencies.events.envelopeReceived?.(envelope);
+    return;
+  }
   // The snapshot is the server's answer to a valid `hello`.
-  if (envelope.kind === "snapshot") session.state.reconnectBackoff.reset();
+  if (envelope.kind === "snapshot") {
+    session.state.reconnectBackoff.reset();
+    markReady(session, true);
+  }
   const ownUsername = session.dependencies.store.readAccount()?.username ?? "";
   showOnlineAccounts(
     session,
@@ -247,6 +268,7 @@ function parseServerEnvelope(text: string): ServerEnvelope | undefined {
 
 function socketClosed(session: Session, code: number): void {
   session.state.socket = undefined;
+  markReady(session, false);
   showOnlineAccounts(session, []);
   if (code === WebSocketCloseCode.SessionEnded) {
     endSession(session);
@@ -297,4 +319,17 @@ function showOnlineAccounts(
   }
   session.state.onlineAccounts = usernames;
   session.dependencies.events.onlineAccountsChanged(usernames);
+}
+
+function markReady(session: Session, ready: boolean): void {
+  if (session.state.ready === ready) return;
+  session.state.ready = ready;
+  session.dependencies.events.connectionChanged?.(ready);
+}
+
+function send(session: Session, envelope: object): boolean {
+  const { socket, ready } = session.state;
+  if (socket === undefined || !ready) return false;
+  socket.send(JSON.stringify(envelope));
+  return true;
 }

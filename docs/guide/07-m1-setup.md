@@ -1,7 +1,7 @@
 # M1 setup
 
 
-These steps create the one repository (D26) with the desktop app, the server and the shared package, and end with both running on your computer. "your-app" is a placeholder for the app's name: use the working title "newcord" until the final name is chosen before M5 (D58); the folder names follow a common convention and can be renamed.
+These steps create the one repository (D26) with the desktop app, the server and the shared package, and end with both running on your computer. "your-app" is a placeholder for the app's name, "newcord" (D58, D92); the folder names follow a common convention and can be renamed.
 
 ## Settings
 
