@@ -156,6 +156,45 @@ impl MlsDevice {
         own_commit(&self.device.add_members(group_id, &key_packages)?)
     }
 
+    /// Removes Devices by credential identity in one commit.
+    #[wasm_bindgen(js_name = removeMembers)]
+    pub fn remove_members(
+        &self,
+        group_id: &[u8],
+        identities: &StringsInput,
+    ) -> Result<OwnCommitObject, JsError> {
+        let identities = strings_from(identities)?;
+        own_commit(&self.device.remove_members(group_id, &identities)?)
+    }
+
+    /// Removes and re-adds Devices in one commit, as a resync needs (D24).
+    #[wasm_bindgen(js_name = updateMembers)]
+    pub fn update_members(
+        &self,
+        group_id: &[u8],
+        key_packages: &ByteArraysInput,
+        identities: &StringsInput,
+    ) -> Result<OwnCommitObject, JsError> {
+        let key_packages = byte_arrays_from(key_packages)?;
+        let identities = strings_from(identities)?;
+        own_commit(
+            &self
+                .device
+                .update_members(group_id, &key_packages, &identities)?,
+        )
+    }
+
+    /// This Device's request to be removed, for another Member to commit (D57).
+    #[wasm_bindgen(js_name = leaveGroup)]
+    pub fn leave_group(&self, group_id: &[u8]) -> Result<Vec<u8>, JsError> {
+        Ok(self.device.leave_group(group_id)?)
+    }
+
+    #[wasm_bindgen(js_name = commitPendingProposals)]
+    pub fn commit_pending_proposals(&self, group_id: &[u8]) -> Result<OwnCommitObject, JsError> {
+        own_commit(&self.device.commit_pending_proposals(group_id)?)
+    }
+
     /// Joins from a welcome and returns the Group's ID.
     #[wasm_bindgen(js_name = joinFromWelcome)]
     pub fn join_from_welcome(&self, welcome: &[u8]) -> Result<Vec<u8>, JsError> {
@@ -262,6 +301,20 @@ pub(crate) fn byte_arrays_from(value: &JsValue) -> Result<Vec<Vec<u8>>, JsError>
             item.dyn_into::<Uint8Array>()
                 .map(|bytes| bytes.to_vec())
                 .map_err(|_| JsError::new("Expected an array of Uint8Array"))
+        })
+        .collect()
+}
+
+/// Reads an array of strings from JavaScript, refusing anything else.
+pub(crate) fn strings_from(value: &JsValue) -> Result<Vec<String>, JsError> {
+    if !Array::is_array(value) {
+        return Err(JsError::new("Expected an array of strings"));
+    }
+    Array::from(value)
+        .iter()
+        .map(|item| {
+            item.as_string()
+                .ok_or_else(|| JsError::new("Expected an array of strings"))
         })
         .collect()
 }

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use ed25519_dalek::SigningKey;
 use openmls::prelude::tls_codec::{DeserializeBytes, Serialize as TlsSerializeTrait};
 use openmls::prelude::*;
@@ -160,6 +162,28 @@ impl Device {
 
     pub(crate) fn provider(&self) -> &DeviceProvider {
         &self.provider
+    }
+
+    /// A copy of every stored value, to put back if a change fails halfway.
+    pub(crate) fn storage_snapshot(&self) -> MlsResult<HashMap<Vec<u8>, Vec<u8>>> {
+        Ok(self
+            .provider
+            .storage()
+            .values
+            .read()
+            .map_err(|_| MlsError::new("The MLS storage is unusable after an earlier failure"))?
+            .clone())
+    }
+
+    pub(crate) fn restore_storage(&self, snapshot: HashMap<Vec<u8>, Vec<u8>>) -> MlsResult<()> {
+        *self
+            .provider
+            .storage()
+            .values
+            .write()
+            .map_err(|_| MlsError::new("The MLS storage is unusable after an earlier failure"))? =
+            snapshot;
+        Ok(())
     }
 }
 

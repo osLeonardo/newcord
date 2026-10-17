@@ -92,10 +92,73 @@ impl Device {
             MlsMessageBodyIn::Welcome(welcome) => welcome,
             _ => return Err(MlsError::new("This message is not a welcome")),
         };
-        let group = StagedWelcome::new_from_welcome(self.provider(), &join_config(), welcome, None)
-            .and_then(|staged| staged.into_group(self.provider()))
-            .map_err(|cause| MlsError::from_cause("Joining from the welcome", cause))?;
-        Ok(group.group_id().as_slice().to_vec())
+        let processed =
+            ProcessedWelcome::new_from_welcome(self.provider(), &join_config(), welcome)
+                .map_err(|cause| MlsError::from_cause("Joining from the welcome", cause))?;
+        // A resync re-adds a Device that is still in the Group here (D24), so its stale copy
+        // gives way; if the welcome then fails its checks, the copy comes back.
+        let group_id = processed.unverified_group_info().group_id().clone();
+        let snapshot = self.storage_snapshot()?;
+        if let Ok(mut stale) = self.load_group(&group_id) {
+            stale
+                .delete(self.provider().storage())
+                .map_err(|cause| MlsError::from_cause("Dropping the stale Group", cause))?;
+        }
+        let joined = processed
+            .into_staged_welcome(self.provider(), None)
+            .and_then(|staged| staged.into_group(self.provider()));
+        match joined {
+            Ok(group) => Ok(group.group_id().as_slice().to_vec()),
+            Err(cause) => {
+                self.restore_storage(snapshot)?;
+                Err(MlsError::from_cause("Joining from the welcome", cause))
+            }
+        }
+    }
+
+    /// One commit removing these Devices; a Device that already asked to leave is completed by
+    /// its own request instead of being removed twice (D57).
+    pub fn remove_members(&self, group_id: &[u8], identities: &[String]) -> MlsResult<OwnCommit> {
+        self.commit_changes(group_id, &[], identities)
+    }
+
+    /// One commit removing and re-adding Devices, as a resync needs (D24), with the welcome.
+    pub fn update_members(
+        &self,
+        group_id: &[u8],
+        key_packages: &[Vec<u8>],
+        identities: &[String],
+    ) -> MlsResult<OwnCommit> {
+        if key_packages.is_empty() {
+            return Err(MlsError::new("No Key package was given"));
+        }
+        self.commit_changes(group_id, key_packages, identities)
+    }
+
+    /// This Device's request to be removed, for the next Member online to commit (D57).
+    pub fn leave_group(&self, group_id: &[u8]) -> MlsResult<Vec<u8>> {
+        let identity = self.identity()?;
+        let mut group = self.load_group(&GroupId::from_slice(group_id))?;
+        let proposal = group
+            .leave_group(self.provider(), &identity.signer)
+            .map_err(|cause| MlsError::from_cause("Asking to leave", cause))?;
+        encoded(&proposal)
+    }
+
+    /// One commit completing every request this Device received, such as a leave (D57).
+    pub fn commit_pending_proposals(&self, group_id: &[u8]) -> MlsResult<OwnCommit> {
+        let identity = self.identity()?;
+        let mut group = self.load_group(&GroupId::from_slice(group_id))?;
+        if group.pending_proposals().next().is_none() {
+            return Err(MlsError::new("There is no pending request to commit"));
+        }
+        let (commit, welcome, _) = group
+            .commit_to_pending_proposals(self.provider(), &identity.signer)
+            .map_err(|cause| MlsError::from_cause("Committing the pending requests", cause))?;
+        Ok(OwnCommit {
+            commit: encoded(&commit)?,
+            welcome: welcome.map(|welcome| encoded(&welcome)).transpose()?,
+        })
     }
 
     /// An encrypted MLS message for the Group's current Members.
@@ -202,6 +265,51 @@ impl Device {
             .collect())
     }
 
+    /// Removals by identity and additions by Key package in one commit, with pending requests
+    /// included as OpenMLS's commit builder does by default.
+    fn commit_changes(
+        &self,
+        group_id: &[u8],
+        key_packages: &[Vec<u8>],
+        identities: &[String],
+    ) -> MlsResult<OwnCommit> {
+        let identity = self.identity()?;
+        let key_packages = if key_packages.is_empty() {
+            Vec::new()
+        } else {
+            self.key_packages(key_packages)?
+        };
+        let mut group = self.load_group(&GroupId::from_slice(group_id))?;
+        let removals = removals_not_yet_proposed(&group, identities)?;
+        if removals.is_empty()
+            && key_packages.is_empty()
+            && group.pending_proposals().next().is_none()
+        {
+            return Err(MlsError::new("There is no change to commit"));
+        }
+        let bundle = group
+            .commit_builder()
+            .propose_removals(removals)
+            .propose_adds(key_packages)
+            .load_psks(self.provider().storage())
+            .map_err(|cause| MlsError::from_cause("Preparing the commit", cause))?
+            .build(
+                self.provider().rand(),
+                self.provider().crypto(),
+                &identity.signer,
+                |_| true,
+            )
+            .map_err(|cause| MlsError::from_cause("Building the commit", cause))?
+            .stage_commit(self.provider())
+            .map_err(|cause| MlsError::from_cause("Staging the commit", cause))?;
+        let welcome = bundle.to_welcome_msg();
+        let (commit, _, _) = bundle.into_contents();
+        Ok(OwnCommit {
+            commit: encoded(&commit)?,
+            welcome: welcome.map(|welcome| encoded(&welcome)).transpose()?,
+        })
+    }
+
     pub(crate) fn load_group(&self, group_id: &GroupId) -> MlsResult<MlsGroup> {
         MlsGroup::load(self.provider().storage(), group_id)
             .map_err(|cause| MlsError::from_cause("Reading the Group", cause))?
@@ -267,6 +375,32 @@ fn member_identity(group: &MlsGroup, index: LeafNodeIndex) -> String {
         .member_at(index)
         .map(|member| identity_text(&member.credential))
         .unwrap_or_else(|| String::from("<unknown member>"))
+}
+
+/// The leaves of these identities, except those a stored request already removes. An identity
+/// that is not a Member is refused, so a commit never silently misses someone.
+fn removals_not_yet_proposed(
+    group: &MlsGroup,
+    identities: &[String],
+) -> MlsResult<Vec<LeafNodeIndex>> {
+    let proposed: Vec<LeafNodeIndex> = group
+        .pending_proposals()
+        .filter_map(|queued| match queued.proposal() {
+            Proposal::Remove(remove) => Some(remove.removed()),
+            _ => None,
+        })
+        .collect();
+    identities
+        .iter()
+        .map(|identity| {
+            group
+                .members()
+                .find(|member| &identity_text(&member.credential) == identity)
+                .map(|member| member.index)
+                .ok_or_else(|| MlsError::new(format!("\"{identity}\" is not in that Group")))
+        })
+        .filter(|index| !matches!(index, Ok(index) if proposed.contains(index)))
+        .collect()
 }
 
 fn removed_by_proposal(group: &MlsGroup, proposal: &Proposal) -> Vec<String> {
@@ -477,6 +611,106 @@ pub(crate) mod tests {
             alice_key.signature_key,
             alice.signature_public_key().unwrap()
         );
+    }
+
+    fn commit_of(incoming: Incoming) -> (Vec<String>, Vec<String>) {
+        match incoming {
+            Incoming::Commit { added, removed, .. } => (added, removed),
+            other => panic!("expected a commit, got {other:?}"),
+        }
+    }
+
+    #[wasm_bindgen_test]
+    fn a_removed_device_reads_nothing_sent_after_its_removal() {
+        let (alice, bruno, carla) = (alice(), bruno(), carla());
+        group_of(&alice, &[&bruno, &carla]);
+
+        let own = alice.remove_members(&GROUP, &[CARLA.to_owned()]).unwrap();
+        alice.merge_pending_commit(&GROUP).unwrap();
+        let applied = bruno.process_incoming(&own.commit).unwrap();
+        carla.process_incoming(&own.commit).unwrap();
+        let after = alice.encrypt(&GROUP, b"without carla").unwrap();
+
+        assert_eq!(commit_of(applied), (vec![], vec![CARLA.to_owned()]));
+        assert_eq!(read(&bruno, &after).1, b"without carla".to_vec());
+        assert!(carla.process_incoming(&after).is_err());
+        let reply = bruno.encrypt(&GROUP, b"still here").unwrap();
+        assert_eq!(read(&alice, &reply).1, b"still here".to_vec());
+    }
+
+    #[wasm_bindgen_test]
+    fn a_leave_request_is_completed_by_the_next_member() {
+        let (alice, bruno, carla) = (alice(), bruno(), carla());
+        group_of(&alice, &[&bruno, &carla]);
+
+        let request = bruno.leave_group(&GROUP).unwrap();
+        let heard = alice.process_incoming(&request).unwrap();
+        carla.process_incoming(&request).unwrap();
+        let own = alice.commit_pending_proposals(&GROUP).unwrap();
+        alice.merge_pending_commit(&GROUP).unwrap();
+        let applied = carla.process_incoming(&own.commit).unwrap();
+        let after = alice.encrypt(&GROUP, b"bruno left").unwrap();
+
+        assert_eq!(
+            heard,
+            Incoming::Proposal {
+                group_id: GROUP.to_vec(),
+                sender: BRUNO.to_owned(),
+                removes: vec![BRUNO.to_owned()],
+            }
+        );
+        assert_eq!(commit_of(applied), (vec![], vec![BRUNO.to_owned()]));
+        assert_eq!(read(&carla, &after).1, b"bruno left".to_vec());
+        bruno.process_incoming(&own.commit).ok();
+        assert!(bruno.process_incoming(&after).is_err());
+    }
+
+    #[wasm_bindgen_test]
+    fn removing_a_device_that_asked_to_leave_removes_it_once() {
+        let (alice, bruno, carla) = (alice(), bruno(), carla());
+        group_of(&alice, &[&bruno, &carla]);
+        let request = bruno.leave_group(&GROUP).unwrap();
+        alice.process_incoming(&request).unwrap();
+        carla.process_incoming(&request).unwrap();
+
+        let own = alice.remove_members(&GROUP, &[BRUNO.to_owned()]).unwrap();
+        alice.merge_pending_commit(&GROUP).unwrap();
+        let applied = carla.process_incoming(&own.commit).unwrap();
+
+        assert_eq!(commit_of(applied), (vec![], vec![BRUNO.to_owned()]));
+        assert_eq!(alice.group_members(&GROUP).unwrap().len(), 2);
+    }
+
+    #[wasm_bindgen_test]
+    fn a_resync_re_adds_a_device_in_one_commit_and_its_old_state_reads_nothing_new() {
+        let (alice, bruno, mut carla) = (alice(), bruno(), carla());
+        group_of(&alice, &[&bruno, &carla]);
+        let stale_copy = carla.save_state().unwrap();
+
+        let own = alice
+            .update_members(&GROUP, &[key_package_of(&carla)], &[CARLA.to_owned()])
+            .unwrap();
+        alice.merge_pending_commit(&GROUP).unwrap();
+        let applied = bruno.process_incoming(&own.commit).unwrap();
+        carla.join_from_welcome(&own.welcome.unwrap()).unwrap();
+        let after = alice.encrypt(&GROUP, b"welcome back").unwrap();
+
+        assert_eq!(
+            commit_of(applied),
+            (vec![CARLA.to_owned()], vec![CARLA.to_owned()])
+        );
+        assert_eq!(read(&carla, &after).1, b"welcome back".to_vec());
+        carla.load_state(&stale_copy).unwrap();
+        assert!(carla.process_incoming(&after).is_err());
+    }
+
+    #[wasm_bindgen_test]
+    fn refuses_to_remove_someone_who_is_not_a_member() {
+        let (alice, bruno) = (alice(), bruno());
+        group_of(&alice, &[&bruno]);
+
+        assert!(alice.remove_members(&GROUP, &[CARLA.to_owned()]).is_err());
+        assert!(alice.commit_pending_proposals(&GROUP).is_err());
     }
 
     #[wasm_bindgen_test]
