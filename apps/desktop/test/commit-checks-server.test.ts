@@ -12,6 +12,8 @@ import {
   mlsView,
   secondDevice,
   waitUntilInGroup,
+  chatTextsOf,
+  sendText,
   WAIT,
 } from "./support/group-scenarios";
 import {
@@ -68,26 +70,6 @@ async function noticesOf(
   return (await entriesOf(installation, groupId)).flatMap((entry) =>
     entry.kind === "notice" ? [entry.notice] : [],
   );
-}
-
-async function textsOf(
-  installation: LiveInstallation,
-  groupId: string,
-): Promise<string[]> {
-  return (await entriesOf(installation, groupId)).flatMap((entry) =>
-    entry.kind === "text" ? [entry.text] : [],
-  );
-}
-
-async function send(
-  installation: LiveInstallation,
-  groupId: string,
-  text: string,
-): Promise<void> {
-  const result = await (
-    await hubOf(installation)
-  ).groups.sendMessage(groupId, text);
-  expect(result.outcome).toBe("sent");
 }
 
 /**
@@ -178,14 +160,16 @@ describe("commit checks (D41, D71)", () => {
 describe("new Devices (D56)", () => {
   it("are added to each shared Group, noticed there, and read only what is sent after they joined", async () => {
     const { groupId, alice, carla } = await threeInAGroup();
-    await send(alice, groupId, "before the laptop");
+    await sendText(alice, groupId, "before the laptop");
 
     const brunoLaptop = await secondDevice(server, installations, "bruno");
     await waitUntilInGroup(brunoLaptop, groupId);
-    await send(alice, groupId, "after the laptop");
+    await sendText(alice, groupId, "after the laptop");
 
     await vi.waitFor(async () => {
-      expect(await textsOf(brunoLaptop, groupId)).toEqual(["after the laptop"]);
+      expect(await chatTextsOf(brunoLaptop, groupId)).toEqual([
+        "after the laptop",
+      ]);
     }, WAIT);
     await vi.waitFor(async () => {
       expect(await noticesOf(carla, groupId)).toContainEqual({
@@ -215,10 +199,10 @@ describe("resync (D24)", () => {
         (await mlsView(alice, groupId)).epoch,
       );
     }, WAIT);
-    await send(alice, groupId, "welcome back");
+    await sendText(alice, groupId, "welcome back");
 
     await vi.waitFor(async () => {
-      expect(await textsOf(carla, groupId)).toContain("welcome back");
+      expect(await chatTextsOf(carla, groupId)).toContain("welcome back");
     }, WAIT);
     expect(
       server.database

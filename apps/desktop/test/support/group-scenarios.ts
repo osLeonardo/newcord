@@ -163,4 +163,29 @@ export function deviceIdOf(installation: LiveInstallation): string {
   return deviceId;
 }
 
+/** The texts of the Group's chat on the installation, in order, without notices. */
+export async function chatTextsOf(
+  installation: LiveInstallation,
+  groupId: string,
+): Promise<string[]> {
+  const entries = await (
+    await hubOf(installation)
+  ).groups.listMessages(groupId);
+  return entries.flatMap((entry) =>
+    entry.kind === "text" ? [entry.text] : [],
+  );
+}
+
+/** Sends a Chat message and expects the server to take it. */
+export async function sendText(
+  installation: LiveInstallation,
+  groupId: string,
+  text: string,
+): Promise<void> {
+  const result = await (
+    await hubOf(installation)
+  ).groups.sendMessage(groupId, text);
+  expect(result.outcome).toBe("sent");
+}
+
 export { WAIT };
