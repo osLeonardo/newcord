@@ -1,7 +1,7 @@
 # Decision log
 
 
-Every decision so far, D1 to D98, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
+Every decision so far, D1 to D99, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
 
 | Decision | Your choice |
 | --- | --- |
@@ -105,6 +105,7 @@ Every decision so far, D1 to D98, is made and summarized below. Each one records
 | D96 How a tagged release goes out | As a draft, published by hand after a check |
 | D97 When the window offers "restart to update" | As soon as an update is downloaded outside a call, and when a call ends with one waiting |
 | D98 The installer's publisher and description | "newcord", and a one-line description of the app |
+| D99 Automatic checks on pull requests from M5 | Every check on each pull request and push to `main`, on Windows and on Linux Arm |
 
 ## D1 — Architecture: who carries messages and calls?
 
@@ -1565,3 +1566,18 @@ Raised while packaging the app (#13). The installer shows the desktop package's 
 Recommendation: A.
 
 Your choice: A (decided October 17, 2026). The author is "newcord" and the description "A small, security-focused chat and call app for groups of friends"; the template's homepage, electron-vite's site, is removed.
+
+## D99 — Automatic checks on pull requests from M5
+
+Raised once M5 began: D68 put automatic checks off until M5, where only the release workflow existed (D48). Until now every check ran by hand before each merge.
+
+| Option | How it works | Pros | Cons |
+| --- | --- | --- | --- |
+| A. Windows and Linux Arm | Each pull request to `main` and each push to `main` installs with a frozen lockfile, builds the MLS module, then runs the Rust and Vitest tests, lint, typecheck, Prettier and the desktop build, on Windows and on Linux Arm | Each problem shows on the platform it would hit: Windows for the app (D73), Linux Arm for the Oracle server (#14); free on a public repository | Windows runs take several minutes, mostly compiling the MLS module |
+| B. Windows only | The same checks on Windows, the release workflow's runner | One system to keep | Linux-only server problems show only when deploying |
+| C. Linux only | The same checks on Linux | The fastest runs | Windows-only problems on the app's only platform wait for hand testing |
+
+Recommendation: A.
+
+Your choice: A (decided October 17, 2026). `.github/workflows/checks.yml` runs on `windows-latest` and `ubuntu-24.04-arm`, with every action pinned to a full commit hash and read-only access; the wasm-bindgen CLI and the MLS crate's build are cached between runs.
+

@@ -65,7 +65,7 @@ Run every command from the repository root:
 - `pnpm lint` runs ESLint over the whole repository with type-aware rules and explicit return types, and any warning fails it (D77)
 - `pnpm format` rewrites code and configuration files with Prettier (Markdown and the lockfile are excluded in `.prettierignore`)
 - `pnpm typecheck` runs each package's `typecheck` script (`tsc --noEmit`)
-- Before each PR (no CI before M5, D68): `pnpm test`, `pnpm lint`, `pnpm typecheck`, and `pnpm format` leaving no changes
+- Before each PR: `pnpm test`, `pnpm lint`, `pnpm typecheck`, and `pnpm format` leaving no changes. GitHub Actions then runs the same checks on every pull request and push to `main`, on Windows and Linux Arm (`.github/workflows/checks.yml`, D99)
 
 Tooling configuration lives only at the root: `vitest.config.ts` (one entry in `test.projects` per package, tests in each package's `test/` folder), `eslint.config.js` and `.prettierrc`. A package adds only a `typecheck` script and its TypeScript configuration: `apps/server` and `packages/shared` have a `tsconfig.json` extending `tsconfig.base.json`; `apps/desktop` keeps the electron-vite template's `tsconfig.node.json` (main process, preload, build config and tests) and `tsconfig.web.json` (renderer), which extend `@electron-toolkit/tsconfig`. `apps/desktop/electron.vite.config.ts` bundles `@newcord/shared` into the main and preload builds, since the package ships TypeScript source. Keep this section up to date with the real commands.
 
@@ -96,7 +96,7 @@ These come from the decisions and the security checklist (`13-security-checklist
 
 **Dependencies**
 - Ask before adding a dependency that runs install scripts, a native module, or any new third-party network service.
-- Commit the lockfile, and install with `pnpm install --frozen-lockfile` in CI. There is no CI before M5's release workflow (D68): run the tests, lint and typecheck locally before each PR is merged.
+- Commit the lockfile, and install with `pnpm install --frozen-lockfile` in CI. The checks workflow (D99) and the release workflow (D48) both install that way; still run the tests, lint and typecheck locally before opening a PR.
 
 **Accepted risks**
 - `13-security-checklist.md` lists the risks the user chose to accept, such as unencrypted local storage (D20) and new devices joining groups automatically (D56). Do not "fix" them on your own; you may suggest a change, as a decision with options.
