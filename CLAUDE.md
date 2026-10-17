@@ -4,7 +4,7 @@
 
 A small, security-focused Discord alternative. There are no Discord-style servers (guilds): only flat group chats of up to 10 people, each with one drop-in call for up to about 6 people (voice and screen sharing, peer-to-peer mesh). Desktop first, Windows only in version 1 (D73). License: AGPL-3.0-or-later.
 
-Status: the design is complete (decisions D1 to D74, all made by the user). Nothing is built yet. Implementation starts at milestone M1.
+Status: the design is complete (decisions D1 to D79, all made by the user). Milestone M1 is in progress: the repository scaffold (#1) is built.
 
 The full design lives in `docs/guide/`. `docs/README.md` explains which file to read for what.
 
@@ -53,12 +53,18 @@ Read only the files the current task needs; `03-decisions.md` is large.
 
 ## Commands
 
-The repository does not exist yet; M1 setup creates it. Once it does:
+Run every command from the repository root:
 
-- `pnpm install`, then `pnpm approve-builds <package>` after adding a package that runs install scripts; pnpm 11 stops the install until each one is approved or denied, and its settings live in `pnpm-workspace.yaml`, not `.npmrc`
-- `pnpm --filter desktop dev` runs the desktop app
-- `pnpm --filter server dev` runs the server (http://localhost:3000/health should answer `{"ok":true}`)
-- M1 setup installs Vitest, ESLint and Prettier but does not define scripts for them: add root `test`, `lint` and `format` scripts then, and keep this section up to date with the real commands.
+- `pnpm install` installs all packages; after adding a package that runs install scripts, run `pnpm approve-builds <package>`. pnpm 11 stops the install until each one is approved or denied, and its settings live in `pnpm-workspace.yaml`, not `.npmrc`
+- `pnpm --filter desktop dev` runs the desktop app in development mode (electron-vite with hot reload) and opens its window
+- `pnpm --filter server dev` runs the server in watch mode (http://localhost:3000/health should answer `{"ok":true}`)
+- `pnpm test` runs every package's tests once with Vitest; `pnpm exec vitest --project server` runs one package's tests in watch mode
+- `pnpm lint` runs ESLint over the whole repository with type-aware rules and explicit return types, and any warning fails it (D77)
+- `pnpm format` rewrites code and configuration files with Prettier (Markdown and the lockfile are excluded in `.prettierignore`)
+- `pnpm typecheck` runs each package's `typecheck` script (`tsc --noEmit`)
+- Before each PR (no CI before M5, D68): `pnpm test`, `pnpm lint`, `pnpm typecheck`, and `pnpm format` leaving no changes
+
+Tooling configuration lives only at the root: `vitest.config.ts` (one entry in `test.projects` per package, tests in each package's `test/` folder), `eslint.config.js` and `.prettierrc`. A package adds only a `typecheck` script and its TypeScript configuration: `apps/server` and `packages/shared` have a `tsconfig.json` extending `tsconfig.base.json`; `apps/desktop` keeps the electron-vite template's `tsconfig.node.json` (main process, preload, build config and tests) and `tsconfig.web.json` (renderer), which extend `@electron-toolkit/tsconfig`. `apps/desktop/electron.vite.config.ts` bundles `@newcord/shared` into the main and preload builds, since the package ships TypeScript source. Keep this section up to date with the real commands.
 
 ## Rules that are never broken
 
@@ -96,7 +102,7 @@ These come from the decisions and the security checklist (`13-security-checklist
 
 | Milestone | Steps | Status |
 | --- | --- | --- |
-| M1 · Backend and accounts | `07-m1-setup.md`, `08-m1-build.md` | Not started |
+| M1 · Backend and accounts | `07-m1-setup.md`, `08-m1-build.md` | In progress |
 | M2 · Encrypted group chat | `09-m2-build.md` | Not started |
 | M3 · Calls | `10-m3-build.md` | Not started |
 | M4 · Desktop polish | `11-m4-build.md` | Not started |

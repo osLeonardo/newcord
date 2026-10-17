@@ -63,9 +63,11 @@ nodeLinker: hoisted
 
 ```bash
 cd apps
-pnpm create @quick-start/electron desktop --template react-ts
+pnpm create @quick-start/electron desktop --template react-ts --skip
 cd ..
 ```
+
+`--skip` answers the generator's questions with their defaults: no updater plugin (updates are M5, D29), no download mirror and no `.npmrc`. Then pin `electron` to an exact version in `apps/desktop/package.json` (D78): the template's `postinstall` runs `electron-builder install-app-deps`, which refuses a version range under the hoisted layout.
 
 6. Create the server and add Fastify. In `apps/server/package.json`, set `"type": "module"` and a script `"dev": "tsx watch src/index.ts"`:
 
@@ -74,7 +76,7 @@ mkdir -p apps/server/src
 cd apps/server
 pnpm init
 pnpm add fastify @fastify/websocket
-pnpm add -D typescript tsx @types/node
+pnpm add -D typescript@~6.0.3 tsx @types/node
 cd ../..
 ```
 
@@ -98,17 +100,17 @@ await app.listen({ port: 3000 });
 pnpm --filter desktop --filter server add @your-app/shared --workspace
 ```
 
-9. Install everything, then choose which packages may run install scripts ([source](https://pnpm.io/cli/approve-builds)). pnpm 11 stops the install until every such package is approved or denied. Approve Electron and the build tools it lists, such as esbuild, by name, and ask before approving anything unfamiliar; the choices are saved under `allowBuilds` in `pnpm-workspace.yaml`:
+9. Install everything, then choose which packages may run install scripts ([source](https://pnpm.io/cli/approve-builds)). pnpm 11 stops the install until every such package is approved or denied. Approve esbuild by name, deny `electron-winstaller` (D79), and ask before approving anything unfamiliar; the choices are saved under `allowBuilds` in `pnpm-workspace.yaml`. Electron 44 has no install script of its own: the desktop package's own `postinstall` downloads its binary with `install-electron`.
 
 ```bash
 pnpm install
-pnpm approve-builds electron esbuild
+pnpm approve-builds esbuild
 ```
 
 10. Add testing (D32) and linting and formatting (D33) at the repository root, then create `vitest.config.ts`, `eslint.config.js` and `.prettierrc`:
 
 ```bash
-pnpm add -Dw vitest
+pnpm add -Dw vitest vite
 pnpm add -Dw eslint @eslint/js typescript-eslint eslint-plugin-react-hooks eslint-plugin-security prettier eslint-config-prettier
 ```
 
