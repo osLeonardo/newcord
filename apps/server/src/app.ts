@@ -285,7 +285,11 @@ function registerAccountRoutes(app: FastifyInstance, parts: ServerParts): void {
     }),
   );
   registerPasswordRoutes(app, parts);
-  registerKeyPackageRoute(app, parts);
+  registerKeyPackageRoute(app, {
+    ...parts,
+    onKeyPackagesUploaded: (userId) =>
+      parts.prompter.promptAccountGroups(userId),
+  });
   registerRelayCredentialsRoute(app, parts);
   registerKeyDirectoryRoute(app, {
     checkAccessToken: parts.checkAccessToken,

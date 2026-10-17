@@ -10,6 +10,11 @@ import type { KeyPackageStore } from "./key-package-store.js";
 export interface KeyPackageRouteDependencies {
   checkAccessToken: onRequestHookHandler;
   keyPackageStore: Pick<KeyPackageStore, "store">;
+  /**
+   * Told after a Device uploaded packages: a new Device can only be added once it has some, so
+   * its Account's Groups are prompted again then (D56).
+   */
+  onKeyPackagesUploaded?: (userId: number) => void;
 }
 
 /**
@@ -31,13 +36,15 @@ export function registerKeyPackageRoute(
     },
     (request): KeyPackageUploadResponse => {
       const { lastResort, keyPackages } = request.body;
+      const subject = authenticatedSubject(request);
       const count = dependencies.keyPackageStore.store(
-        authenticatedSubject(request).deviceId,
+        subject.deviceId,
         keyPackages.map((keyPackage) => Buffer.from(keyPackage, "base64")),
         lastResort === undefined
           ? undefined
           : Buffer.from(lastResort, "base64"),
       );
+      dependencies.onKeyPackagesUploaded?.(subject.userId);
       return { count };
     },
   );

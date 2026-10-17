@@ -181,6 +181,34 @@ describe("new Devices (D56)", () => {
   });
 });
 
+describe("new Devices without Key packages yet (D56)", () => {
+  it("prompt the Members again once the new Device uploaded its Key packages", async () => {
+    const groupId = shareGroup(server.database, [
+      alice.deviceId,
+      bruno.deviceId,
+    ]);
+    const brunoSocket = await online(bruno.accessToken);
+    const laptop = await logInOnNewDevice(server.app, "alice");
+    await settleRequests(brunoSocket);
+
+    const response = await server.app.inject({
+      method: "POST",
+      url: "/keypackages",
+      payload: { keyPackages: [opaque()] },
+      headers: { authorization: `Bearer ${laptop.accessToken}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(await settleRequests(brunoSocket)).toContainEqual({
+      v: 1,
+      type: "device.new",
+      groupId,
+      username: "alice",
+      deviceId: laptop.deviceId,
+    });
+  });
+});
+
 describe("leaving (D57)", () => {
   async function threeMembers(): Promise<{
     groupId: string;
