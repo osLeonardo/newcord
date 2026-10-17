@@ -22,7 +22,11 @@ import {
   type ScreenShare,
 } from "./browser-call-media";
 import { createCallMesh, type CallMesh } from "./call-mesh";
-import { createLevelGate } from "./voice-level";
+import {
+  createLevelGate,
+  DEFAULT_VOICE_SENSITIVITY,
+  voiceThreshold,
+} from "./voice-level";
 import { microphoneOpen, type MicrophoneInputs } from "./voice-settings";
 
 /** Relay passwords last an hour (10-m3-build Settings); new ones are fetched at half that. */
@@ -249,6 +253,7 @@ export function useCallSession(desktopApi: DesktopApi): CallSession {
 
   const selfSpeaking = useMicrophoneGate(microphone, {
     mode: settings?.microphoneMode ?? "voice-activity",
+    sensitivity: settings?.voiceSensitivity ?? DEFAULT_VOICE_SENSITIVITY,
     muted,
     pushToTalkHeld,
   });
@@ -333,15 +338,17 @@ function usePushToTalk(desktopApi: DesktopApi): boolean {
  */
 function useMicrophoneGate(
   microphone: MediaStream | undefined,
-  controls: Omit<MicrophoneInputs, "voiceDetected">,
+  controls: Omit<MicrophoneInputs, "voiceDetected"> & {
+    readonly sensitivity: number;
+  },
 ): boolean {
   const [selfSpeaking, setSelfSpeaking] = useState(false);
-  const { mode, muted, pushToTalkHeld } = controls;
+  const { mode, muted, pushToTalkHeld, sensitivity } = controls;
   useEffect(() => {
     if (microphone === undefined) return;
     const tracks = microphone.getAudioTracks();
     const listening = new MediaStream(tracks.map((track) => track.clone()));
-    const gate = createLevelGate();
+    const gate = createLevelGate(voiceThreshold(sensitivity));
     let voiceDetected = false;
     const apply = (): void => {
       const open = microphoneOpen({
@@ -363,7 +370,7 @@ function useMicrophoneGate(
       stopStream(listening);
       setSelfSpeaking(false);
     };
-  }, [microphone, mode, muted, pushToTalkHeld]);
+  }, [microphone, mode, muted, pushToTalkHeld, sensitivity]);
   return selfSpeaking;
 }
 
@@ -386,7 +393,9 @@ async function startCall(
 ): Promise<StartedCall> {
   let microphone: MediaStream;
   try {
-    microphone = await openMicrophone();
+    // The input device chosen in Settings applies from the next Call on.
+    const settings = await desktopApi.readSettings();
+    microphone = await openMicrophone(settings.inputDeviceId);
   } catch {
     return { outcome: "refused", problem: MICROPHONE_PROBLEM };
   }

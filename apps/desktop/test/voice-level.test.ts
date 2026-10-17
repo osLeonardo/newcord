@@ -4,6 +4,7 @@ import {
   rmsLevel,
   SPEAKING_HOLD_MS,
   SPEAKING_LEVEL,
+  voiceThreshold,
 } from "../src/renderer/src/calls/voice-level";
 
 describe("rmsLevel", () => {
@@ -37,5 +38,18 @@ describe("the level gate", () => {
 
     expect(gate.update(0, 500)).toBe(true);
     expect(gate.update(0, 551)).toBe(false);
+  });
+});
+
+describe("voiceThreshold (#10's spec)", () => {
+  it("keeps M3's threshold in the middle of the slider", () => {
+    expect(voiceThreshold(50)).toBe(SPEAKING_LEVEL);
+  });
+
+  it("hears quieter voices as the sensitivity rises, and stops at the ends", () => {
+    expect(voiceThreshold(100)).toBeCloseTo(SPEAKING_LEVEL / 4);
+    expect(voiceThreshold(0)).toBeCloseTo(SPEAKING_LEVEL * 4);
+    expect(voiceThreshold(75)).toBeLessThan(voiceThreshold(25));
+    expect(voiceThreshold(150)).toBe(voiceThreshold(100));
   });
 });

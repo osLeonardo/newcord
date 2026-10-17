@@ -9,6 +9,8 @@ interface AccountHeaderProps {
   readonly desktopApi: DesktopApi;
   readonly username: string;
   readonly show: (view: AppView) => void;
+  /** Settings open next to the sidebar, so a running Call keeps going. */
+  readonly openSettings: () => void;
 }
 
 /** The sidebar's top: the app, who is logged in, and the account actions. */
@@ -32,7 +34,14 @@ export function AccountHeader(props: AccountHeaderProps): React.JSX.Element {
         {APP_NAME}
       </p>
       <p className="truncate font-medium">{props.username}</p>
-      <div className="flex gap-3 text-sm">
+      <div className="flex flex-wrap gap-3 text-sm">
+        <button
+          type="button"
+          className={screenStyles.linkButton}
+          onClick={props.openSettings}
+        >
+          Settings
+        </button>
         <button
           type="button"
           className={screenStyles.linkButton}

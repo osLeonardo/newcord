@@ -3,7 +3,6 @@ import type { CallSummary } from "../../../../preload/call-api";
 import type { DesktopApi } from "../../../../preload/desktop-api";
 import type { CallSession } from "../../calls/use-call-session";
 import { screenStyles } from "../screen-styles";
-import { CallSettingsPanel } from "./CallSettingsPanel";
 import { SharedScreens } from "./SharedScreens";
 import { SharePicker } from "./SharePicker";
 
@@ -17,7 +16,6 @@ interface CallPanelProps {
 export function CallPanel(props: CallPanelProps): React.JSX.Element {
   const { desktopApi, groupId, callSession } = props;
   const [heard, setHeard] = useState<CallSummary>();
-  const [showsSettings, setShowsSettings] = useState(false);
   const [picking, setPicking] = useState(false);
 
   useEffect(() => {
@@ -117,22 +115,11 @@ export function CallPanel(props: CallPanelProps): React.JSX.Element {
           {callSession.joining ? "Joining…" : "Join Call"}
         </button>
       )}
-      <button
-        type="button"
-        aria-expanded={showsSettings}
-        className={screenStyles.linkButton}
-        onClick={() => {
-          setShowsSettings(!showsSettings);
-        }}
-      >
-        Call settings
-      </button>
       {callSession.problem !== undefined && (
         <span role="alert" className={screenStyles.errorMessage}>
           {callSession.problem}
         </span>
       )}
-      {showsSettings && <CallSettingsPanel desktopApi={desktopApi} />}
       {inThisCall && picking && (
         <SharePicker
           desktopApi={desktopApi}

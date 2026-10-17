@@ -9,6 +9,7 @@ import { GroupPane } from "../components/home/GroupPane";
 import { InvitationList } from "../components/home/InvitationList";
 import { OnlineNow } from "../components/home/OnlineNow";
 import { RemoteAudio } from "../components/home/RemoteAudio";
+import { SettingsScreen } from "../components/settings/SettingsScreen";
 import { screenStyles } from "../components/screen-styles";
 import { groupLeftMessage } from "../groups/group-text";
 
@@ -22,9 +23,11 @@ interface HomeScreenProps {
 export function HomeScreen(props: HomeScreenProps): React.JSX.Element {
   const [openGroup, setOpenGroup] = useState<GroupSummary>();
   const [leftNotice, setLeftNotice] = useState<string>();
+  const [showsSettings, setShowsSettings] = useState(false);
   const callSession = useCallSession(props.desktopApi);
   const select = useCallback((group: GroupSummary | undefined): void => {
     setOpenGroup(group);
+    setShowsSettings(false);
   }, []);
 
   useEffect(
@@ -37,7 +40,7 @@ export function HomeScreen(props: HomeScreenProps): React.JSX.Element {
 
   // Messages in the Group open in the focused window need no notification (#10's spec).
   const { desktopApi } = props;
-  const openGroupId = openGroup?.groupId;
+  const openGroupId = showsSettings ? undefined : openGroup?.groupId;
   useEffect(() => {
     desktopApi.setViewedGroup(openGroupId ?? null).catch(() => undefined);
   }, [desktopApi, openGroupId]);
@@ -51,16 +54,16 @@ export function HomeScreen(props: HomeScreenProps): React.JSX.Element {
   // Clicking a notification opens its Group (11-m4-build step 7).
   useEffect(
     () =>
-      props.desktopApi.onOpenGroup((groupId) => {
-        props.desktopApi.listGroups().then(
+      desktopApi.onOpenGroup((groupId) => {
+        desktopApi.listGroups().then(
           (groups) => {
             const group = groups.find((entry) => entry.groupId === groupId);
-            if (group !== undefined) setOpenGroup(group);
+            if (group !== undefined) select(group);
           },
           () => undefined,
         );
       }),
-    [props.desktopApi],
+    [desktopApi, select],
   );
 
   return (
@@ -74,6 +77,9 @@ export function HomeScreen(props: HomeScreenProps): React.JSX.Element {
           desktopApi={props.desktopApi}
           username={props.username}
           show={props.show}
+          openSettings={() => {
+            setShowsSettings(true);
+          }}
         />
         {leftNotice !== undefined && (
           <p
@@ -119,7 +125,14 @@ export function HomeScreen(props: HomeScreenProps): React.JSX.Element {
           </p>
         )}
         <div className="min-h-0 flex-1">
-          {openGroup === undefined ? (
+          {showsSettings ? (
+            <SettingsScreen
+              desktopApi={desktopApi}
+              close={() => {
+                setShowsSettings(false);
+              }}
+            />
+          ) : openGroup === undefined ? (
             <p className={`${screenStyles.hint} p-6`}>
               Open a Group, or create one to start.
             </p>

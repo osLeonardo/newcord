@@ -1,6 +1,19 @@
 /** The loudness, as the RMS of samples between -1 and 1, above which someone counts as speaking. */
 export const SPEAKING_LEVEL = 0.02;
 
+/** The sensitivity setting that keeps M3's threshold; 0 to 100 around it (#10's spec). */
+export const DEFAULT_VOICE_SENSITIVITY = 50;
+
+/**
+ * The voice-activity threshold for a sensitivity: M3's at 50, four times higher (less sensitive)
+ * at 0 and four times lower (more sensitive) at 100.
+ * @example voiceThreshold(50) // 0.02
+ */
+export function voiceThreshold(sensitivity: number): number {
+  const clamped = Math.min(100, Math.max(0, sensitivity));
+  return SPEAKING_LEVEL * 2 ** ((DEFAULT_VOICE_SENSITIVITY - clamped) / 25);
+}
+
 /** How long someone still counts as speaking after their level drops (#9's spec: 300 ms). */
 export const SPEAKING_HOLD_MS = 300;
 

@@ -19,15 +19,19 @@ import { rmsLevel } from "./voice-level";
 const LEVEL_INTERVAL_MS = 100;
 
 /**
- * Opens the microphone with Chromium's voice processing on (10-m3-build Settings), and no camera (D10).
- * @example const microphone = await openMicrophone();
+ * Opens the chosen microphone, or the default one if it is gone, with Chromium's voice processing
+ * on (10-m3-build Settings), and no camera (D10).
+ * @example const microphone = await openMicrophone(settings.inputDeviceId);
  */
-export function openMicrophone(): Promise<MediaStream> {
+export function openMicrophone(
+  inputDeviceId: string | null,
+): Promise<MediaStream> {
   return navigator.mediaDevices.getUserMedia({
     audio: {
       echoCancellation: true,
       noiseSuppression: true,
       autoGainControl: true,
+      ...(inputDeviceId === null ? {} : { deviceId: { ideal: inputDeviceId } }),
     },
     video: false,
   });
