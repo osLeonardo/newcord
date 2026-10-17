@@ -11,11 +11,15 @@ import { UNEXPECTED_FAILURE_MESSAGE } from "../account/account-messages";
 import { groupRefusalMessage } from "../groups/group-text";
 import {
   browserPeerConnection,
+  captureScreen,
   openMicrophone,
   reconfigure,
+  sendScreen,
+  stopSendingScreen,
   stopStream,
   watchVoiceLevel,
   type OpenConnections,
+  type ScreenShare,
 } from "./browser-call-media";
 import { createCallMesh, type CallMesh } from "./call-mesh";
 import { createLevelGate } from "./voice-level";
@@ -24,27 +28,36 @@ import { microphoneOpen, type MicrophoneInputs } from "./voice-settings";
 /** Relay passwords last an hour (10-m3-build Settings); new ones are fetched at half that. */
 const RELAY_REFRESH_MS = 30 * 60 * 1000;
 
+const SOURCE_GONE_PROBLEM =
+  "That screen or window is no longer there. Pick another one.";
+const SHARE_PROBLEM = "The screen could not be shared. Try again.";
+
 const MICROPHONE_PROBLEM =
   "The microphone could not be opened. Check that one is connected and allowed in Windows.";
 
 /** The Call this Device is in, kept above the Group screens so switching Groups never hangs up. */
 export interface CallSession {
   readonly active: CallSummary | undefined;
-  readonly remoteStreams: ReadonlyMap<string, MediaStream>;
+  readonly remoteStreams: ReadonlyMap<string, readonly MediaStream[]>;
   /** The Devices heard speaking, this one included while its microphone sends. */
   readonly speaking: ReadonlySet<string>;
   readonly muted: boolean;
+  /** Whether this Device is sharing a screen or window; the window shows it with a Stop button. */
+  readonly sharing: boolean;
   readonly problem: string | undefined;
   readonly joining: boolean;
   join(groupId: string): void;
   leave(): void;
   /** Also toggled by the global mute hotkey (D44c). */
   toggleMute(): void;
+  /** Shares the source picked in the app's own picker, video only (D43). */
+  startSharing(sourceId: string): void;
+  stopSharing(): void;
 }
 
 interface RunningCall {
   readonly groupId: string;
-  readonly microphone: MediaStream;
+  readonly media: CallMedia;
   readonly mesh: CallMesh;
   readonly stopRefreshing: () => void;
 }
@@ -63,12 +76,13 @@ export function useCallSession(desktopApi: DesktopApi): CallSession {
   const refs = useRef<CallRefs>({});
   const [active, setActive] = useState<CallSummary>();
   const [remoteStreams, setRemoteStreams] = useState<
-    ReadonlyMap<string, MediaStream>
+    ReadonlyMap<string, readonly MediaStream[]>
   >(new Map());
   const [microphone, setMicrophone] = useState<MediaStream>();
   const [problem, setProblem] = useState<string>();
   const [joining, setJoining] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const pushToTalkHeld = usePushToTalk(desktopApi);
   const settings = useCallSettings(desktopApi);
 
@@ -78,7 +92,10 @@ export function useCallSession(desktopApi: DesktopApi): CallSession {
     refs.current.running = undefined;
     running.stopRefreshing();
     running.mesh.close();
-    stopStream(running.microphone);
+    stopStream(running.media.microphone);
+    const screen = running.media.screen.current;
+    if (screen !== undefined) stopStream(screen.stream);
+    setSharing(false);
     setActive(undefined);
     setRemoteStreams(new Map());
     setMicrophone(undefined);
@@ -138,13 +155,14 @@ export function useCallSession(desktopApi: DesktopApi): CallSession {
             microphone: started.microphone,
             configuration: { current: started.configuration },
             connections: new Set(),
+            screen: { current: undefined },
           };
           const mesh = meshFor(desktopApi, started.call, media, {
             remoteStreamsChanged: setRemoteStreams,
           });
           refs.current.running = {
             groupId,
-            microphone: started.microphone,
+            media,
             mesh,
             stopRefreshing: keepRelayFresh(desktopApi, media),
           };
@@ -177,6 +195,50 @@ export function useCallSession(desktopApi: DesktopApi): CallSession {
     if (refs.current.running !== undefined) setMuted((was) => !was);
   }, []);
 
+  const stopSharing = useCallback((): void => {
+    const media = refs.current.running?.media;
+    const screen = media?.screen.current;
+    if (media === undefined || screen === undefined) return;
+    media.screen.current = undefined;
+    for (const connection of media.connections) {
+      stopSendingScreen(connection, screen.track);
+    }
+    stopStream(screen.stream);
+    setSharing(false);
+  }, []);
+
+  const codec = settings?.codec ?? "H264";
+  const startSharing = useCallback(
+    (sourceId: string): void => {
+      const media = refs.current.running?.media;
+      if (media === undefined || media.screen.current !== undefined) return;
+      setProblem(undefined);
+      shareScreen(desktopApi, sourceId, codec)
+        .then((shared) => {
+          if (shared.outcome === "refused") {
+            setProblem(shared.problem);
+            return;
+          }
+          // The call may have ended while the picker was open.
+          if (refs.current.running?.media !== media) {
+            stopStream(shared.screen.stream);
+            return;
+          }
+          media.screen.current = shared.screen;
+          for (const connection of media.connections) {
+            sendScreen(connection, shared.screen);
+          }
+          // Stopping from Windows' own controls ends the track.
+          shared.screen.track.addEventListener("ended", stopSharing);
+          setSharing(true);
+        })
+        .catch(() => {
+          setProblem(SHARE_PROBLEM);
+        });
+    },
+    [codec, desktopApi, stopSharing],
+  );
+
   const selfSpeaking = useMicrophoneGate(microphone, {
     mode: settings?.microphoneMode ?? "voice-activity",
     muted,
@@ -197,12 +259,39 @@ export function useCallSession(desktopApi: DesktopApi): CallSession {
     remoteStreams,
     speaking,
     muted,
+    sharing,
     problem,
     joining,
     join,
     leave,
     toggleMute,
+    startSharing,
+    stopSharing,
   };
+}
+
+type SharedScreen =
+  | { readonly outcome: "shared"; readonly screen: ScreenShare }
+  | { readonly outcome: "refused"; readonly problem: string };
+
+/** Tells the main process which source to answer with, then captures it. */
+async function shareScreen(
+  desktopApi: DesktopApi,
+  sourceId: string,
+  codec: ScreenShare["codec"],
+): Promise<SharedScreen> {
+  if (!(await desktopApi.chooseShareSource(sourceId))) {
+    return { outcome: "refused", problem: SOURCE_GONE_PROBLEM };
+  }
+  const stream = await captureScreen();
+  const [track] = stream.getVideoTracks();
+  if (track === undefined) {
+    stopStream(stream);
+    return { outcome: "refused", problem: SHARE_PROBLEM };
+  }
+  // Text and code stay sharp; the frame rate drops first (10-m3-build Settings).
+  track.contentHint = "detail";
+  return { outcome: "shared", screen: { stream, track, codec } };
 }
 
 /** The Call settings, following changes made in any window. */
@@ -327,6 +416,8 @@ interface CallMedia {
   /** The newest relay passwords, used by every new connection. */
   readonly configuration: { current: IceConfiguration };
   readonly connections: OpenConnections;
+  /** The running share, which every new connection also sends. */
+  readonly screen: { current: ScreenShare | undefined };
 }
 
 /** Fetches fresh relay passwords every 30 minutes and hands them to every connection. */
@@ -352,7 +443,9 @@ function meshFor(
   call: CallSummary,
   media: CallMedia,
   callbacks: {
-    remoteStreamsChanged(streams: ReadonlyMap<string, MediaStream>): void;
+    remoteStreamsChanged(
+      streams: ReadonlyMap<string, readonly MediaStream[]>,
+    ): void;
   },
 ): CallMesh {
   const { groupId } = call;
@@ -360,9 +453,12 @@ function meshFor(
     ownDeviceId: call.ownDeviceId,
     createConnection: (_peer, events) =>
       browserPeerConnection(
-        media.microphone,
-        media.configuration.current,
-        media.connections,
+        {
+          microphone: media.microphone,
+          configuration: media.configuration.current,
+          connections: media.connections,
+          screen: media.screen.current,
+        },
         events,
       ),
     sendSignal: (to: string, signal: CallSignal) => {
@@ -393,12 +489,17 @@ function othersIn(call: CallSummary): string[] {
 
 /** Who is speaking, measured on each stream with the 300 ms hold. */
 function useSpeaking(
-  streams: ReadonlyMap<string, MediaStream>,
+  streams: ReadonlyMap<string, readonly MediaStream[]>,
 ): ReadonlySet<string> {
   const [speaking, setSpeaking] = useState<ReadonlySet<string>>(new Set());
   useEffect(() => {
     const heard = new Set<string>();
-    const stops = [...streams].map(([deviceId, stream]) => {
+    const voices = [...streams].flatMap(([deviceId, peerStreams]) =>
+      peerStreams
+        .filter((stream) => stream.getAudioTracks().length > 0)
+        .map((stream) => [deviceId, stream] as const),
+    );
+    const stops = voices.map(([deviceId, stream]) => {
       const gate = createLevelGate();
       return watchVoiceLevel(stream, (level) => {
         const now = gate.update(level, performance.now());

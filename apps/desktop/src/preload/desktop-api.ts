@@ -5,6 +5,7 @@ import type {
   CallSettingsApiCalls,
   CallSummary,
   ReceivedCallSignal,
+  ScreenShareApiCalls,
 } from "./call-api";
 import type { GroupApiCalls, GroupLeftNotice } from "./group-api";
 
@@ -95,7 +96,12 @@ export interface AccountApiCalls {
 
 /** The desktop API's calls into the main process, each checked there for its sender and arguments. */
 export interface DesktopApiCalls
-  extends AccountApiCalls, GroupApiCalls, CallApiCalls, CallSettingsApiCalls {}
+  extends
+    AccountApiCalls,
+    GroupApiCalls,
+    CallApiCalls,
+    CallSettingsApiCalls,
+    ScreenShareApiCalls {}
 
 /** The changes the main process tells the interface about. */
 export interface DesktopApiSubscriptions {
@@ -164,6 +170,8 @@ export const desktopApiChannels = {
   readCallSettings: "settings:read-call",
   changeCallSettings: "settings:change-call",
   readVoiceControls: "settings:read-voice-controls",
+  listShareSources: "share:list-sources",
+  chooseShareSource: "share:choose-source",
 } as const satisfies Record<keyof DesktopApiCalls, string>;
 
 /** The IPC channel the main process sends each change on. */

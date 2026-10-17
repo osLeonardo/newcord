@@ -34,6 +34,7 @@ import {
 } from "./local-store/local-store";
 import { createMlsStateStore } from "./local-store/mls-state-store";
 import type { MlsEngine } from "./mls/mls-engine";
+import type { ScreenShareApiCalls } from "../preload/call-api";
 import type { ServerApiClient } from "./server-api/server-api-client";
 import { createLiveSession, type LiveSession } from "./session/live-session";
 import type { LiveSocketOpener } from "./session/live-socket";
@@ -54,6 +55,8 @@ export interface AppServicesDependencies {
   readonly hotkeys?: HotkeyRegistry;
   /** The keyboard hook for push-to-talk (D44b, D74); none until `uiohook-napi` is approved. */
   readonly keyboardHook?: KeyboardHook;
+  /** The app's own screen-share picker over Electron's `desktopCapturer`; none in tests. */
+  readonly shareSources?: ScreenShareApiCalls;
 }
 
 /** The main process's services: the desktop API's calls, and a way to stop before quitting. */
@@ -118,6 +121,11 @@ export function startAppServices(
           settings,
         ),
       ),
+      listShareSources: () =>
+        dependencies.shareSources?.listShareSources() ?? Promise.resolve([]),
+      chooseShareSource: (sourceId) =>
+        dependencies.shareSources?.chooseShareSource(sourceId) ??
+        Promise.resolve(false),
     },
     store,
     liveSession,

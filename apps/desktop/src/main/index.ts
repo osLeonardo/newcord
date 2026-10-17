@@ -2,9 +2,11 @@ import {
   app,
   shell,
   BrowserWindow,
+  desktopCapturer,
   globalShortcut,
   ipcMain,
   session,
+  type DesktopCapturerSource,
 } from "electron";
 import { join } from "path";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
@@ -21,6 +23,7 @@ import {
   registerCheckedIpcHandler,
   type IpcInvocation,
 } from "./ipc/checked-ipc-handler";
+import { createShareChooser } from "./calls/screen-share";
 import { loadMlsEngineFactory } from "./mls/mls-module";
 import { grantCallPermissionsOnly } from "./permissions";
 import { createFetchTransport } from "./server-api/fetch-transport";
@@ -39,6 +42,22 @@ const pageUrl = appPageUrl({
 const appWebContentsIds = new Set<number>();
 // The local database lives in Electron's per-user data directory (D20, 08-m1-build step 7).
 const LOCAL_DATABASE_FILE_NAME = "device.db";
+// The app's own picker shows these thumbnails (10-m3-build step 7).
+const SHARE_THUMBNAIL_SIZE = { width: 320, height: 180 };
+const shareChooser = createShareChooser<DesktopCapturerSource>({
+  list: async () =>
+    (
+      await desktopCapturer.getSources({
+        types: ["screen", "window"],
+        thumbnailSize: SHARE_THUMBNAIL_SIZE,
+      })
+    ).map((source) => ({
+      id: source.id,
+      name: source.name,
+      thumbnail: source.thumbnail.toDataURL(),
+      source,
+    })),
+});
 let mainWindow: BrowserWindow | undefined;
 let quitting = false;
 
@@ -117,6 +136,11 @@ function startServices(): DesktopApiCalls {
         globalShortcut.unregister(accelerator);
       },
     },
+    shareSources: {
+      listShareSources: () => shareChooser.listSources(),
+      chooseShareSource: (sourceId) =>
+        Promise.resolve(shareChooser.choose(sourceId)),
+    },
   });
   app.once("will-quit", () => {
     void services.stop();
@@ -163,6 +187,11 @@ void app.whenReady().then(() => {
   grantCallPermissionsOnly(session.defaultSession, (webContentsId) =>
     appWebContentsIds.has(webContentsId),
   );
+  // A share captures only the source picked in the app's own picker, and never sound (D43).
+  session.defaultSession.setDisplayMediaRequestHandler((_request, answer) => {
+    const source = shareChooser.take();
+    answer(source === undefined ? {} : { video: source });
+  });
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.

@@ -4,7 +4,14 @@ import type {
   PeerConnectionEvents,
   SessionDescription,
 } from "./call-mesh";
-import type { IceConfiguration } from "../../../preload/call-api";
+import type { IceConfiguration, ShareCodec } from "../../../preload/call-api";
+import {
+  preferCodec,
+  SCREEN_SHARE_MAX_FRAMERATE,
+  SCREEN_SHARE_MAX_HEIGHT,
+  SCREEN_SHARE_MAX_WIDTH,
+  screenShareEncoding,
+} from "./share-settings";
 import { rmsLevel } from "./voice-level";
 
 /** How often a stream's loudness is measured for the speaking indicator. */
@@ -28,18 +35,36 @@ export function openMicrophone(): Promise<MediaStream> {
 /** The Call's connections, so fresh relay passwords reach each one. */
 export type OpenConnections = Set<RTCPeerConnection>;
 
+/** A screen share this Device sends: video only (D43), its detail kept over its frame rate. */
+export interface ScreenShare {
+  readonly stream: MediaStream;
+  readonly track: MediaStreamTrack;
+  readonly codec: ShareCodec;
+}
+
+/** What a new connection carries and how it reaches the others. */
+export interface ConnectionMedia {
+  readonly microphone: MediaStream;
+  readonly configuration: IceConfiguration;
+  readonly connections: OpenConnections;
+  /** The share running when the connection is made, if any. */
+  readonly screen: ScreenShare | undefined;
+}
+
 /**
- * Wraps an `RTCPeerConnection` carrying the microphone for the Call mesh, reaching the others
- * through the app's own relay, and only through it with Hide my IP (10-m3-build step 5).
- * @example createConnection: (peer, events) => browserPeerConnection(microphone, configuration, connections, events)
+ * Wraps an `RTCPeerConnection` carrying the microphone, and the screen while it is shared, for the
+ * Call mesh, reaching the others through the app's own relay, and only through it with Hide my IP
+ * (10-m3-build step 5).
+ * @example createConnection: (peer, events) => browserPeerConnection(media, events)
  */
 export function browserPeerConnection(
-  microphone: MediaStream,
-  configuration: IceConfiguration,
-  connections: OpenConnections,
+  media: ConnectionMedia,
   events: PeerConnectionEvents<MediaStream>,
 ): PeerConnection {
-  const connection = new RTCPeerConnection(rtcConfiguration(configuration));
+  const { microphone, connections } = media;
+  const connection = new RTCPeerConnection(
+    rtcConfiguration(media.configuration),
+  );
   connections.add(connection);
   connection.addEventListener("negotiationneeded", () => {
     events.negotiationNeeded();
@@ -60,6 +85,7 @@ export function browserPeerConnection(
   for (const track of microphone.getAudioTracks()) {
     connection.addTrack(track, microphone);
   }
+  if (media.screen !== undefined) sendScreen(connection, media.screen);
   return {
     signalingState: () => connection.signalingState,
     localDescription: (): SessionDescription | undefined => {
@@ -95,6 +121,55 @@ export function reconfigure(
 ): void {
   for (const connection of connections) {
     connection.setConfiguration(rtcConfiguration(configuration));
+  }
+}
+
+/**
+ * Asks the main process's picker choice for the screen, video only (D43), at up to 1080p and 30
+ * frames per second (10-m3-build Settings).
+ * @example const screen = await captureScreen();
+ */
+export function captureScreen(): Promise<MediaStream> {
+  return navigator.mediaDevices.getDisplayMedia({
+    video: {
+      width: { max: SCREEN_SHARE_MAX_WIDTH },
+      height: { max: SCREEN_SHARE_MAX_HEIGHT },
+      frameRate: { max: SCREEN_SHARE_MAX_FRAMERATE },
+    },
+    audio: false,
+  });
+}
+
+/**
+ * Sends the share on a connection: the chosen codec first with the others kept after it (D11b),
+ * and at most 1.5 Mbps to this viewer (10-m3-build step 8).
+ * @example sendScreen(connection, share);
+ */
+export function sendScreen(
+  connection: RTCPeerConnection,
+  share: ScreenShare,
+): void {
+  const transceiver = connection.addTransceiver(share.track, {
+    direction: "sendonly",
+    streams: [share.stream],
+    sendEncodings: [screenShareEncoding()],
+  });
+  // Chromium checks preferences against what it can receive.
+  const capabilities = RTCRtpReceiver.getCapabilities("video");
+  if (capabilities !== null) {
+    transceiver.setCodecPreferences(
+      preferCodec(capabilities.codecs, share.codec),
+    );
+  }
+}
+
+/** Stops sending the share on a connection; the viewers' copy goes quiet. */
+export function stopSendingScreen(
+  connection: RTCPeerConnection,
+  track: MediaStreamTrack,
+): void {
+  for (const sender of connection.getSenders()) {
+    if (sender.track === track) connection.removeTrack(sender);
   }
 }
 

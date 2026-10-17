@@ -4,9 +4,10 @@ import type {
   CallApiCalls,
   CallSettingsApiCalls,
   CallSummary,
+  ScreenShareApiCalls,
 } from "../../src/preload/call-api";
 
-type CallCalls = CallApiCalls & CallSettingsApiCalls;
+type CallCalls = CallApiCalls & CallSettingsApiCalls & ScreenShareApiCalls;
 
 export type FakeCallActions = {
   [Name in keyof CallCalls]: Mock<CallCalls[Name]>;
@@ -55,6 +56,12 @@ export function fakeCallActions(): FakeCallActions {
     ),
     readVoiceControls: vi.fn<CallSettingsApiCalls["readVoiceControls"]>(() =>
       Promise.resolve({ pushToTalkAvailable: false }),
+    ),
+    listShareSources: vi.fn<ScreenShareApiCalls["listShareSources"]>(() =>
+      Promise.resolve([]),
+    ),
+    chooseShareSource: vi.fn<ScreenShareApiCalls["chooseShareSource"]>(() =>
+      Promise.resolve(true),
     ),
   };
 }

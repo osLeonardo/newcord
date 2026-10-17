@@ -45,6 +45,9 @@ describe("the Call channels", () => {
     [desktopApiChannels.changeCallSettings, [{ pushToTalkKey: null }]],
     [desktopApiChannels.changeCallSettings, [{ muteHotkey: "Alt+F9" }]],
     [desktopApiChannels.readVoiceControls, []],
+    [desktopApiChannels.listShareSources, []],
+    [desktopApiChannels.chooseShareSource, ["screen:0:0"]],
+    [desktopApiChannels.chooseShareSource, ["window:132456:0"]],
   ])("%s accepts %j", (name, args) => {
     expect(channelNamed(name).channel.argumentsMatch(args)).toBe(true);
   });
@@ -67,6 +70,9 @@ describe("the Call channels", () => {
     [desktopApiChannels.changeCallSettings, [{ microphoneMode: "always" }]],
     [desktopApiChannels.changeCallSettings, [{ pushToTalkKey: "Key V" }]],
     [desktopApiChannels.changeCallSettings, [{ volume: 3 }]],
+    [desktopApiChannels.chooseShareSource, ["camera:0:0"]],
+    [desktopApiChannels.chooseShareSource, ["screen:0"]],
+    [desktopApiChannels.chooseShareSource, []],
   ])("%s refuses %j", (name, args) => {
     expect(channelNamed(name).channel.argumentsMatch(args)).toBe(false);
   });

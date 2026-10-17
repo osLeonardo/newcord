@@ -4,6 +4,8 @@ import type { DesktopApi } from "../../../../preload/desktop-api";
 import type { CallSession } from "../../calls/use-call-session";
 import { screenStyles } from "../screen-styles";
 import { CallSettingsPanel } from "./CallSettingsPanel";
+import { SharedScreens } from "./SharedScreens";
+import { SharePicker } from "./SharePicker";
 
 interface CallPanelProps {
   readonly desktopApi: DesktopApi;
@@ -16,6 +18,7 @@ export function CallPanel(props: CallPanelProps): React.JSX.Element {
   const { desktopApi, groupId, callSession } = props;
   const [heard, setHeard] = useState<CallSummary>();
   const [showsSettings, setShowsSettings] = useState(false);
+  const [picking, setPicking] = useState(false);
 
   useEffect(() => {
     let showsThisGroup = true;
@@ -69,6 +72,17 @@ export function CallPanel(props: CallPanelProps): React.JSX.Element {
       )}
       {inThisCall ? (
         <>
+          {!callSession.sharing && (
+            <button
+              type="button"
+              className={screenStyles.smallSecondaryButton}
+              onClick={() => {
+                setPicking(!picking);
+              }}
+            >
+              Share screen
+            </button>
+          )}
           <button
             type="button"
             aria-pressed={callSession.muted}
@@ -119,6 +133,24 @@ export function CallPanel(props: CallPanelProps): React.JSX.Element {
         </span>
       )}
       {showsSettings && <CallSettingsPanel desktopApi={desktopApi} />}
+      {inThisCall && picking && (
+        <SharePicker
+          desktopApi={desktopApi}
+          pick={(sourceId) => {
+            setPicking(false);
+            callSession.startSharing(sourceId);
+          }}
+          cancel={() => {
+            setPicking(false);
+          }}
+        />
+      )}
+      {inThisCall && callSession.active !== undefined && (
+        <SharedScreens
+          call={callSession.active}
+          remoteStreams={callSession.remoteStreams}
+        />
+      )}
     </section>
   );
 }

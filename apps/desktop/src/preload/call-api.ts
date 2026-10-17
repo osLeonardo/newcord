@@ -90,6 +90,22 @@ export interface CallApiCalls {
   readIceConfiguration(): Promise<IceConfigurationResult>;
 }
 
+/** A screen or window the app's own picker offers for sharing (10-m3-build step 7). */
+export interface ShareSourceSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly kind: "screen" | "window";
+  /** A PNG data URL. */
+  readonly thumbnail: string;
+}
+
+/** The app's own screen-share picker; the share itself is video only (D43). */
+export interface ScreenShareApiCalls {
+  listShareSources(): Promise<readonly ShareSourceSummary[]>;
+  /** Makes the next screen-share request capture this source; false for one not listed. */
+  chooseShareSource(sourceId: string): Promise<boolean>;
+}
+
 /** The Call settings, which need no Account: they belong to the computer. */
 export interface CallSettingsApiCalls {
   readCallSettings(): Promise<CallSettings>;

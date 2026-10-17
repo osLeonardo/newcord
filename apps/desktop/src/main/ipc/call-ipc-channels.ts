@@ -7,6 +7,8 @@ import type {
   CallSummary,
   IceConfigurationResult,
   JoinCallResult,
+  ScreenShareApiCalls,
+  ShareSourceSummary,
   VoiceControlsStatus,
 } from "../../preload/call-api";
 import { desktopApiChannels } from "../../preload/desktop-api";
@@ -21,6 +23,10 @@ const SignalArguments = Type.Tuple([GroupId, DeviceId, CallSignal]);
 type SignalArguments = Static<typeof SignalArguments>;
 const ParticipantArguments = Type.Tuple([GroupId, DeviceId]);
 type ParticipantArguments = Static<typeof ParticipantArguments>;
+const ShareSourceArguments = Type.Tuple([
+  Type.String({ pattern: "^(screen|window):[0-9]+:[0-9]+$" }),
+]);
+type ShareSourceArguments = Static<typeof ShareSourceArguments>;
 const NoArguments = Type.Tuple([]);
 type NoArguments = Static<typeof NoArguments>;
 /** Ctrl or Alt, then a letter, digit or F-key: never a key other apps need for typing. */
@@ -63,7 +69,7 @@ type SettingsChangeArguments = Static<typeof SettingsChangeArguments>;
  * @example createCallIpcChannels(callActions)
  */
 export function createCallIpcChannels(
-  actions: CallApiCalls & CallSettingsApiCalls,
+  actions: CallApiCalls & CallSettingsApiCalls & ScreenShareApiCalls,
 ): CheckedIpcChannel[] {
   return [
     checkedChannel<GroupArguments, CallSummary>({
@@ -122,6 +128,18 @@ export function createCallIpcChannels(
       expectedArguments: "",
       argumentsMatch: argumentsMatching(NoArguments),
       handle: () => actions.readVoiceControls(),
+    }),
+    checkedChannel<NoArguments, readonly ShareSourceSummary[]>({
+      name: desktopApiChannels.listShareSources,
+      expectedArguments: "",
+      argumentsMatch: argumentsMatching(NoArguments),
+      handle: () => actions.listShareSources(),
+    }),
+    checkedChannel<ShareSourceArguments, boolean>({
+      name: desktopApiChannels.chooseShareSource,
+      expectedArguments: "sourceId: screen:<n>:<n> or window:<n>:<n>",
+      argumentsMatch: argumentsMatching(ShareSourceArguments),
+      handle: (sourceId) => actions.chooseShareSource(sourceId),
     }),
   ];
 }

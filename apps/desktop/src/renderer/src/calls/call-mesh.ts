@@ -48,7 +48,8 @@ export interface CallMeshOptions<Stream> {
   sendSignal(to: string, signal: CallSignal): void;
   /** Tells the main process a Participant could not be reached. */
   dropParticipant(deviceId: string): void;
-  remoteStreamsChanged(streams: ReadonlyMap<string, Stream>): void;
+  /** Each Participant's streams: their voice, and their screen while they share it. */
+  remoteStreamsChanged(streams: ReadonlyMap<string, readonly Stream[]>): void;
   /** Starts a timer and returns what cancels it. */
   startTimer(callback: () => void, milliseconds: number): () => void;
   reportError(error: unknown): void;
@@ -90,7 +91,7 @@ export function createCallMesh<Stream>(
   options: CallMeshOptions<Stream>,
 ): CallMesh {
   const links = new Map<string, Link>();
-  const streams = new Map<string, Stream>();
+  const streams = new Map<string, readonly Stream[]>();
   const hangUp = (peer: string): void => {
     const link = links.get(peer);
     if (link === undefined) return;
@@ -108,7 +109,9 @@ export function createCallMesh<Stream>(
     if (known !== undefined) return known;
     const link = openLink(options, peer, {
       streamAdded: (stream) => {
-        streams.set(peer, stream);
+        const known = streams.get(peer) ?? [];
+        if (known.includes(stream)) return;
+        streams.set(peer, [...known, stream]);
         options.remoteStreamsChanged(new Map(streams));
       },
       unreachable: () => drop(peer),

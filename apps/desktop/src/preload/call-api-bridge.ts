@@ -4,6 +4,7 @@ import type {
   IceConfigurationResult,
   JoinCallResult,
   ReceivedCallSignal,
+  ShareSourceSummary,
   VoiceControlsStatus,
 } from "./call-api";
 import type { IpcInvoke, IpcSubscribe } from "./desktop-api-bridge";
@@ -25,6 +26,8 @@ type CallApi = Pick<
   | "readCallSettings"
   | "changeCallSettings"
   | "readVoiceControls"
+  | "listShareSources"
+  | "chooseShareSource"
   | "onMuteToggled"
   | "onPushToTalk"
   | "onCallSettingsChanged"
@@ -78,6 +81,15 @@ export function createCallApi(
       invoke(
         desktopApiChannels.readVoiceControls,
       ) as Promise<VoiceControlsStatus>,
+    listShareSources: () =>
+      invoke(desktopApiChannels.listShareSources) as Promise<
+        readonly ShareSourceSummary[]
+      >,
+    chooseShareSource: (sourceId) =>
+      invoke(
+        desktopApiChannels.chooseShareSource,
+        sourceId,
+      ) as Promise<boolean>,
     onMuteToggled: (listener) =>
       subscribe(desktopApiEventChannels.onMuteToggled, () => listener()),
     onPushToTalk: (listener) =>

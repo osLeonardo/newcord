@@ -102,7 +102,7 @@ interface MeshUnderTest {
   readonly connections: Map<string, FakeConnection>;
   readonly sent: { to: string; signal: CallSignal }[];
   readonly dropped: string[];
-  readonly streams: () => ReadonlyMap<string, string>;
+  readonly streams: () => ReadonlyMap<string, readonly string[]>;
   readonly errors: unknown[];
 }
 
@@ -115,7 +115,7 @@ function meshOf(
   const sent: { to: string; signal: CallSignal }[] = [];
   const dropped: string[] = [];
   const errors: unknown[] = [];
-  let streams: ReadonlyMap<string, string> = new Map();
+  let streams: ReadonlyMap<string, readonly string[]> = new Map();
   const mesh = createCallMesh<string>({
     ownDeviceId,
     createConnection: (peer, events) => {
@@ -183,8 +183,8 @@ describe("the Call mesh", () => {
     expect(atHigh?.rollbacks).toBe(0);
     expect(atLow?.remote?.sdp).toBe(`offer from ${HIGH}`);
     expect(atHigh?.remote?.sdp).toBe(`answer from ${LOW}`);
-    expect(low.streams().get(HIGH)).toBe(`audio of ${HIGH}`);
-    expect(high.streams().get(LOW)).toBe(`audio of ${LOW}`);
+    expect(low.streams().get(HIGH)).toEqual([`audio of ${HIGH}`]);
+    expect(high.streams().get(LOW)).toEqual([`audio of ${LOW}`]);
     expect(atLow?.candidates.length).toBeGreaterThan(0);
     expect(atHigh?.candidates.length).toBeGreaterThan(0);
     expect([...low.errors, ...high.errors].map(String)).toEqual([]);
@@ -214,7 +214,7 @@ describe("the Call mesh", () => {
     await settle();
 
     expect(low.connections.get(HIGH)?.state).toBe("stable");
-    expect(low.streams().get(HIGH)).toBe(`audio of ${HIGH}`);
+    expect(low.streams().get(HIGH)).toEqual([`audio of ${HIGH}`]);
     vi.useRealTimers();
   });
 
@@ -279,6 +279,24 @@ describe("the Call mesh", () => {
     expect(low.connections.get(THIRD)?.closed).toBe(true);
     await vi.advanceTimersByTimeAsync(CONNECT_TIMEOUT_MS);
     expect(low.dropped).toEqual([]);
+    vi.useRealTimers();
+  });
+
+  it("keeps each of a Participant's streams once, such as a shared screen next to their voice", async () => {
+    vi.useFakeTimers();
+    const { low, high } = pair();
+    low.mesh.participantsChanged([HIGH]);
+    high.mesh.participantsChanged([LOW]);
+    await settle();
+
+    const connection = low.connections.get(HIGH);
+    connection?.events.remoteStreamAdded(`screen of ${HIGH}`);
+    connection?.events.remoteStreamAdded(`screen of ${HIGH}`);
+
+    expect(low.streams().get(HIGH)).toEqual([
+      `audio of ${HIGH}`,
+      `screen of ${HIGH}`,
+    ]);
     vi.useRealTimers();
   });
 });

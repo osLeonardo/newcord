@@ -72,18 +72,37 @@ export function HomeScreen(props: HomeScreenProps): React.JSX.Element {
           select={select}
         />
       </nav>
-      <main className="min-w-0 flex-1">
-        {openGroup === undefined ? (
-          <p className={`${screenStyles.hint} p-6`}>
-            Open a Group, or create one to start.
+      <main className="flex min-w-0 flex-1 flex-col">
+        {callSession.sharing && (
+          <p
+            role="status"
+            className="flex items-center justify-between gap-4 bg-red-900 px-6 py-2 text-sm text-red-50"
+          >
+            You are sharing your screen.
+            <button
+              type="button"
+              className={screenStyles.smallSecondaryButton}
+              onClick={() => {
+                callSession.stopSharing();
+              }}
+            >
+              Stop sharing
+            </button>
           </p>
-        ) : (
-          <GroupPane
-            desktopApi={props.desktopApi}
-            group={openGroup}
-            callSession={callSession}
-          />
         )}
+        <div className="min-h-0 flex-1">
+          {openGroup === undefined ? (
+            <p className={`${screenStyles.hint} p-6`}>
+              Open a Group, or create one to start.
+            </p>
+          ) : (
+            <GroupPane
+              desktopApi={props.desktopApi}
+              group={openGroup}
+              callSession={callSession}
+            />
+          )}
+        </div>
       </main>
     </div>
   );
