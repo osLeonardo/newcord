@@ -12,6 +12,7 @@ import type { DesktopApiCalls } from "../../preload/desktop-api";
 import type { AccountActions } from "../account/account-actions";
 import { createCallIpcChannels } from "./call-ipc-channels";
 import { createGroupIpcChannels } from "./group-ipc-channels";
+import { createShellIpcChannels } from "./shell-ipc-channels";
 import { checkedChannel, type CheckedIpcChannel } from "./checked-ipc-handler";
 import { argumentsMatching } from "./typebox-arguments";
 
@@ -56,6 +57,7 @@ export function createAppIpcChannels(
     ...accountIpcChannels(actions),
     ...createGroupIpcChannels(actions),
     ...createCallIpcChannels(actions),
+    ...createShellIpcChannels(actions),
   ];
 }
 

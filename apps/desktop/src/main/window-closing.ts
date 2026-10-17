@@ -1,3 +1,5 @@
+import type { CloseDecision } from "./app-shell/app-closing";
+
 /** The parts of a BrowserWindow that closing and showing again use. */
 export interface HideableWindow {
   on(
@@ -11,19 +13,26 @@ export interface HideableWindow {
   restore(): void;
 }
 
+/** How closing the window is decided, and who hears that it hid. */
+export interface CloseHandling {
+  decide(): CloseDecision;
+  hidden(): void;
+}
+
 /**
- * Makes closing the window hide it, so a Call keeps running (D42); quitting the app still closes it.
- * The quit-on-close setting (D15b) and the tray arrive in M4 (#10).
- * @example hideOnClose(mainWindow, () => quitting);
+ * Makes closing the window hide it to the tray, so messages and Calls keep running (D42, D15b),
+ * unless the decision is to close.
+ * @example hideOnClose(mainWindow, { decide: () => closeDecision(state), hidden: noticeOnce });
  */
 export function hideOnClose(
   window: HideableWindow,
-  isQuitting: () => boolean,
+  handling: CloseHandling,
 ): void {
   window.on("close", (event) => {
-    if (isQuitting()) return;
+    if (handling.decide() === "close") return;
     event.preventDefault();
     window.hide();
+    handling.hidden();
   });
 }
 

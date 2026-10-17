@@ -5,7 +5,10 @@ import {
   desktopCapturer,
   globalShortcut,
   ipcMain,
+  Menu,
+  Notification,
   session,
+  Tray,
   type DesktopCapturerSource,
 } from "electron";
 import { join } from "path";
@@ -13,7 +16,22 @@ import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { APP_NAME } from "@newcord/shared";
 import Database from "better-sqlite3";
 import icon from "../../resources/icon.png?asset";
-import type { DesktopApiCalls } from "../preload/desktop-api";
+import type { CallSummary } from "../preload/call-api";
+import {
+  desktopApiEventChannels,
+  type DesktopApiCalls,
+} from "../preload/desktop-api";
+import type { CallMediaReport } from "../preload/shell-api";
+import {
+  closeDecision,
+  firstHide,
+  HIDDEN_START_ARGUMENT,
+  setUpFirstRun,
+  startsHidden,
+  type LoginItems,
+} from "./app-shell/app-closing";
+import { trayItems, type TrayAction } from "./app-shell/tray-menu";
+import type { AppServices } from "./app-services";
 import { appPageUrl } from "./app-page";
 import { startAppServices } from "./app-services";
 import { builtInServerAddress } from "./built-in-server-address";
@@ -60,8 +78,19 @@ const shareChooser = createShareChooser<DesktopCapturerSource>({
 });
 let mainWindow: BrowserWindow | undefined;
 let quitting = false;
+let tray: Tray | undefined;
+const trayState = { inCall: false, muted: false };
+let callGroupId: string | undefined;
 
-function createWindow(): void {
+// In development the executable is Electron itself, which must not start at login.
+const loginItems: LoginItems = {
+  set: (openAtLogin) => {
+    if (!app.isPackaged) return;
+    app.setLoginItemSettings({ openAtLogin, args: [HIDDEN_START_ARGUMENT] });
+  },
+};
+
+function createWindow(services: AppServices, startHidden: boolean): void {
   // Create the browser window.
   const window = new BrowserWindow({
     width: 900,
@@ -74,16 +103,101 @@ function createWindow(): void {
     ),
   });
   trackAppWebContents(window);
-  // Closing hides the window so a Call keeps running (D42, #9's spec).
-  hideOnClose(window, () => quitting);
+  // Closing hides the window to the tray, so messages and Calls keep running (D42, D15b).
+  hideOnClose(window, {
+    decide: () =>
+      closeDecision({
+        quitting,
+        quitOnClose: services.deviceSettings.read().quitOnClose,
+      }),
+    hidden: () => {
+      if (firstHide(services.flags)) showStillRunningNotice();
+    },
+  });
 
   window.on("ready-to-show", () => {
-    window.show();
+    // Started at login, the app opens hidden in the tray (D46).
+    if (!startHidden) window.show();
   });
 
   void window.loadURL(pageUrl);
   mainWindow = window;
 }
+
+/** The one-time notice of the first hide (D47). */
+function showStillRunningNotice(): void {
+  new Notification({
+    title: `${APP_NAME} is still running`,
+    body: "It stays in the tray so you keep getting messages and stay in Calls. Open it again from the tray icon.",
+  }).show();
+}
+
+function showMainWindow(services: AppServices): void {
+  if (mainWindow === undefined || mainWindow.isDestroyed()) {
+    createWindow(services, false);
+    return;
+  }
+  showAgain(mainWindow);
+}
+
+function createTray(services: AppServices): void {
+  tray = new Tray(icon);
+  tray.setToolTip(APP_NAME);
+  tray.on("click", () => {
+    showMainWindow(services);
+  });
+  refreshTray(services);
+}
+
+function refreshTray(services: AppServices): void {
+  tray?.setContextMenu(
+    Menu.buildFromTemplate(
+      trayItems(trayState).flatMap((item) => [
+        ...(item.action === "quit" ? [{ type: "separator" as const }] : []),
+        {
+          label: item.label,
+          enabled: item.enabled,
+          click: (): void => {
+            runTrayAction(services, item.action);
+          },
+        },
+      ]),
+    ),
+  );
+}
+
+function runTrayAction(services: AppServices, action: TrayAction): void {
+  switch (action) {
+    case "open":
+      showMainWindow(services);
+      return;
+    case "toggle-mute":
+      sendToAppWindows(desktopApiEventChannels.onMuteToggled);
+      return;
+    case "quit":
+      // Quit works even during a Call (#10's spec).
+      app.quit();
+  }
+}
+
+/** The tray follows whether this Device is in a Call and muted. */
+const shellEvents = {
+  callChanged: (services: AppServices, call: CallSummary): void => {
+    if (call.joined) {
+      callGroupId = call.groupId;
+      trayState.inCall = true;
+    } else if (callGroupId === call.groupId) {
+      callGroupId = undefined;
+      trayState.inCall = false;
+      trayState.muted = false;
+    }
+    refreshTray(services);
+  },
+  callMediaChanged: (services: AppServices, report: CallMediaReport): void => {
+    trayState.muted = report.muted;
+    refreshTray(services);
+  },
+};
 
 function trackAppWebContents(window: BrowserWindow): void {
   const webContentsId = window.webContents.id;
@@ -110,7 +224,7 @@ function sendToAppWindows(channel: string, payload?: unknown): void {
 }
 
 /** Opens the local database and starts the main process's services on it. */
-function startServices(): DesktopApiCalls {
+function startServices(): AppServices {
   const database = new Database(
     join(app.getPath("userData"), LOCAL_DATABASE_FILE_NAME),
   );
@@ -146,12 +260,23 @@ function startServices(): DesktopApiCalls {
         type: metric.type,
         percentCpu: metric.cpu.percentCPUUsage,
       })),
+    shell: {
+      callChanged: (call) => {
+        shellEvents.callChanged(services, call);
+      },
+      callMediaChanged: (report) => {
+        shellEvents.callMediaChanged(services, report);
+      },
+      settingsChanged: (settings) => {
+        loginItems.set(settings.startAtLogin);
+      },
+    },
   });
   app.once("will-quit", () => {
     void services.stop();
     database.close();
   });
-  return services.calls;
+  return services;
 }
 
 function registerAppIpcHandlers(calls: DesktopApiCalls): void {
@@ -170,7 +295,9 @@ function openInBrowser(url: string): void {
 const isFirstInstance = app.requestSingleInstanceLock();
 if (!isFirstInstance) app.quit();
 app.on("second-instance", () => {
-  if (mainWindow !== undefined) showAgain(mainWindow);
+  if (mainWindow !== undefined && !mainWindow.isDestroyed()) {
+    showAgain(mainWindow);
+  }
 });
 app.on("before-quit", () => {
   quitting = true;
@@ -205,14 +332,19 @@ void app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window);
   });
 
-  registerAppIpcHandlers(startServices());
-  createWindow();
+  const services = startServices();
+  registerAppIpcHandlers(services.calls);
+  setUpFirstRun(services.flags, loginItems);
+  createTray(services);
+  createWindow(services, startsHidden(process.argv));
   console.log(`${APP_NAME} desktop ready, server ${builtInServerAddress}`);
 
   app.on("activate", function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow(services, false);
+    }
   });
 });
 

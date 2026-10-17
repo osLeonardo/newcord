@@ -239,6 +239,14 @@ export function useCallSession(desktopApi: DesktopApi): CallSession {
     [codec, desktopApi, stopSharing],
   );
 
+  // The tray's Mute or Unmute, and private notifications while sharing (D15), follow this.
+  const inCall = active !== undefined;
+  useEffect(() => {
+    desktopApi
+      .reportCallMedia({ muted: inCall && muted, sharing })
+      .catch(reportCallError);
+  }, [desktopApi, inCall, muted, sharing]);
+
   const selfSpeaking = useMicrophoneGate(microphone, {
     mode: settings?.microphoneMode ?? "voice-activity",
     muted,

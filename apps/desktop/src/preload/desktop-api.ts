@@ -8,6 +8,7 @@ import type {
 } from "./call-api";
 import type { DeviceSettings, SettingsApiCalls } from "./settings-api";
 import type { GroupApiCalls, GroupLeftNotice } from "./group-api";
+import type { ShellApiCalls } from "./shell-api";
 
 /** A username and password as typed on the sign-up or login screen. */
 export interface Credentials {
@@ -102,7 +103,8 @@ export interface DesktopApiCalls
     CallApiCalls,
     SettingsApiCalls,
     ScreenShareApiCalls,
-    DiagnosticsApiCalls {}
+    DiagnosticsApiCalls,
+    ShellApiCalls {}
 
 /** The changes the main process tells the interface about. */
 export interface DesktopApiSubscriptions {
@@ -172,6 +174,9 @@ export const desktopApiChannels = {
   listShareSources: "share:list-sources",
   chooseShareSource: "share:choose-source",
   measureCpu: "diagnostics:measure-cpu",
+  readStartupNotice: "shell:read-startup-notice",
+  dismissStartupNotice: "shell:dismiss-startup-notice",
+  reportCallMedia: "shell:report-call-media",
 } as const satisfies Record<keyof DesktopApiCalls, string>;
 
 /** The IPC channel the main process sends each change on. */

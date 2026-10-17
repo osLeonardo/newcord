@@ -31,7 +31,16 @@ import {
 } from "./local-store/local-store";
 import { createMlsStateStore } from "./local-store/mls-state-store";
 import type { MlsEngine } from "./mls/mls-engine";
-import type { ScreenShareApiCalls } from "../preload/call-api";
+import type {
+  DiagnosticsApiCalls,
+  ScreenShareApiCalls,
+} from "../preload/call-api";
+import type { SettingsApiCalls } from "../preload/settings-api";
+import {
+  createShellActions,
+  type AppShellEvents,
+} from "./app-shell/shell-actions";
+import { createAppFlags, type AppFlags } from "./local-store/app-flags";
 import { measureCpu, type ProcessCpu } from "./calls/cpu-measurement";
 import type { ServerApiClient } from "./server-api/server-api-client";
 import { createLiveSession, type LiveSession } from "./session/live-session";
@@ -57,12 +66,16 @@ export interface AppServicesDependencies {
   readonly shareSources?: ScreenShareApiCalls;
   /** Each process's CPU use since the last reading, from `app.getAppMetrics()`; none in tests. */
   readonly processCpu?: () => readonly ProcessCpu[];
+  /** The tray, login items and notifications of the Electron app; none in tests. */
+  readonly shell?: AppShellEvents;
 }
 
 /** The main process's services: the desktop API's calls, and a way to stop before quitting. */
 export interface AppServices {
   readonly calls: DesktopApiCalls;
   readonly store: LocalStore;
+  readonly deviceSettings: SettingsStore;
+  readonly flags: AppFlags;
   readonly liveSession: LiveSession;
   /** The Group hub, when the MLS module is there. */
   readonly deviceHub: DeviceHub | undefined;
@@ -110,31 +123,22 @@ export function startAppServices(
     createKeyPair: createIdentityKeyPair,
     liveSession,
   });
+  const flags = createAppFlags(dependencies.database);
   return {
     calls: {
       ...accountActions,
       ...createGroupActions(() => holder.hub?.current()?.groups),
       ...createCallActions(() => holder.hub?.current()?.calls),
-      ...createSettingsActions(deviceSettings, voiceControls, (settings) =>
-        dependencies.notify(
-          desktopApiEventChannels.onSettingsChanged,
-          settings,
-        ),
-      ),
-      listShareSources: () =>
-        dependencies.shareSources?.listShareSources() ?? Promise.resolve([]),
-      chooseShareSource: (sourceId) =>
-        dependencies.shareSources?.chooseShareSource(sourceId) ??
-        Promise.resolve(false),
-      measureCpu: (seconds) =>
-        measureCpu(
-          dependencies.processCpu ?? ((): ProcessCpu[] => []),
-          seconds,
-          (milliseconds) =>
-            new Promise((resolve) => setTimeout(resolve, milliseconds)),
-        ),
+      ...deviceActions(dependencies, { deviceSettings, voiceControls }),
+      ...createShellActions({
+        flags,
+        settings: deviceSettings,
+        shell: dependencies.shell,
+      }),
     },
     store,
+    deviceSettings,
+    flags,
     liveSession,
     deviceHub: holder.hub,
     stop: (): Promise<void> => {
@@ -170,6 +174,35 @@ function startLiveSession(
   return liveSession;
 }
 
+/** The calls that belong to this computer rather than an Account: settings, sharing, measuring. */
+function deviceActions(
+  dependencies: AppServicesDependencies,
+  parts: CallParts,
+): SettingsApiCalls & ScreenShareApiCalls & DiagnosticsApiCalls {
+  const { notify, shareSources, processCpu, shell } = dependencies;
+  return {
+    ...createSettingsActions(
+      parts.deviceSettings,
+      parts.voiceControls,
+      (settings) => {
+        notify(desktopApiEventChannels.onSettingsChanged, settings);
+        shell?.settingsChanged(settings);
+      },
+    ),
+    listShareSources: () =>
+      shareSources?.listShareSources() ?? Promise.resolve([]),
+    chooseShareSource: (sourceId) =>
+      shareSources?.chooseShareSource(sourceId) ?? Promise.resolve(false),
+    measureCpu: (seconds) =>
+      measureCpu(
+        processCpu ?? ((): ProcessCpu[] => []),
+        seconds,
+        (milliseconds) =>
+          new Promise((resolve) => setTimeout(resolve, milliseconds)),
+      ),
+  };
+}
+
 interface CallParts {
   readonly deviceSettings: SettingsStore;
   readonly voiceControls: VoiceControls;
@@ -201,6 +234,7 @@ function createGroupHub(
       blocksChanged: () => notify(desktopApiEventChannels.onBlocksChanged),
       callChanged: (call) => {
         voiceControls.callChanged(call);
+        dependencies.shell?.callChanged(call);
         notify(desktopApiEventChannels.onCallChanged, call);
       },
       callSignalReceived: (signal) =>

@@ -50,21 +50,25 @@ function fakeWindow(minimized = false): FakeWindow {
   };
 }
 
-describe("hideOnClose (D42)", () => {
-  it("hides the window instead of closing it", () => {
+describe("hideOnClose (D42, D15b)", () => {
+  it("hides the window instead of closing it, and says so", () => {
     const fake = fakeWindow();
-    hideOnClose(fake.window, () => false);
+    const hidden = vi.fn<() => void>();
+    hideOnClose(fake.window, { decide: () => "hide", hidden });
 
     expect(fake.close()).toEqual({ prevented: true });
     expect(fake.hide).toHaveBeenCalledOnce();
+    expect(hidden).toHaveBeenCalledOnce();
   });
 
-  it("lets the window close while the app quits", () => {
+  it("lets the window close when the decision is to close", () => {
     const fake = fakeWindow();
-    hideOnClose(fake.window, () => true);
+    const hidden = vi.fn<() => void>();
+    hideOnClose(fake.window, { decide: () => "close", hidden });
 
     expect(fake.close()).toEqual({ prevented: false });
     expect(fake.hide).not.toHaveBeenCalled();
+    expect(hidden).not.toHaveBeenCalled();
   });
 });
 
