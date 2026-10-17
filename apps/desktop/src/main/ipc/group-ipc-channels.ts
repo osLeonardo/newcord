@@ -12,6 +12,7 @@ import type {
   CreateGroupResult,
   GroupActionResult,
   GroupApiCalls,
+  GroupMemberSummary,
   GroupSummary,
   InvitationSummary,
   SendMessageResult,
@@ -36,6 +37,8 @@ const SendMessageArguments = Type.Tuple([
   ChatTextPayload.properties.text,
 ]);
 type SendMessageArguments = Static<typeof SendMessageArguments>;
+const MemberArguments = Type.Tuple([GroupId, Username]);
+type MemberArguments = Static<typeof MemberArguments>;
 
 /**
  * The channels of the desktop API's Group calls (#6), each behind the sender and argument checks.
@@ -88,6 +91,24 @@ export function createGroupIpcChannels(
         "groupId: GroupId, text: string of 1 to 4000 characters",
       argumentsMatch: argumentsMatching(SendMessageArguments),
       handle: (groupId, text) => actions.sendMessage(groupId, text),
+    }),
+    checkedChannel<GroupArguments, readonly GroupMemberSummary[]>({
+      name: desktopApiChannels.listMembers,
+      expectedArguments: "groupId: GroupId",
+      argumentsMatch: argumentsMatching(GroupArguments),
+      handle: (groupId) => actions.listMembers(groupId),
+    }),
+    checkedChannel<MemberArguments, GroupActionResult>({
+      name: desktopApiChannels.removeMember,
+      expectedArguments: "groupId: GroupId, username: Username",
+      argumentsMatch: argumentsMatching(MemberArguments),
+      handle: (groupId, username) => actions.removeMember(groupId, username),
+    }),
+    checkedChannel<GroupArguments, GroupActionResult>({
+      name: desktopApiChannels.leaveGroup,
+      expectedArguments: "groupId: GroupId",
+      argumentsMatch: argumentsMatching(GroupArguments),
+      handle: (groupId) => actions.leaveGroup(groupId),
     }),
   ];
 }

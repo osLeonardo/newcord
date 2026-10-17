@@ -1,5 +1,5 @@
 import type { ApiErrorCode } from "@newcord/shared";
-import type { GroupApiCalls } from "./group-api";
+import type { GroupApiCalls, GroupLeftNotice } from "./group-api";
 
 /** A username and password as typed on the sign-up or login screen. */
 export interface Credentials {
@@ -102,6 +102,8 @@ export interface DesktopApiSubscriptions {
   onInvitationsChanged(listener: () => void): Unsubscribe;
   /** Hears which Group's chat history changed; the interface reads it again. */
   onMessagesChanged(listener: (groupId: string) => void): Unsubscribe;
+  /** Hears that this Device left a Group or was removed from it. */
+  onGroupLeft(listener: (notice: GroupLeftNotice) => void): Unsubscribe;
 }
 
 /** The named functions the preload gives the interface as `window.desktopApi`; keys and tokens never cross it. */
@@ -123,6 +125,9 @@ export const desktopApiChannels = {
   answerInvitation: "invitations:answer",
   listMessages: "messages:list",
   sendMessage: "messages:send",
+  listMembers: "members:list",
+  removeMember: "members:remove",
+  leaveGroup: "groups:leave",
 } as const satisfies Record<keyof DesktopApiCalls, string>;
 
 /** The IPC channel the main process sends each change on. */
@@ -132,4 +137,5 @@ export const desktopApiEventChannels = {
   onGroupsChanged: "groups:changed",
   onInvitationsChanged: "invitations:changed",
   onMessagesChanged: "messages:changed",
+  onGroupLeft: "groups:left",
 } as const satisfies Record<keyof DesktopApiSubscriptions, string>;

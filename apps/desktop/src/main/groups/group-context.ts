@@ -1,3 +1,4 @@
+import type { GroupLeftNotice } from "../../preload/group-api";
 import type { HubRequester } from "../hub/hub-requester";
 import type { LocalGroups } from "../local-store/local-groups";
 import type { LocalMessages } from "../local-store/local-messages";
@@ -10,6 +11,8 @@ export interface GroupEvents {
   invitationsChanged(): void;
   /** The Group's chat history changed; its ID is the base64url text Envelopes carry. */
   messagesChanged(groupId: string): void;
+  /** This Device is no longer in the Group. */
+  groupLeft(notice: GroupLeftNotice): void;
 }
 
 /** Everything the Group features share for the logged-in Device. */
@@ -31,12 +34,25 @@ export interface GroupContext {
 
 /**
  * Forgets a Group the Device left or was removed from, with its whole history (#6's spec).
- * @example forgetGroup(context, groupId);
+ * @example forgetGroup(context, groupId, "removed");
  */
-export function forgetGroup(context: GroupContext, groupId: Uint8Array): void {
+export function forgetGroup(
+  context: GroupContext,
+  groupId: Uint8Array,
+  reason: GroupLeftNotice["reason"],
+): void {
+  const name =
+    context.localGroups
+      .list()
+      .find((group) => sameGroup(group.groupId, groupId))?.name ?? "";
   context.localGroups.remove(groupId);
   context.localMessages.removeGroup(groupId);
   context.events.groupsChanged();
+  context.events.groupLeft({ groupId: groupIdText(groupId), name, reason });
+}
+
+function sameGroup(first: Uint8Array, second: Uint8Array): boolean {
+  return Buffer.from(first).equals(Buffer.from(second));
 }
 
 /**

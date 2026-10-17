@@ -13,6 +13,8 @@ import type {
   ChatMessage,
   CreateGroupResult,
   GroupActionResult,
+  GroupLeftNotice,
+  GroupMemberSummary,
   GroupSummary,
   InvitationSummary,
   SendMessageResult,
@@ -102,6 +104,25 @@ export function createDesktopApi(
         groupId,
         text,
       ) as Promise<SendMessageResult>,
+    listMembers: (groupId) =>
+      invoke(desktopApiChannels.listMembers, groupId) as Promise<
+        readonly GroupMemberSummary[]
+      >,
+    removeMember: (groupId, username) =>
+      invoke(
+        desktopApiChannels.removeMember,
+        groupId,
+        username,
+      ) as Promise<GroupActionResult>,
+    leaveGroup: (groupId) =>
+      invoke(
+        desktopApiChannels.leaveGroup,
+        groupId,
+      ) as Promise<GroupActionResult>,
+    onGroupLeft: (listener) =>
+      subscribe(desktopApiEventChannels.onGroupLeft, (payload) =>
+        listener(payload as GroupLeftNotice),
+      ),
     onMessagesChanged: (listener) =>
       subscribe(desktopApiEventChannels.onMessagesChanged, (payload) =>
         listener(payload as string),

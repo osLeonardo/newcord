@@ -15,6 +15,8 @@ const everyRefusal: GroupRefusal[] = [
   "INVALID_NAME",
   "INVALID_USERNAME",
   "INVALID_TEXT",
+  "PERSON_NOT_IN_GROUP",
+  "CANNOT_REMOVE_SELF",
   "NOT_IN_GROUP",
   "UNAVAILABLE",
 ];

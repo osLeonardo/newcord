@@ -28,6 +28,8 @@ export interface LiveInstallation {
   readonly deviceHub: DeviceHub;
   /** Failures the hub reported instead of throwing; tests expect none. */
   readonly hubErrors: unknown[];
+  /** Every change sent to the app's windows, by event channel. */
+  readonly notifications: { channel: string; payload: unknown }[];
 }
 
 /** Builds installations talking to one in-process server, and tears them all down. */
@@ -86,13 +88,15 @@ function installApp(
   const clock = createManualClock();
   const sessionEnded = vi.fn<() => void>();
   const hubErrors: unknown[] = [];
+  const notifications: { channel: string; payload: unknown }[] = [];
   const services = startAppServices({
     database,
     server: createServerApiClient(server.transport),
     openSocket: createInjectedSocketOpener(server.app),
     clock,
     createEngine: createFakeMlsEngine,
-    notify: (channel) => {
+    notify: (channel, payload) => {
+      notifications.push({ channel, payload });
       if (channel === desktopApiEventChannels.onSessionChanged) sessionEnded();
     },
     reportError: (error) => hubErrors.push(error),
@@ -108,6 +112,7 @@ function installApp(
       actions: services.calls,
       deviceHub: services.deviceHub,
       hubErrors,
+      notifications,
     },
     resources: { database, liveSession },
   };

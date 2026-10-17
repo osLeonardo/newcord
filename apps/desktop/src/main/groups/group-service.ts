@@ -21,6 +21,12 @@ import {
 } from "./group-chat";
 import { addAccount } from "./group-commits";
 import {
+  leaveGroup,
+  leaveRequested,
+  listGroupMembers,
+  removeGroupMember,
+} from "./group-members";
+import {
   groupIdFromText,
   groupIdText,
   type GroupContext,
@@ -54,6 +60,8 @@ export function createGroupService(
   const hooks: DeliveryHooks = {
     messageReceived: (groupId, delivery, message) =>
       chatMessageReceived(context, groupId, delivery, message),
+    proposalReceived: (groupId, delivery, proposal) =>
+      leaveRequested(context, groupId, delivery, proposal),
     ...options.hooks,
   };
   return {
@@ -66,6 +74,11 @@ export function createGroupService(
     listMessages: (groupId) =>
       Promise.resolve(listChatMessages(context, groupId)),
     sendMessage: (groupId, text) => sendChatMessage(context, groupId, text),
+    listMembers: (groupId) =>
+      Promise.resolve(listGroupMembers(context, groupId)),
+    removeMember: (groupId, username) =>
+      removeGroupMember(context, groupId, username),
+    leaveGroup: (groupId) => leaveGroup(context, groupId),
     inboxHandlers: {
       "mls.welcome": (delivery) => receiveDelivery(context, delivery, hooks),
       "mls.commit": (delivery) => receiveDelivery(context, delivery, hooks),
@@ -80,6 +93,7 @@ export function createGroupService(
       },
       "invite.accepted": (prompt) =>
         addFromPrompt(context, prompt, addsUnderWay),
+      "device.new": (prompt) => addFromPrompt(context, prompt, addsUnderWay),
       "group.renamed": (envelope): void => {
         context.localGroups.rename(
           groupIdFromText(envelope.groupId),
@@ -171,13 +185,15 @@ function actionResult(reply: HubOutcome): GroupActionResult {
 }
 
 /**
- * Adds an Account whose Invitation was accepted. The server re-sends the prompt to every online
- * Member until a commit adds it, so one addition at a time per Account is enough; a lost race is
- * retried after the winning commit, which then usually leaves nothing to add.
+ * Adds an Account whose Invitation was accepted, or a Member's new Devices (D56): either way the
+ * server hands out Key packages for exactly the Account's Devices missing from the Group. The
+ * server re-sends the prompt to every online Member until a commit adds it, so one addition at a
+ * time per Account is enough; a lost race is retried after the winning commit, which then usually
+ * leaves nothing to add.
  */
 function addFromPrompt(
   context: GroupContext,
-  prompt: InviteAcceptedEnvelope,
+  prompt: Pick<InviteAcceptedEnvelope, "groupId" | "username">,
   addsUnderWay: Set<string>,
   attemptsLeft = ADD_ATTEMPTS,
 ): void {

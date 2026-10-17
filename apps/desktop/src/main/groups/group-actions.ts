@@ -27,5 +27,12 @@ export function createGroupActions(
     sendMessage: (groupId, text) =>
       currentService()?.sendMessage(groupId, text) ??
       Promise.resolve(unavailable),
+    listMembers: (groupId) =>
+      currentService()?.listMembers(groupId) ?? Promise.resolve([]),
+    removeMember: (groupId, username) =>
+      currentService()?.removeMember(groupId, username) ??
+      Promise.resolve(unavailable),
+    leaveGroup: (groupId) =>
+      currentService()?.leaveGroup(groupId) ?? Promise.resolve(unavailable),
   };
 }

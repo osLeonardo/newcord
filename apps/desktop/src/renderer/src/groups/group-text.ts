@@ -23,6 +23,8 @@ const groupRefusalMessages: ReadonlyMap<string, string> = new Map(
     INVALID_NAME: "Group names have 1 to 64 characters.",
     INVALID_USERNAME: `Usernames have ${usernameLimits.minLength} to ${usernameLimits.maxLength} characters: lowercase letters, digits and underscores.`,
     INVALID_TEXT: "Messages have 1 to 4,000 characters.",
+    PERSON_NOT_IN_GROUP: "That person is not in this Group.",
+    CANNOT_REMOVE_SELF: "Leave the Group instead of removing yourself.",
     NOT_IN_GROUP: "You are not in this Group.",
     UNAVAILABLE: "Groups are not available yet.",
   } satisfies Record<GroupRefusal, string>),

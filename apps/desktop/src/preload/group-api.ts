@@ -27,6 +27,8 @@ export type GroupRefusal =
   | "INVALID_NAME"
   | "INVALID_USERNAME"
   | "INVALID_TEXT"
+  | "PERSON_NOT_IN_GROUP"
+  | "CANNOT_REMOVE_SELF"
   | "NOT_IN_GROUP"
   | "UNAVAILABLE";
 
@@ -57,6 +59,20 @@ export type SendMessageResult =
   | { readonly outcome: "sent"; readonly message: ChatMessage }
   | { readonly outcome: "refused"; readonly refusal: GroupRefusal };
 
+/** A person in a Group, with how many of their Devices are in it (from the MLS state). */
+export interface GroupMemberSummary {
+  readonly username: string;
+  readonly deviceCount: number;
+  readonly self: boolean;
+}
+
+/** Told when this Device is no longer in a Group: it left, or someone removed it. */
+export interface GroupLeftNotice {
+  readonly groupId: string;
+  readonly name: string;
+  readonly reason: "left" | "removed";
+}
+
 /** The desktop API's Group calls (#6). */
 export interface GroupApiCalls {
   listGroups(): Promise<readonly GroupSummary[]>;
@@ -69,4 +85,9 @@ export interface GroupApiCalls {
   ): Promise<GroupActionResult>;
   listMessages(groupId: string): Promise<readonly ChatMessage[]>;
   sendMessage(groupId: string, text: string): Promise<SendMessageResult>;
+  listMembers(groupId: string): Promise<readonly GroupMemberSummary[]>;
+  /** Removes all of that person's Devices in one commit. */
+  removeMember(groupId: string, username: string): Promise<GroupActionResult>;
+  /** Sends this Device's leave request and forgets the Group and its history here (D57). */
+  leaveGroup(groupId: string): Promise<GroupActionResult>;
 }

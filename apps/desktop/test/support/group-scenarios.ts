@@ -21,7 +21,7 @@ export async function hubOf(
   }, WAIT);
 }
 
-/** Waits until the server holds the installation's 20 Key packages, so others can add it. */
+/** Waits until the installation uploaded its Key packages, so others can add it. */
 export async function readyToBeAdded(
   server: InProcessServer,
   installation: LiveInstallation,
@@ -34,7 +34,8 @@ export async function readyToBeAdded(
       )
       .pluck()
       .get(deviceId) as number;
-    expect(count).toBe(20);
+    // Members may already have used some: the upload prompts them to add a new Device (D56).
+    expect(count).toBeGreaterThan(0);
   }, WAIT);
 }
 

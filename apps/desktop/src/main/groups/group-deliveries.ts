@@ -145,8 +145,9 @@ function applyCommit(
 ): void {
   const commit = incomingOfKind(context, delivery.commit, "commit");
   hooks.commitApplied?.(groupId, delivery, commit);
-  if (commit.removed.includes(context.ownIdentity))
-    forgetGroup(context, groupId);
+  if (commit.removed.includes(context.ownIdentity)) {
+    forgetGroup(context, groupId, "removed");
+  }
 }
 
 function incomingOfKind<Kind extends IncomingMls["kind"]>(
