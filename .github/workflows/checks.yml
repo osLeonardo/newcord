@@ -1,0 +1,82 @@
+# Runs every check on each pull request to main and each push to main (D68, D99): on Windows,
+# where the app runs (D73), and on Linux Arm, like the Oracle server (#14). Every action is
+# pinned to a full commit hash, and the workflow can only read the repository.
+name: checks
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0, the version from package.json's packageManager
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 26
+          cache: pnpm
+      - name: Add Rust's WebAssembly target
+        shell: bash
+        run: |
+          # The Linux Arm image ships Rust without rustup, which adding a target needs.
+          if ! command -v rustup > /dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+            export PATH="$HOME/.cargo/bin:$PATH"
+          fi
+          rustup target add wasm32-unknown-unknown
+      - name: Read the crate's wasm-bindgen version
+        id: wasm-bindgen
+        shell: bash
+        run: |
+          version=$(sed -n 's/^wasm-bindgen = "=\([^"]*\)".*/\1/p' packages/mls/Cargo.toml)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      # Installed into its own folder, whatever CARGO_HOME the image uses, so the cache finds it.
+      - name: Restore the wasm-bindgen-cli
+        id: wasm-bindgen-cli
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.wasm-bindgen-cli
+          key: wasm-bindgen-cli-${{ runner.os }}-${{ runner.arch }}-${{ steps.wasm-bindgen.outputs.version }}
+      - name: Install the wasm-bindgen-cli matching the crate
+        if: steps.wasm-bindgen-cli.outputs.cache-hit != 'true'
+        shell: bash
+        run: cargo install wasm-bindgen-cli --version "${{ steps.wasm-bindgen.outputs.version }}" --locked --root "$HOME/.wasm-bindgen-cli"
+      - name: Put the wasm-bindgen-cli on PATH
+        shell: bash
+        run: |
+          dir="$HOME/.wasm-bindgen-cli/bin"
+          # Windows runners need the Windows form of the path.
+          if command -v cygpath > /dev/null; then dir=$(cygpath -w "$dir"); fi
+          echo "$dir" >> "$GITHUB_PATH"
+      - name: Restore the MLS crate's build
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: packages/mls/target
+          key: mls-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('packages/mls/Cargo.lock') }}
+          restore-keys: mls-build-${{ runner.os }}-${{ runner.arch }}-
+      # On Linux the desktop install rebuilds uiohook-napi's keyboard hook against X11 (D74).
+      - name: Install X11's development headers
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libx11-dev libxrandr-dev libxt-dev libxtst-dev
+      - run: pnpm install --frozen-lockfile
+      # Builds the MLS module, runs its Rust tests, then every package's Vitest tests.
+      - run: pnpm test
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm exec prettier --check .
+      - run: pnpm --filter desktop build
