@@ -5,6 +5,8 @@ import type {
   CallSettings,
   CallSettingsApiCalls,
   CallSummary,
+  CpuMeasurement,
+  DiagnosticsApiCalls,
   IceConfigurationResult,
   JoinCallResult,
   ScreenShareApiCalls,
@@ -27,6 +29,10 @@ const ShareSourceArguments = Type.Tuple([
   Type.String({ pattern: "^(screen|window):[0-9]+:[0-9]+$" }),
 ]);
 type ShareSourceArguments = Static<typeof ShareSourceArguments>;
+const MeasureArguments = Type.Tuple([
+  Type.Integer({ minimum: 5, maximum: 120 }),
+]);
+type MeasureArguments = Static<typeof MeasureArguments>;
 const NoArguments = Type.Tuple([]);
 type NoArguments = Static<typeof NoArguments>;
 /** Ctrl or Alt, then a letter, digit or F-key: never a key other apps need for typing. */
@@ -69,7 +75,10 @@ type SettingsChangeArguments = Static<typeof SettingsChangeArguments>;
  * @example createCallIpcChannels(callActions)
  */
 export function createCallIpcChannels(
-  actions: CallApiCalls & CallSettingsApiCalls & ScreenShareApiCalls,
+  actions: CallApiCalls &
+    CallSettingsApiCalls &
+    ScreenShareApiCalls &
+    DiagnosticsApiCalls,
 ): CheckedIpcChannel[] {
   return [
     checkedChannel<GroupArguments, CallSummary>({
@@ -140,6 +149,12 @@ export function createCallIpcChannels(
       expectedArguments: "sourceId: screen:<n>:<n> or window:<n>:<n>",
       argumentsMatch: argumentsMatching(ShareSourceArguments),
       handle: (sourceId) => actions.chooseShareSource(sourceId),
+    }),
+    checkedChannel<MeasureArguments, CpuMeasurement>({
+      name: desktopApiChannels.measureCpu,
+      expectedArguments: "seconds: 5 to 120",
+      argumentsMatch: argumentsMatching(MeasureArguments),
+      handle: (seconds) => actions.measureCpu(seconds),
     }),
   ];
 }

@@ -1,5 +1,6 @@
 import type {
   CallSettings,
+  CpuMeasurement,
   CallSummary,
   IceConfigurationResult,
   JoinCallResult,
@@ -28,6 +29,7 @@ type CallApi = Pick<
   | "readVoiceControls"
   | "listShareSources"
   | "chooseShareSource"
+  | "measureCpu"
   | "onMuteToggled"
   | "onPushToTalk"
   | "onCallSettingsChanged"
@@ -90,6 +92,8 @@ export function createCallApi(
         desktopApiChannels.chooseShareSource,
         sourceId,
       ) as Promise<boolean>,
+    measureCpu: (seconds) =>
+      invoke(desktopApiChannels.measureCpu, seconds) as Promise<CpuMeasurement>,
     onMuteToggled: (listener) =>
       subscribe(desktopApiEventChannels.onMuteToggled, () => listener()),
     onPushToTalk: (listener) =>

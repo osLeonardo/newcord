@@ -4,10 +4,14 @@ import type {
   CallApiCalls,
   CallSettingsApiCalls,
   CallSummary,
+  DiagnosticsApiCalls,
   ScreenShareApiCalls,
 } from "../../src/preload/call-api";
 
-type CallCalls = CallApiCalls & CallSettingsApiCalls & ScreenShareApiCalls;
+type CallCalls = CallApiCalls &
+  CallSettingsApiCalls &
+  ScreenShareApiCalls &
+  DiagnosticsApiCalls;
 
 export type FakeCallActions = {
   [Name in keyof CallCalls]: Mock<CallCalls[Name]>;
@@ -62,6 +66,9 @@ export function fakeCallActions(): FakeCallActions {
     ),
     chooseShareSource: vi.fn<ScreenShareApiCalls["chooseShareSource"]>(() =>
       Promise.resolve(true),
+    ),
+    measureCpu: vi.fn<DiagnosticsApiCalls["measureCpu"]>((seconds) =>
+      Promise.resolve({ seconds, averagePercent: 0, byProcessType: [] }),
     ),
   };
 }

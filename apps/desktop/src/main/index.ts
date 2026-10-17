@@ -141,6 +141,11 @@ function startServices(): DesktopApiCalls {
       chooseShareSource: (sourceId) =>
         Promise.resolve(shareChooser.choose(sourceId)),
     },
+    processCpu: () =>
+      app.getAppMetrics().map((metric) => ({
+        type: metric.type,
+        percentCpu: metric.cpu.percentCPUUsage,
+      })),
   });
   app.once("will-quit", () => {
     void services.stop();

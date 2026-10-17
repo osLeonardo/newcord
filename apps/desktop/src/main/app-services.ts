@@ -35,6 +35,7 @@ import {
 import { createMlsStateStore } from "./local-store/mls-state-store";
 import type { MlsEngine } from "./mls/mls-engine";
 import type { ScreenShareApiCalls } from "../preload/call-api";
+import { measureCpu, type ProcessCpu } from "./calls/cpu-measurement";
 import type { ServerApiClient } from "./server-api/server-api-client";
 import { createLiveSession, type LiveSession } from "./session/live-session";
 import type { LiveSocketOpener } from "./session/live-socket";
@@ -57,6 +58,8 @@ export interface AppServicesDependencies {
   readonly keyboardHook?: KeyboardHook;
   /** The app's own screen-share picker over Electron's `desktopCapturer`; none in tests. */
   readonly shareSources?: ScreenShareApiCalls;
+  /** Each process's CPU use since the last reading, from `app.getAppMetrics()`; none in tests. */
+  readonly processCpu?: () => readonly ProcessCpu[];
 }
 
 /** The main process's services: the desktop API's calls, and a way to stop before quitting. */
@@ -126,6 +129,13 @@ export function startAppServices(
       chooseShareSource: (sourceId) =>
         dependencies.shareSources?.chooseShareSource(sourceId) ??
         Promise.resolve(false),
+      measureCpu: (seconds) =>
+        measureCpu(
+          dependencies.processCpu ?? ((): ProcessCpu[] => []),
+          seconds,
+          (milliseconds) =>
+            new Promise((resolve) => setTimeout(resolve, milliseconds)),
+        ),
     },
     store,
     liveSession,

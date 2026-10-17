@@ -106,6 +106,21 @@ export interface ScreenShareApiCalls {
   chooseShareSource(sourceId: string): Promise<boolean>;
 }
 
+/** The app's average CPU use over a measurement, in percent of one core (10-m3-build step 9). */
+export interface CpuMeasurement {
+  readonly seconds: number;
+  readonly averagePercent: number;
+  readonly byProcessType: readonly {
+    readonly type: string;
+    readonly averagePercent: number;
+  }[];
+}
+
+/** Measurements for the developer, such as the codec comparison of #9, Step 05. */
+export interface DiagnosticsApiCalls {
+  measureCpu(seconds: number): Promise<CpuMeasurement>;
+}
+
 /** The Call settings, which need no Account: they belong to the computer. */
 export interface CallSettingsApiCalls {
   readCallSettings(): Promise<CallSettings>;

@@ -4,6 +4,7 @@ import type {
   CallSettings,
   CallSettingsApiCalls,
   CallSummary,
+  DiagnosticsApiCalls,
   ReceivedCallSignal,
   ScreenShareApiCalls,
 } from "./call-api";
@@ -101,7 +102,8 @@ export interface DesktopApiCalls
     GroupApiCalls,
     CallApiCalls,
     CallSettingsApiCalls,
-    ScreenShareApiCalls {}
+    ScreenShareApiCalls,
+    DiagnosticsApiCalls {}
 
 /** The changes the main process tells the interface about. */
 export interface DesktopApiSubscriptions {
@@ -172,6 +174,7 @@ export const desktopApiChannels = {
   readVoiceControls: "settings:read-voice-controls",
   listShareSources: "share:list-sources",
   chooseShareSource: "share:choose-source",
+  measureCpu: "diagnostics:measure-cpu",
 } as const satisfies Record<keyof DesktopApiCalls, string>;
 
 /** The IPC channel the main process sends each change on. */
