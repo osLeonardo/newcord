@@ -1,4 +1,7 @@
+import { parseCredentialIdentity } from "../mls/credential-identity";
 import type { MlsEngine, OwnCommit } from "../mls/mls-engine";
+import type { HubOutcome, HubRequest } from "../hub/hub-requester";
+import { recordOwnCommit } from "./commit-notices";
 import {
   groupIdText,
   payloadBytes,
@@ -38,26 +41,17 @@ export async function commitChange(
   makeCommit: (engine: MlsEngine) => OwnCommit,
   declared: DeclaredDevices,
 ): Promise<CommitOutcome> {
-  const reply = await context.mls.runThenSend(
-    (engine) => ({
-      epoch: engine.groupEpoch(groupId),
-      own: makeCommit(engine),
-    }),
-    ({ epoch, own }) =>
-      context.requester.request({
-        type: "mls.commit",
-        groupId: groupIdText(groupId),
-        epoch,
-        added: [...declared.added],
-        removed: [...declared.removed],
-        commit: payloadText(own.commit),
-        ...(own.welcome === undefined
-          ? {}
-          : { welcome: payloadText(own.welcome) }),
-      }),
+  const { reply, membersBefore } = await sendCommit(
+    context,
+    groupId,
+    makeCommit,
+    declared,
   );
   if (reply.ok) {
     context.mls.run((engine) => engine.mergePendingCommit(groupId));
+    if (reply.seq !== undefined) {
+      recordOwnCommit(context, groupId, reply.seq, membersBefore, declared);
+    }
     context.events.groupsChanged();
     return "accepted";
   }
@@ -66,9 +60,57 @@ export async function commitChange(
   return TRANSPORT_FAILURES.has(reply.code) ? "failed" : "refused";
 }
 
+interface PreparedCommit {
+  readonly epoch: number;
+  readonly membersBefore: readonly string[];
+  readonly own: OwnCommit;
+}
+
+/** Makes the commit, saves the state, and only then sends it. */
+async function sendCommit(
+  context: GroupContext,
+  groupId: Uint8Array,
+  makeCommit: (engine: MlsEngine) => OwnCommit,
+  declared: DeclaredDevices,
+): Promise<{ reply: HubOutcome; membersBefore: readonly string[] }> {
+  let membersBefore: readonly string[] = [];
+  const reply = await context.mls.runThenSend(
+    (engine): PreparedCommit => ({
+      epoch: engine.groupEpoch(groupId),
+      membersBefore: engine.groupMembers(groupId),
+      own: makeCommit(engine),
+    }),
+    (prepared) => {
+      membersBefore = prepared.membersBefore;
+      return context.requester.request(
+        commitRequest(groupId, prepared, declared),
+      );
+    },
+  );
+  return { reply, membersBefore };
+}
+
+function commitRequest(
+  groupId: Uint8Array,
+  prepared: PreparedCommit,
+  declared: DeclaredDevices,
+): HubRequest {
+  const { own } = prepared;
+  return {
+    type: "mls.commit",
+    groupId: groupIdText(groupId),
+    epoch: prepared.epoch,
+    added: [...declared.added],
+    removed: [...declared.removed],
+    commit: payloadText(own.commit),
+    ...(own.welcome === undefined ? {} : { welcome: payloadText(own.welcome) }),
+  };
+}
+
 /**
  * Adds every Device of an Account that may join, with one Key package each, in one commit that
- * declares exactly those Devices. Answers "nothing-to-add" once nobody is left to add.
+ * declares exactly those Devices. A Device already in the Group (one that needs a resync, D24) is
+ * removed and re-added in the same commit. Answers "nothing-to-add" once nobody is left to add.
  * @example await addAccount(context, groupId, "bruno");
  */
 export async function addAccount(
@@ -87,10 +129,37 @@ export async function addAccount(
   const packages = got.keyPackages ?? [];
   if (packages.length === 0) return "failed";
   const keyPackages = packages.map((entry) => payloadBytes(entry.keyPackage));
+  const added = packages.map((entry) => entry.deviceId);
+  const replaced = memberIdentitiesOf(context, groupId, added);
   return commitChange(
     context,
     groupId,
-    (engine) => engine.addMembers(groupId, keyPackages),
-    { added: packages.map((entry) => entry.deviceId), removed: [] },
+    (engine) =>
+      replaced.identities.length === 0
+        ? engine.addMembers(groupId, keyPackages)
+        : engine.updateMembers(groupId, keyPackages, replaced.identities),
+    { added, removed: replaced.deviceIds },
   );
+}
+
+/** The identities, and their Device IDs, of the Group's Members among `deviceIds`. */
+function memberIdentitiesOf(
+  context: GroupContext,
+  groupId: Uint8Array,
+  deviceIds: readonly string[],
+): { identities: string[]; deviceIds: string[] } {
+  const members = context.mls
+    .read((engine) => engine.groupMembers(groupId))
+    .map((identity) => ({
+      identity,
+      device: parseCredentialIdentity(identity),
+    }))
+    .filter(
+      ({ device }) =>
+        device !== undefined && deviceIds.includes(device.deviceId),
+    );
+  return {
+    identities: members.map(({ identity }) => identity),
+    deviceIds: members.map(({ device }) => device?.deviceId ?? ""),
+  };
 }

@@ -144,11 +144,15 @@ function applyCommit(
   hooks: DeliveryHooks,
 ): void {
   const commit = incomingOfKind(context, delivery.commit, "commit");
-  hooks.commitApplied?.(groupId, delivery, commit);
-  if (commit.removed.includes(context.ownIdentity)) {
+  // A Device removed and re-added in one commit is resyncing (D24), not leaving.
+  const removed =
+    commit.removed.includes(context.ownIdentity) &&
+    !commit.added.includes(context.ownIdentity);
+  if (removed) {
     forgetGroup(context, groupId, "removed");
     return;
   }
+  hooks.commitApplied?.(groupId, delivery, commit);
   // Member lists read the MLS state again.
   context.events.groupsChanged();
 }

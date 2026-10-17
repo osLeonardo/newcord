@@ -7,6 +7,7 @@ import {
   groupRefusalMessage,
   inviteUsernameProblem,
   memberDevicesLabel,
+  noticeText,
 } from "../src/renderer/src/groups/group-text";
 
 const everyRefusal: GroupRefusal[] = [
@@ -76,5 +77,40 @@ describe("memberDevicesLabel", () => {
     expect(
       memberDevicesLabel({ username: "a", deviceCount: 3, self: false }),
     ).toBe("3 Devices");
+  });
+});
+
+describe("noticeText", () => {
+  const device = "mJMEbgts33NWbvGmNqkuEw";
+
+  it.each([
+    [
+      { type: "new-device", username: "bruno" } as const,
+      "bruno has a new Device in this Group.",
+    ],
+    [
+      { type: "group-over-limit", sender: "alice", people: 11 } as const,
+      "alice's change brought this Group to 11 people, over the limit of 10.",
+    ],
+    [
+      {
+        type: "commit-mismatch",
+        sender: "alice",
+        added: [`eve:${device}`],
+        removed: [],
+      } as const,
+      "alice's change did not match what it declared. It really added a Device of eve and removed no Device.",
+    ],
+    [
+      {
+        type: "commit-mismatch",
+        sender: "alice",
+        added: ["not an identity"],
+        removed: [`carla:${device}`],
+      } as const,
+      "alice's change did not match what it declared. It really added not an identity and removed a Device of carla.",
+    ],
+  ])("words %j", (notice, text) => {
+    expect(noticeText(notice)).toBe(text);
   });
 });

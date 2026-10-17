@@ -43,6 +43,7 @@ export type GroupActionResult =
 
 /** A Chat message as the Group chat shows it: always as text, never as HTML. */
 export interface ChatMessage {
+  readonly kind: "text";
   readonly groupId: string;
   /** The server's sequence number; every Device shows messages in this order. */
   readonly seq: number;
@@ -54,6 +55,36 @@ export interface ChatMessage {
   /** The sender's clock when it was sent, in milliseconds. */
   readonly sentAt: number;
 }
+
+/**
+ * A system line in a Group's chat, stored on this Device and never sent (#6's spec): a commit that
+ * did something other than declared or took the Group past 10 people (D71), or a new Device (D56).
+ */
+export type GroupNotice =
+  | {
+      readonly type: "commit-mismatch";
+      readonly sender: string;
+      /** The credential identities the commit really added and removed. */
+      readonly added: readonly string[];
+      readonly removed: readonly string[];
+    }
+  | {
+      readonly type: "group-over-limit";
+      readonly sender: string;
+      readonly people: number;
+    }
+  | { readonly type: "new-device"; readonly username: string };
+
+/** A notice as the chat shows it, at the position of the commit that caused it. */
+export interface ChatNotice {
+  readonly kind: "notice";
+  readonly groupId: string;
+  readonly seq: number;
+  readonly notice: GroupNotice;
+}
+
+/** A line of the Group chat: a message or a notice. */
+export type ChatEntry = ChatMessage | ChatNotice;
 
 export type SendMessageResult =
   | { readonly outcome: "sent"; readonly message: ChatMessage }
@@ -83,7 +114,7 @@ export interface GroupApiCalls {
     invitationId: string,
     accept: boolean,
   ): Promise<GroupActionResult>;
-  listMessages(groupId: string): Promise<readonly ChatMessage[]>;
+  listMessages(groupId: string): Promise<readonly ChatEntry[]>;
   sendMessage(groupId: string, text: string): Promise<SendMessageResult>;
   listMembers(groupId: string): Promise<readonly GroupMemberSummary[]>;
   /** Removes all of that person's Devices in one commit. */

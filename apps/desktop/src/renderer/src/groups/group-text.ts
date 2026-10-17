@@ -3,6 +3,7 @@ import { Value } from "typebox/value";
 import type {
   GroupLeftNotice,
   GroupMemberSummary,
+  GroupNotice,
   GroupRefusal,
 } from "../../../preload/group-api";
 import { usernameLimits } from "../account/credentials-check";
@@ -83,4 +84,30 @@ export function memberDevicesLabel(member: GroupMemberSummary): string {
   return member.deviceCount === 1
     ? "1 Device"
     : `${member.deviceCount} Devices`;
+}
+
+/**
+ * A notice's line in the chat (D56, D71).
+ * @example noticeText({ type: "new-device", username: "bruno" }) // "bruno has a new Device in this Group."
+ */
+export function noticeText(notice: GroupNotice): string {
+  switch (notice.type) {
+    case "new-device":
+      return `${notice.username} has a new Device in this Group.`;
+    case "group-over-limit":
+      return `${notice.sender}'s change brought this Group to ${notice.people} people, over the limit of 10.`;
+    case "commit-mismatch":
+      return `${notice.sender}'s change did not match what it declared. It really added ${devicesText(notice.added)} and removed ${devicesText(notice.removed)}.`;
+  }
+}
+
+/** Devices by their Account's name; a malformed identity is shown as it is. */
+function devicesText(identities: readonly string[]): string {
+  if (identities.length === 0) return "no Device";
+  return identities
+    .map((identity) => {
+      const [username = identity, deviceId] = identity.split(":");
+      return deviceId === undefined ? identity : `a Device of ${username}`;
+    })
+    .join(", ");
 }

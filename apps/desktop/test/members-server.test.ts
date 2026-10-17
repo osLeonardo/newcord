@@ -71,7 +71,9 @@ async function textsOf(
   const messages = await (
     await hubOf(installation)
   ).groups.listMessages(groupId);
-  return messages.map((message) => message.text);
+  return messages.flatMap((entry) =>
+    entry.kind === "text" ? [entry.text] : [],
+  );
 }
 
 async function waitUntilOutOfGroup(

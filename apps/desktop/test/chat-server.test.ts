@@ -65,7 +65,9 @@ async function textsOf(
   const messages = await (
     await hubOf(installation)
   ).groups.listMessages(groupId);
-  return messages.map((message) => message.text);
+  return messages.flatMap((entry) =>
+    entry.kind === "text" ? [entry.text] : [],
+  );
 }
 
 async function expectTexts(
@@ -96,7 +98,8 @@ describe("Chat messages (#6, Step 03)", () => {
 
     await expectTexts(carla, groupId, ["hello", "hi alice"]);
     const atCarla = await (await hubOf(carla)).groups.listMessages(groupId);
-    expect(atCarla.map((message) => [message.sender, message.own])).toEqual([
+    const texts = atCarla.filter((entry) => entry.kind === "text");
+    expect(texts.map((message) => [message.sender, message.own])).toEqual([
       ["alice", false],
       ["bruno", false],
     ]);

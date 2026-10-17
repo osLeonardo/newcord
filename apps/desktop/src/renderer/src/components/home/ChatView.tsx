@@ -6,14 +6,18 @@ import {
   type KeyboardEvent,
 } from "react";
 import type { DesktopApi } from "../../../../preload/desktop-api";
-import type { ChatMessage } from "../../../../preload/group-api";
+import type {
+  ChatEntry,
+  ChatMessage,
+  ChatNotice,
+} from "../../../../preload/group-api";
 import { UNEXPECTED_FAILURE_MESSAGE } from "../../account/account-messages";
 import {
   chatTextProblem,
   isSendKey,
   messageTimeLabel,
 } from "../../groups/chat-text";
-import { groupRefusalMessage } from "../../groups/group-text";
+import { groupRefusalMessage, noticeText } from "../../groups/group-text";
 import { screenStyles } from "../screen-styles";
 
 interface ChatViewProps {
@@ -24,7 +28,7 @@ interface ChatViewProps {
 /** The Group chat: its history in the server's order, always shown as text, and the composer. */
 export function ChatView(props: ChatViewProps): React.JSX.Element {
   const { desktopApi, groupId } = props;
-  const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
+  const [messages, setMessages] = useState<readonly ChatEntry[]>([]);
   // When the history was last read: today's messages show only their time.
   const [readAt, setReadAt] = useState(0);
   const end = useRef<HTMLLIElement>(null);
@@ -64,9 +68,13 @@ export function ChatView(props: ChatViewProps): React.JSX.Element {
         {messages.length === 0 && (
           <li className={screenStyles.hint}>No messages yet. Say hello.</li>
         )}
-        {messages.map((message) => (
-          <MessageLine key={message.seq} message={message} now={readAt} />
-        ))}
+        {messages.map((entry, index) =>
+          entry.kind === "text" ? (
+            <MessageLine key={`m${entry.seq}`} message={entry} now={readAt} />
+          ) : (
+            <NoticeLine key={`n${entry.seq}-${index}`} notice={entry} />
+          ),
+        )}
         <li ref={end} aria-hidden />
       </ol>
       <Composer desktopApi={desktopApi} groupId={groupId} />
@@ -99,6 +107,26 @@ function MessageLine({
       <p className="text-sm break-words whitespace-pre-wrap text-zinc-100">
         {message.text}
       </p>
+    </li>
+  );
+}
+
+/** A system line: stored on this Device, never sent (D56, D71). */
+function NoticeLine({
+  notice,
+}: {
+  readonly notice: ChatNotice;
+}): React.JSX.Element {
+  const warning = notice.notice.type !== "new-device";
+  return (
+    <li
+      className={
+        warning
+          ? "rounded border border-amber-700 bg-amber-950 px-3 py-2 text-sm text-amber-200"
+          : "text-center text-xs text-zinc-400"
+      }
+    >
+      {noticeText(notice.notice)}
     </li>
   );
 }

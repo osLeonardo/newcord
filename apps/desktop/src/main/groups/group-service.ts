@@ -19,6 +19,7 @@ import {
   listChatMessages,
   sendChatMessage,
 } from "./group-chat";
+import { recordReceivedCommit } from "./commit-notices";
 import { addAccount } from "./group-commits";
 import {
   leaveGroup,
@@ -62,6 +63,8 @@ export function createGroupService(
       chatMessageReceived(context, groupId, delivery, message),
     proposalReceived: (groupId, delivery, proposal) =>
       leaveRequested(context, groupId, delivery, proposal),
+    commitApplied: (groupId, delivery, commit) =>
+      recordReceivedCommit(context, groupId, delivery, commit),
     ...options.hooks,
   };
   return {
@@ -94,6 +97,7 @@ export function createGroupService(
       "invite.accepted": (prompt) =>
         addFromPrompt(context, prompt, addsUnderWay),
       "device.new": (prompt) => addFromPrompt(context, prompt, addsUnderWay),
+      resync: (prompt) => addFromPrompt(context, prompt, addsUnderWay),
       "group.renamed": (envelope): void => {
         context.localGroups.rename(
           groupIdFromText(envelope.groupId),

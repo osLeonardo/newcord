@@ -49,9 +49,10 @@ describe("the local Chat history", () => {
     messages.add(message(1));
     messages.add({ ...message(1), text: "again" });
 
-    expect(messages.listOf(friends).map((stored) => stored.text)).toEqual([
-      "text 1",
-    ]);
+    const texts = messages
+      .listOf(friends)
+      .flatMap((stored) => (stored.kind === "text" ? [stored.text] : []));
+    expect(texts).toEqual(["text 1"]);
   });
 
   it("deletes one Group's history only", () => {
@@ -68,6 +69,37 @@ describe("the local Chat history", () => {
     messages.add(message(1));
 
     createSqliteLocalStore(database).eraseEverything();
+
+    expect(messages.listOf(friends)).toEqual([]);
+  });
+});
+
+describe("notices", () => {
+  it("are listed with the messages, at the position of the commit that caused them", () => {
+    messages.add(message(1));
+    messages.addNotices(friends, 2, [
+      { type: "new-device", username: "bruno" },
+      { type: "group-over-limit", sender: "alice", people: 11 },
+    ]);
+    messages.add(message(3));
+
+    expect(
+      messages.listOf(friends).map((entry) => [entry.kind, entry.seq]),
+    ).toEqual([
+      ["text", 1],
+      ["notice", 2],
+      ["notice", 2],
+      ["text", 3],
+    ]);
+  });
+
+  it("are stored once and deleted with the Group's history", () => {
+    const notice = { type: "new-device", username: "bruno" } as const;
+    messages.addNotices(friends, 2, [notice]);
+    messages.addNotices(friends, 2, [notice]);
+    expect(messages.listOf(friends)).toHaveLength(1);
+
+    messages.removeGroup(friends);
 
     expect(messages.listOf(friends)).toEqual([]);
   });

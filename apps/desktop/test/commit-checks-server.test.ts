@@ -1,0 +1,270 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { groupIdFromText, payloadText } from "../src/main/groups/group-context";
+import type { ChatEntry, GroupNotice } from "../src/preload/group-api";
+import { encodeFakeMls } from "./support/fake-mls-engine";
+import {
+  createdGroup,
+  deviceIdOf,
+  hubOf,
+  identityOf,
+  inviteAndJoin,
+  memberReady,
+  mlsView,
+  secondDevice,
+  waitUntilInGroup,
+  WAIT,
+} from "./support/group-scenarios";
+import {
+  startInProcessServer,
+  type InProcessServer,
+} from "./support/in-process-server";
+import {
+  createLiveInstallations,
+  type LiveInstallation,
+  type LiveInstallations,
+} from "./support/live-installations";
+
+let server: InProcessServer;
+let installations: LiveInstallations;
+
+beforeEach(async () => {
+  server = await startInProcessServer();
+  installations = createLiveInstallations(server);
+});
+
+afterEach(async () => {
+  await installations.close();
+  await server.close();
+});
+
+interface ThreeInAGroup {
+  groupId: string;
+  alice: LiveInstallation;
+  bruno: LiveInstallation;
+  carla: LiveInstallation;
+}
+
+async function threeInAGroup(): Promise<ThreeInAGroup> {
+  const alice = await memberReady(server, installations, "alice");
+  const bruno = await memberReady(server, installations, "bruno");
+  const carla = await memberReady(server, installations, "carla");
+  const groupId = await createdGroup(alice);
+  await inviteAndJoin(alice, bruno, groupId, "bruno");
+  await inviteAndJoin(alice, carla, groupId, "carla");
+  return { groupId, alice, bruno, carla };
+}
+
+async function entriesOf(
+  installation: LiveInstallation,
+  groupId: string,
+): Promise<readonly ChatEntry[]> {
+  return (await hubOf(installation)).groups.listMessages(groupId);
+}
+
+async function noticesOf(
+  installation: LiveInstallation,
+  groupId: string,
+): Promise<GroupNotice[]> {
+  return (await entriesOf(installation, groupId)).flatMap((entry) =>
+    entry.kind === "notice" ? [entry.notice] : [],
+  );
+}
+
+async function textsOf(
+  installation: LiveInstallation,
+  groupId: string,
+): Promise<string[]> {
+  return (await entriesOf(installation, groupId)).flatMap((entry) =>
+    entry.kind === "text" ? [entry.text] : [],
+  );
+}
+
+async function send(
+  installation: LiveInstallation,
+  groupId: string,
+  text: string,
+): Promise<void> {
+  const result = await (
+    await hubOf(installation)
+  ).groups.sendMessage(groupId, text);
+  expect(result.outcome).toBe("sent");
+}
+
+/**
+ * The test-only way to send a misdeclared commit: a fake MLS commit whose real member list is
+ * `members`, sent with an empty declaration (D71).
+ */
+async function sendForgedCommit(
+  sender: LiveInstallation,
+  groupId: string,
+  members: string[],
+): Promise<void> {
+  const hub = await hubOf(sender);
+  const { epoch } = await mlsView(sender, groupId);
+  const commit = encodeFakeMls({
+    t: "commit",
+    group: Buffer.from(groupIdFromText(groupId)).toString("hex"),
+    fromEpoch: epoch,
+    sender: identityOf(sender),
+    members,
+  });
+  const reply = await hub.requester.request({
+    type: "mls.commit",
+    groupId,
+    epoch,
+    added: [],
+    removed: [],
+    commit: payloadText(commit),
+  });
+  expect(reply.ok).toBe(true);
+}
+
+describe("commit checks (D41, D71)", () => {
+  it("add no notice for commits that did what they declared", async () => {
+    const { groupId, alice, bruno, carla } = await threeInAGroup();
+
+    for (const installation of [alice, bruno, carla]) {
+      expect(await noticesOf(installation, groupId)).toEqual([]);
+    }
+  });
+
+  it("apply a commit that removed someone it did not declare, with a notice naming the sender", async () => {
+    const { groupId, alice, bruno, carla } = await threeInAGroup();
+
+    await sendForgedCommit(alice, groupId, [
+      identityOf(alice),
+      identityOf(bruno),
+    ]);
+
+    await vi.waitFor(async () => {
+      expect(await noticesOf(bruno, groupId)).toEqual([
+        {
+          type: "commit-mismatch",
+          sender: "alice",
+          added: [],
+          removed: [identityOf(carla)],
+        },
+      ]);
+    }, WAIT);
+    expect((await mlsView(bruno, groupId)).members).not.toContain(
+      identityOf(carla),
+    );
+  });
+
+  it("apply a commit that took the Group past 10 people, with a notice", async () => {
+    const { groupId, alice, bruno, carla } = await threeInAGroup();
+    const strangers = Array.from(
+      { length: 9 },
+      (_, index) => `stranger${index}:${"S".repeat(21)}${index}`,
+    );
+
+    await sendForgedCommit(alice, groupId, [
+      identityOf(alice),
+      identityOf(bruno),
+      identityOf(carla),
+      ...strangers,
+    ]);
+
+    await vi.waitFor(async () => {
+      expect(await noticesOf(bruno, groupId)).toContainEqual({
+        type: "group-over-limit",
+        sender: "alice",
+        people: 12,
+      });
+    }, WAIT);
+  });
+});
+
+describe("new Devices (D56)", () => {
+  it("are added to each shared Group, noticed there, and read only what is sent after they joined", async () => {
+    const { groupId, alice, carla } = await threeInAGroup();
+    await send(alice, groupId, "before the laptop");
+
+    const brunoLaptop = await secondDevice(server, installations, "bruno");
+    await waitUntilInGroup(brunoLaptop, groupId);
+    await send(alice, groupId, "after the laptop");
+
+    await vi.waitFor(async () => {
+      expect(await textsOf(brunoLaptop, groupId)).toEqual(["after the laptop"]);
+    }, WAIT);
+    await vi.waitFor(async () => {
+      expect(await noticesOf(carla, groupId)).toContainEqual({
+        type: "new-device",
+        username: "bruno",
+      });
+      expect(await noticesOf(alice, groupId)).toContainEqual({
+        type: "new-device",
+        username: "bruno",
+      });
+    }, WAIT);
+  });
+});
+
+describe("resync (D24)", () => {
+  it("removes and re-adds a Device that missed a commit, which then reads new messages again", async () => {
+    const { groupId, alice, carla } = await threeInAGroup();
+    await carla.liveSession.stop();
+    await keyUpdate(alice, groupId);
+    expireCopiesFor(groupId, deviceIdOf(carla));
+
+    await alice.liveSession.stop();
+    alice.liveSession.start();
+    carla.liveSession.start();
+    await vi.waitFor(async () => {
+      expect((await mlsView(carla, groupId)).epoch).toBe(
+        (await mlsView(alice, groupId)).epoch,
+      );
+    }, WAIT);
+    await send(alice, groupId, "welcome back");
+
+    await vi.waitFor(async () => {
+      expect(await textsOf(carla, groupId)).toContain("welcome back");
+    }, WAIT);
+    expect(
+      server.database
+        .prepare("SELECT needs_resync FROM group_members WHERE device_id = ?")
+        .pluck()
+        .get(deviceIdOf(carla)),
+    ).toBe(0);
+    expect([...alice.hubErrors]).toEqual([]);
+  });
+});
+
+/** A commit that changes nobody, made and merged as the app does, that `carla` will miss. */
+async function keyUpdate(
+  sender: LiveInstallation,
+  groupId: string,
+): Promise<void> {
+  const hub = await hubOf(sender);
+  const id = groupIdFromText(groupId);
+  const before = (await mlsView(sender, groupId)).epoch;
+  const own = hub.mls.run((engine) => engine.removeMembers(id, []));
+  const reply = await hub.requester.request({
+    type: "mls.commit",
+    groupId,
+    epoch: before,
+    added: [],
+    removed: [],
+    commit: payloadText(own.commit),
+  });
+  expect(reply.ok).toBe(true);
+  hub.mls.run((engine) => engine.mergePendingCommit(id));
+}
+
+/** Simulates 30 days passing for one Device: its queued copies expire and it needs a resync (D24). */
+function expireCopiesFor(groupId: string, deviceId: string): void {
+  const id = Buffer.from(groupId, "base64url");
+  server.database
+    .prepare("DELETE FROM deliveries WHERE device_id = ?")
+    .run(deviceId);
+  server.database
+    .prepare(
+      "DELETE FROM messages WHERE NOT EXISTS (SELECT 1 FROM deliveries WHERE deliveries.group_id = messages.group_id AND deliveries.seq = messages.seq)",
+    )
+    .run();
+  server.database
+    .prepare(
+      "UPDATE group_members SET needs_resync = 1 WHERE group_id = ? AND device_id = ?",
+    )
+    .run(id, deviceId);
+}

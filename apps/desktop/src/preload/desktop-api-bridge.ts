@@ -10,7 +10,7 @@ import {
   type Unsubscribe,
 } from "./desktop-api";
 import type {
-  ChatMessage,
+  ChatEntry,
   CreateGroupResult,
   GroupActionResult,
   GroupLeftNotice,
@@ -96,7 +96,7 @@ export function createDesktopApi(
       ) as Promise<GroupActionResult>,
     listMessages: (groupId) =>
       invoke(desktopApiChannels.listMessages, groupId) as Promise<
-        readonly ChatMessage[]
+        readonly ChatEntry[]
       >,
     sendMessage: (groupId, text) =>
       invoke(

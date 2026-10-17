@@ -8,7 +8,7 @@ import {
 import { Type, type Static } from "typebox";
 import { desktopApiChannels } from "../../preload/desktop-api";
 import type {
-  ChatMessage,
+  ChatEntry,
   CreateGroupResult,
   GroupActionResult,
   GroupApiCalls,
@@ -79,7 +79,7 @@ export function createGroupIpcChannels(
       handle: (invitationId, accept) =>
         actions.answerInvitation(invitationId, accept),
     }),
-    checkedChannel<GroupArguments, readonly ChatMessage[]>({
+    checkedChannel<GroupArguments, readonly ChatEntry[]>({
       name: desktopApiChannels.listMessages,
       expectedArguments: "groupId: GroupId",
       argumentsMatch: argumentsMatching(GroupArguments),

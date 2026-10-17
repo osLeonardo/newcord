@@ -4,8 +4,15 @@ import {
   type MlsMessageDeliveryEnvelope,
 } from "@newcord/shared";
 import { Value } from "typebox/value";
-import type { ChatMessage, SendMessageResult } from "../../preload/group-api";
-import type { StoredChatMessage } from "../local-store/local-messages";
+import type {
+  ChatEntry,
+  ChatMessage,
+  SendMessageResult,
+} from "../../preload/group-api";
+import type {
+  StoredChatEntry,
+  StoredChatMessage,
+} from "../local-store/local-messages";
 import { parseCredentialIdentity } from "../mls/credential-identity";
 import type { IncomingMls } from "../mls/mls-engine";
 import {
@@ -115,16 +122,26 @@ export function chatMessageReceived(
 }
 
 /**
- * The Group's Chat history, in the server's sequence order.
- * @example const messages = listChatMessages(context, groupId);
+ * The Group's Chat history and notices, in the server's sequence order.
+ * @example const entries = listChatMessages(context, groupId);
  */
 export function listChatMessages(
   context: GroupContext,
   groupId: string,
-): ChatMessage[] {
+): ChatEntry[] {
   return context.localMessages
     .listOf(groupIdFromText(groupId))
-    .map((stored) => chatMessage(context, stored));
+    .map((stored) => chatEntry(context, stored));
+}
+
+function chatEntry(context: GroupContext, stored: StoredChatEntry): ChatEntry {
+  if (stored.kind === "text") return chatMessage(context, stored);
+  return {
+    kind: "notice",
+    groupId: groupIdText(stored.groupId),
+    seq: stored.seq,
+    notice: stored.notice,
+  };
 }
 
 function parsePayload(plaintext: Uint8Array): ChatTextPayload | undefined {
@@ -142,6 +159,7 @@ function chatMessage(
 ): ChatMessage {
   const ownUsername = parseCredentialIdentity(context.ownIdentity)?.username;
   return {
+    kind: "text",
     groupId: groupIdText(stored.groupId),
     seq: stored.seq,
     messageId: stored.messageId,
