@@ -1,4 +1,4 @@
-/** The app's working title until the final name is chosen before M5 (D58). */
+/** The app's name (D58, D92). */
 export const APP_NAME = "newcord";
 
 export * from "./accounts.js";

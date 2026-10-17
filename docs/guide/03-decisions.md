@@ -1480,7 +1480,7 @@ The name chosen before M5 (D58, #12).
 | A. Keep "newcord" | No rename pass; everything already uses it | The DuckDNS names `newcord.duckdns.org` and `newcord-turn.duckdns.org` must be free |
 | B. A new name | | A search-and-replace pass before M5 |
 
-Your choice: A, "newcord" is the final name (decided October 17, 2026). The appId stays `com.newcord.desktop`.
+Your choice: A, "newcord" is the final name (decided October 17, 2026). The appId stays `com.newcord.desktop`. On October 17, 2026 neither `newcord.duckdns.org` nor `newcord-turn.duckdns.org` resolved in DNS, so both looked unclaimed; they are registered with the machine (#14).
 
 ## D93 — uiohook-napi's install script
 
