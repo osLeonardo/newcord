@@ -1,6 +1,6 @@
 {
   "name": "desktop",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "description": "An Electron application with React and TypeScript",
@@ -16,9 +16,7 @@
     "build": "node ../../packages/mls/scripts/build.mjs --if-missing && pnpm run typecheck && electron-vite build",
     "postinstall": "install-electron && electron-builder install-app-deps",
     "build:unpack": "pnpm run build && electron-builder --dir",
-    "build:win": "pnpm run build && electron-builder --win",
-    "build:mac": "electron-vite build && electron-builder --mac",
-    "build:linux": "electron-vite build && electron-builder --linux"
+    "build:win": "pnpm run build && electron-builder --win --publish never"
   },
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
@@ -30,6 +28,7 @@
   },
   "devDependencies": {
     "@electron-toolkit/tsconfig": "^2.0.0",
+    "@electron/fuses": "^1.8.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^24.19.2",
