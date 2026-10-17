@@ -7,6 +7,7 @@ import {
   inviteUsernameProblem,
 } from "../../groups/group-text";
 import { screenStyles } from "../screen-styles";
+import { ChatView } from "./ChatView";
 
 interface GroupPaneProps {
   readonly desktopApi: DesktopApi;
@@ -18,22 +19,38 @@ interface InviteFormProps {
   readonly groupId: string;
 }
 
-/** The open Group: its name and inviting people; the chat arrives with #6, Step 03. */
+/** The open Group: its name, inviting people, and the chat. */
 export function GroupPane(props: GroupPaneProps): React.JSX.Element {
+  const [inviting, setInviting] = useState(false);
+  const { groupId } = props.group;
+
   return (
     <section aria-labelledby="group-name" className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-zinc-800 px-6 py-4">
+      <header className="flex items-center justify-between gap-4 border-b border-zinc-800 px-6 py-4">
         <h1 id="group-name" className="truncate text-lg font-semibold">
           {props.group.name}
         </h1>
+        <button
+          type="button"
+          aria-expanded={inviting}
+          className={screenStyles.smallSecondaryButton}
+          onClick={() => {
+            setInviting(!inviting);
+          }}
+        >
+          {inviting ? "Close" : "Invite people"}
+        </button>
       </header>
-      <div className="flex flex-col gap-4 p-6">
-        <InviteForm
-          key={props.group.groupId}
-          desktopApi={props.desktopApi}
-          groupId={props.group.groupId}
-        />
-      </div>
+      {inviting && (
+        <div className="border-b border-zinc-800 px-6 py-4">
+          <InviteForm
+            key={groupId}
+            desktopApi={props.desktopApi}
+            groupId={groupId}
+          />
+        </div>
+      )}
+      <ChatView key={groupId} desktopApi={props.desktopApi} groupId={groupId} />
     </section>
   );
 }
