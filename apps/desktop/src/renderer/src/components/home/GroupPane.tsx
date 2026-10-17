@@ -8,6 +8,7 @@ import {
 } from "../../groups/group-text";
 import { screenStyles } from "../screen-styles";
 import { ChatView } from "./ChatView";
+import { MemberList } from "./MemberList";
 
 interface GroupPaneProps {
   readonly desktopApi: DesktopApi;
@@ -19,10 +20,26 @@ interface InviteFormProps {
   readonly groupId: string;
 }
 
-/** The open Group: its name, inviting people, and the chat. */
+type GroupPanel = "invite" | "members";
+
+interface PanelToggleProps {
+  readonly label: string;
+  readonly open: boolean;
+  readonly toggle: () => void;
+}
+
+interface LeaveButtonProps {
+  readonly desktopApi: DesktopApi;
+  readonly groupId: string;
+}
+
+/** The open Group: its name, inviting people, its members, leaving, and the chat. */
 export function GroupPane(props: GroupPaneProps): React.JSX.Element {
-  const [inviting, setInviting] = useState(false);
+  const [panel, setPanel] = useState<GroupPanel>();
   const { groupId } = props.group;
+  const toggle = (next: GroupPanel): void => {
+    setPanel(panel === next ? undefined : next);
+  };
 
   return (
     <section aria-labelledby="group-name" className="flex h-full flex-col">
@@ -30,28 +47,99 @@ export function GroupPane(props: GroupPaneProps): React.JSX.Element {
         <h1 id="group-name" className="truncate text-lg font-semibold">
           {props.group.name}
         </h1>
-        <button
-          type="button"
-          aria-expanded={inviting}
-          className={screenStyles.smallSecondaryButton}
-          onClick={() => {
-            setInviting(!inviting);
-          }}
-        >
-          {inviting ? "Close" : "Invite people"}
-        </button>
-      </header>
-      {inviting && (
-        <div className="border-b border-zinc-800 px-6 py-4">
-          <InviteForm
+        <div className="flex gap-2">
+          <PanelToggle
+            label="Members"
+            open={panel === "members"}
+            toggle={() => toggle("members")}
+          />
+          <PanelToggle
+            label="Invite people"
+            open={panel === "invite"}
+            toggle={() => toggle("invite")}
+          />
+          <LeaveButton
             key={groupId}
             desktopApi={props.desktopApi}
             groupId={groupId}
           />
         </div>
+      </header>
+      {panel !== undefined && (
+        <div className="border-b border-zinc-800 px-6 py-4">
+          {panel === "invite" ? (
+            <InviteForm
+              key={groupId}
+              desktopApi={props.desktopApi}
+              groupId={groupId}
+            />
+          ) : (
+            <MemberList
+              key={groupId}
+              desktopApi={props.desktopApi}
+              groupId={groupId}
+            />
+          )}
+        </div>
       )}
       <ChatView key={groupId} desktopApi={props.desktopApi} groupId={groupId} />
     </section>
+  );
+}
+
+function PanelToggle(props: PanelToggleProps): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      aria-expanded={props.open}
+      className={screenStyles.smallSecondaryButton}
+      onClick={props.toggle}
+    >
+      {props.label}
+    </button>
+  );
+}
+
+/** Leaving asks once more: it deletes the Group and its history from this Device (D57). */
+function LeaveButton(props: LeaveButtonProps): React.JSX.Element {
+  const [confirming, setConfirming] = useState(false);
+  const [message, setMessage] = useState<string>();
+
+  async function leave(): Promise<void> {
+    try {
+      const result = await props.desktopApi.leaveGroup(props.groupId);
+      if (result.outcome === "refused") {
+        setMessage(groupRefusalMessage(result.refusal));
+        setConfirming(false);
+      }
+    } catch {
+      setMessage(UNEXPECTED_FAILURE_MESSAGE);
+      setConfirming(false);
+    }
+  }
+
+  return (
+    <span className="flex items-center gap-2">
+      {message !== undefined && (
+        <span role="alert" className={screenStyles.errorMessage}>
+          {message}
+        </span>
+      )}
+      <button
+        type="button"
+        className={
+          confirming
+            ? screenStyles.smallDangerButton
+            : screenStyles.smallSecondaryButton
+        }
+        onClick={() => {
+          if (confirming) void leave();
+          else setConfirming(true);
+        }}
+      >
+        {confirming ? "Leave and delete history" : "Leave"}
+      </button>
+    </span>
   );
 }
 

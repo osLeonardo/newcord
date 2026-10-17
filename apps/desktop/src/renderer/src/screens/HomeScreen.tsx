@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { DesktopApi } from "../../../preload/desktop-api";
 import type { GroupSummary } from "../../../preload/group-api";
 import type { AppView } from "../app-view";
@@ -8,6 +8,7 @@ import { GroupPane } from "../components/home/GroupPane";
 import { InvitationList } from "../components/home/InvitationList";
 import { OnlineNow } from "../components/home/OnlineNow";
 import { screenStyles } from "../components/screen-styles";
+import { groupLeftMessage } from "../groups/group-text";
 
 interface HomeScreenProps {
   readonly desktopApi: DesktopApi;
@@ -18,9 +19,18 @@ interface HomeScreenProps {
 /** The logged-in home: the sidebar with the account, who is online, Groups and Invitations, and the open Group. */
 export function HomeScreen(props: HomeScreenProps): React.JSX.Element {
   const [openGroup, setOpenGroup] = useState<GroupSummary>();
+  const [leftNotice, setLeftNotice] = useState<string>();
   const select = useCallback((group: GroupSummary | undefined): void => {
     setOpenGroup(group);
   }, []);
+
+  useEffect(
+    () =>
+      props.desktopApi.onGroupLeft((notice) => {
+        setLeftNotice(groupLeftMessage(notice));
+      }),
+    [props.desktopApi],
+  );
 
   return (
     <div className="flex h-screen w-full">
@@ -33,6 +43,23 @@ export function HomeScreen(props: HomeScreenProps): React.JSX.Element {
           username={props.username}
           show={props.show}
         />
+        {leftNotice !== undefined && (
+          <p
+            role="status"
+            className="flex items-start justify-between gap-2 border-b border-zinc-800 p-4 text-sm text-zinc-300"
+          >
+            {leftNotice}
+            <button
+              type="button"
+              className={screenStyles.linkButton}
+              onClick={() => {
+                setLeftNotice(undefined);
+              }}
+            >
+              Dismiss
+            </button>
+          </p>
+        )}
         <OnlineNow desktopApi={props.desktopApi} />
         <InvitationList desktopApi={props.desktopApi} />
         <GroupList

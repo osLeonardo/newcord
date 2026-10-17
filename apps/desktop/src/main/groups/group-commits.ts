@@ -58,6 +58,7 @@ export async function commitChange(
   );
   if (reply.ok) {
     context.mls.run((engine) => engine.mergePendingCommit(groupId));
+    context.events.groupsChanged();
     return "accepted";
   }
   context.mls.run((engine) => engine.clearPendingCommit(groupId));

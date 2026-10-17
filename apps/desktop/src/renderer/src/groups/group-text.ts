@@ -1,6 +1,10 @@
 import { GroupName, Username } from "@newcord/shared";
 import { Value } from "typebox/value";
-import type { GroupRefusal } from "../../../preload/group-api";
+import type {
+  GroupLeftNotice,
+  GroupMemberSummary,
+  GroupRefusal,
+} from "../../../preload/group-api";
 import { usernameLimits } from "../account/credentials-check";
 
 const groupRefusalMessages: ReadonlyMap<string, string> = new Map(
@@ -58,4 +62,25 @@ export function inviteUsernameProblem(username: string): string | undefined {
   return Value.Check(Username, username)
     ? undefined
     : groupRefusalMessage("INVALID_USERNAME");
+}
+
+/**
+ * The line shown when this Device is no longer in a Group.
+ * @example groupLeftMessage({ groupId, name: "friends", reason: "removed" }) // "You were removed from friends."
+ */
+export function groupLeftMessage(notice: GroupLeftNotice): string {
+  const name = notice.name === "" ? "a Group" : notice.name;
+  return notice.reason === "removed"
+    ? `You were removed from ${name}.`
+    : `You left ${name}.`;
+}
+
+/**
+ * How the member list describes a person's Devices.
+ * @example memberDevicesLabel({ username: "bruno", deviceCount: 2, self: false }) // "2 Devices"
+ */
+export function memberDevicesLabel(member: GroupMemberSummary): string {
+  return member.deviceCount === 1
+    ? "1 Device"
+    : `${member.deviceCount} Devices`;
 }

@@ -14,6 +14,8 @@ export const screenStyles = {
     "rounded bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-400 disabled:cursor-not-allowed disabled:opacity-50",
   smallSecondaryButton:
     "rounded border border-zinc-700 px-2 py-1 text-xs font-medium text-zinc-200 hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-indigo-400 disabled:cursor-not-allowed disabled:opacity-50",
+  smallDangerButton:
+    "rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-500 focus-visible:outline-2 focus-visible:outline-red-400 disabled:cursor-not-allowed disabled:opacity-50",
   listItemButton:
     "w-full truncate rounded px-2 py-1 text-left text-sm text-zinc-200 hover:bg-zinc-800 aria-[current=true]:bg-zinc-800 aria-[current=true]:font-medium focus-visible:outline-2 focus-visible:outline-indigo-400",
   sectionHeading: "text-xs font-semibold tracking-wide text-zinc-500 uppercase",

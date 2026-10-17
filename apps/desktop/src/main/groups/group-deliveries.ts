@@ -147,7 +147,10 @@ function applyCommit(
   hooks.commitApplied?.(groupId, delivery, commit);
   if (commit.removed.includes(context.ownIdentity)) {
     forgetGroup(context, groupId, "removed");
+    return;
   }
+  // Member lists read the MLS state again.
+  context.events.groupsChanged();
 }
 
 function incomingOfKind<Kind extends IncomingMls["kind"]>(
