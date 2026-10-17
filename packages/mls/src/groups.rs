@@ -116,8 +116,7 @@ impl Device {
         }
     }
 
-    /// One commit removing these Devices; a Device that already asked to leave is completed by
-    /// its own request instead of being removed twice (D57).
+    /// One commit removing these Devices, whether or not they asked to leave (D57).
     pub fn remove_members(&self, group_id: &[u8], identities: &[String]) -> MlsResult<OwnCommit> {
         self.commit_changes(group_id, &[], identities)
     }
@@ -265,8 +264,10 @@ impl Device {
             .collect())
     }
 
-    /// Removals by identity and additions by Key package in one commit, with pending requests
-    /// included as OpenMLS's commit builder does by default.
+    /// Removals by identity and additions by Key package in one commit, every change carried in
+    /// the commit itself. Stored requests are not referenced: a leaver's other Devices never
+    /// received its request, since the server stops delivering to a leaving Account at once, and
+    /// could not process a commit pointing at it (D57). A stored request lapses with its epoch.
     fn commit_changes(
         &self,
         group_id: &[u8],
@@ -280,15 +281,13 @@ impl Device {
             self.key_packages(key_packages)?
         };
         let mut group = self.load_group(&GroupId::from_slice(group_id))?;
-        let removals = removals_not_yet_proposed(&group, identities)?;
-        if removals.is_empty()
-            && key_packages.is_empty()
-            && group.pending_proposals().next().is_none()
-        {
+        let removals = member_leaves(&group, identities)?;
+        if removals.is_empty() && key_packages.is_empty() {
             return Err(MlsError::new("There is no change to commit"));
         }
         let bundle = group
             .commit_builder()
+            .consume_proposal_store(false)
             .propose_removals(removals)
             .propose_adds(key_packages)
             .load_psks(self.provider().storage())
@@ -377,19 +376,9 @@ fn member_identity(group: &MlsGroup, index: LeafNodeIndex) -> String {
         .unwrap_or_else(|| String::from("<unknown member>"))
 }
 
-/// The leaves of these identities, except those a stored request already removes. An identity
-/// that is not a Member is refused, so a commit never silently misses someone.
-fn removals_not_yet_proposed(
-    group: &MlsGroup,
-    identities: &[String],
-) -> MlsResult<Vec<LeafNodeIndex>> {
-    let proposed: Vec<LeafNodeIndex> = group
-        .pending_proposals()
-        .filter_map(|queued| match queued.proposal() {
-            Proposal::Remove(remove) => Some(remove.removed()),
-            _ => None,
-        })
-        .collect();
+/// The leaves of these identities; one that is not a Member is refused, so a commit never
+/// silently misses someone.
+fn member_leaves(group: &MlsGroup, identities: &[String]) -> MlsResult<Vec<LeafNodeIndex>> {
     identities
         .iter()
         .map(|identity| {
@@ -399,7 +388,6 @@ fn removals_not_yet_proposed(
                 .map(|member| member.index)
                 .ok_or_else(|| MlsError::new(format!("\"{identity}\" is not in that Group")))
         })
-        .filter(|index| !matches!(index, Ok(index) if proposed.contains(index)))
         .collect()
 }
 
@@ -666,19 +654,23 @@ pub(crate) mod tests {
     }
 
     #[wasm_bindgen_test]
-    fn removing_a_device_that_asked_to_leave_removes_it_once() {
+    fn completing_a_leave_works_for_devices_that_never_saw_the_request() {
         let (alice, bruno, carla) = (alice(), bruno(), carla());
         group_of(&alice, &[&bruno, &carla]);
         let request = bruno.leave_group(&GROUP).unwrap();
+        // Only alice hears the request, as when the server already stopped delivering to others.
         alice.process_incoming(&request).unwrap();
-        carla.process_incoming(&request).unwrap();
 
         let own = alice.remove_members(&GROUP, &[BRUNO.to_owned()]).unwrap();
         alice.merge_pending_commit(&GROUP).unwrap();
         let applied = carla.process_incoming(&own.commit).unwrap();
+        bruno.process_incoming(&own.commit).unwrap();
 
         assert_eq!(commit_of(applied), (vec![], vec![BRUNO.to_owned()]));
         assert_eq!(alice.group_members(&GROUP).unwrap().len(), 2);
+        assert_eq!(carla.group_members(&GROUP).unwrap().len(), 2);
+        let after = alice.encrypt(&GROUP, b"bruno is gone").unwrap();
+        assert!(bruno.process_incoming(&after).is_err());
     }
 
     #[wasm_bindgen_test]
