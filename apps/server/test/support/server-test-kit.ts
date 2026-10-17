@@ -25,6 +25,12 @@ export interface TestServer {
   close(): Promise<void>;
 }
 
+/**
+ * A heartbeat interval longer than any jump of fake time in the tests (D100), for tests about
+ * other timers: they move time in one step, which leaves no real moment for a ping's reply.
+ */
+export const SLOW_HEARTBEAT_MS = 24 * 60 * 60 * 1000;
+
 /** Builds the server app on a fresh in-memory database. */
 export async function startTestServer(
   overrides: Partial<ServerAppOptions> = {},

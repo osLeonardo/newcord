@@ -1,7 +1,7 @@
 # Decision log
 
 
-Every decision so far, D1 to D99, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
+Every decision so far, D1 to D100, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
 
 | Decision | Your choice |
 | --- | --- |
@@ -106,6 +106,7 @@ Every decision so far, D1 to D99, is made and summarized below. Each one records
 | D97 When the window offers "restart to update" | As soon as an update is downloaded outside a call, and when a call ends with one waiting |
 | D98 The installer's publisher and description | "newcord", and a one-line description of the app |
 | D99 Automatic checks on pull requests from M5 | Every check on each pull request and push to `main`, on Windows and on Linux Arm |
+| D100 The WebSocket heartbeat | A ping every 30 seconds; a socket that leaves one unanswered is ended |
 
 ## D1 — Architecture: who carries messages and calls?
 
@@ -1580,4 +1581,18 @@ Raised once M5 began: D68 put automatic checks off until M5, where only the rele
 Recommendation: A.
 
 Your choice: A (decided October 17, 2026). `.github/workflows/checks.yml` runs on `windows-latest` and `ubuntu-24.04-arm`, with every action pinned to a full commit hash and read-only access; the wasm-bindgen CLI and the MLS crate's build are cached between runs.
+
+## D100 — The WebSocket heartbeat
+
+Raised as a follow-up from #2 (#17). The server noticed a socket was gone only when TCP did, so a laptop that slept or lost its network stayed "online" for everyone else until the connection timed out: up to an hour behind nginx's `proxy_read_timeout` in production (#14).
+
+| Option | How it works | Pros | Cons |
+| --- | --- | --- | --- |
+| A. Every 30 seconds, ended after one missed reply | The server pings each authenticated socket; one that has not answered by the next ping is terminated | A dead Device goes offline within about a minute; the pings also keep nginx's connection busy | None worth noting: a ping is a few bytes |
+| B. Every 15 seconds, ended after one missed reply | The same, twice as often | Offline within about 30 seconds | More sensitive to a brief network hiccup |
+| C. Every 60 seconds, ended after two missed replies | Fewer pings, more tolerance | The fewest pings | The online list stays wrong for 2 to 3 minutes |
+
+Recommendation: A.
+
+Your choice: A (decided October 17, 2026). Browsers, Electron and Node's built-in WebSocket answer pings on their own, so the desktop app needs no change; a terminated socket closes as usual, so presence sends "offline" and the app reconnects when it can.
 

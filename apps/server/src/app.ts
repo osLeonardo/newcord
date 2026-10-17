@@ -128,6 +128,7 @@ import {
   WEBSOCKET_PLUGIN_OPTIONS,
   registerWebSocketRoute,
 } from "./websocket/websocket-route.js";
+import { HEARTBEAT_INTERVAL_MS } from "./websocket/heartbeat.js";
 
 /** Largest HTTP request body: 64 KiB (08-m1-build Settings). */
 export const MAX_REQUEST_BODY_BYTES = 64 * 1024;
@@ -146,6 +147,8 @@ export interface ServerAppOptions {
    * client (14-server-deployment step 5); none in development.
    */
   trustProxy?: string;
+  /** How often each authenticated socket is pinged, 30 seconds unless a test sets it (D100). */
+  heartbeatIntervalMs?: number;
 }
 
 /** The session services the routes share; the WebSocket's `hello` reuses the verifier. */
@@ -193,7 +196,11 @@ export async function buildServerApp(
   registerHealthRoute(app);
   registerAccountRoutes(app, parts);
   registerSessionRoutes(app, parts);
-  registerWebSocketRoute(app, { ...parts, hub: createHub(parts) });
+  registerWebSocketRoute(app, {
+    ...parts,
+    hub: createHub(parts),
+    heartbeatIntervalMs: options.heartbeatIntervalMs ?? HEARTBEAT_INTERVAL_MS,
+  });
   scheduleRefreshTokenCleanup(app, parts);
   scheduleLiveSessionCheck(app, parts);
   scheduleQueueCleanup(

@@ -1,4 +1,5 @@
 import { WebSocketCloseCode, type ServerEnvelope } from "@newcord/shared";
+import type { HeartbeatSocket } from "./heartbeat.js";
 
 /** What the hub does with an open socket: send it Envelopes and close it. */
 export interface HubSocket {
@@ -11,12 +12,13 @@ export interface HubSocket {
  * the plugin types it as `any`, so this interface names the part the hub relies on. With the
  * default `binaryType`, every message arrives as one Buffer.
  */
-export interface IncomingSocket extends HubSocket {
+export interface IncomingSocket extends HubSocket, HeartbeatSocket {
   on(
     event: "message",
     listener: (data: Buffer, isBinary: boolean) => void,
   ): unknown;
   on(event: "close", listener: () => void): unknown;
+  on(event: "pong", listener: () => void): unknown;
 }
 
 /**
