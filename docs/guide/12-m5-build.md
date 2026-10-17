@@ -65,7 +65,7 @@ autoUpdater.checkForUpdates();
 setInterval(() => autoUpdater.checkForUpdates(), 6 * 60 * 60 * 1000);
 ```
 
-7. Never restart into an update during a call; offer "restart to update" once the call ends.
+7. Never restart into an update during a call; offer "restart to update" once the call ends, and as soon as an update is downloaded outside a call (D97).
 
 ## Builds and publishing (D48, D49)
 
@@ -105,7 +105,7 @@ jobs:
 
 The build step must also build the OpenMLS WebAssembly module (M2).
 
-10. After each release, add the SHA-256 checksum of every installer to the release notes.
+10. After each release, add the SHA-256 checksum of every installer to the release notes. The release starts as a draft: check it, then publish it by hand (D96).
 
 ## Done when
 

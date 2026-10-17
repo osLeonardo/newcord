@@ -36,6 +36,7 @@ import type { AppServices } from "./app-services";
 import { appPageUrl } from "./app-page";
 import { startAppServices } from "./app-services";
 import { builtInServerAddress } from "./built-in-server-address";
+import { localDataFolderName } from "./local-data-folder";
 import { createAppIpcChannels } from "./ipc/app-ipc-channels";
 import { isAppIpcSender } from "./ipc/app-ipc-sender";
 import {
@@ -348,6 +349,12 @@ function openInBrowser(url: string): void {
     console.error(`Could not open ${url} in the default browser`, error);
   });
 }
+
+// Set before anything opens the folder, the single-instance lock included (D95).
+app.setPath(
+  "userData",
+  join(app.getPath("appData"), localDataFolderName(app.isPackaged)),
+);
 
 // Launching the app again shows the running one's window (#9's spec).
 const isFirstInstance = app.requestSingleInstanceLock();

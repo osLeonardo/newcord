@@ -137,7 +137,7 @@ export interface DesktopApiSubscriptions {
   onPushToTalk(listener: (held: boolean) => void): Unsubscribe;
   /** Hears the settings after any window changed them. */
   onSettingsChanged(listener: (settings: DeviceSettings) => void): Unsubscribe;
-  /** Hears whether to offer "restart to update": after a Call ends with an update waiting (#13). */
+  /** Hears whether to offer "restart to update": while an update waits outside a Call (#13, D97). */
   onUpdateOfferChanged(listener: (offered: boolean) => void): Unsubscribe;
 }
 

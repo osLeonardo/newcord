@@ -102,11 +102,8 @@ describe("restarting into an update (#13, Step 02)", () => {
     expect(source.restartAndInstall).toHaveBeenCalledOnce();
   });
 
-  it("withdraws the offer while another Call runs, and offers it again when that one ends", async () => {
+  it("withdraws the offer while a Call runs, and offers it again when the Call ends", async () => {
     source.finishDownload();
-    updates.callChanged(true);
-    updates.callChanged(false);
-
     updates.callChanged(true);
     await expect(updates.readUpdateOffer()).resolves.toBe(false);
     updates.callChanged(false);
@@ -123,11 +120,11 @@ describe("restarting into an update (#13, Step 02)", () => {
     expect(source.restartAndInstall).not.toHaveBeenCalled();
   });
 
-  it("leaves an update downloaded outside a Call to install on the next restart", async () => {
+  it("offers restart to update as soon as an update is downloaded outside a Call (D97)", async () => {
     updates.start();
     source.finishDownload();
 
-    expect(offers).toEqual([]);
-    await expect(updates.readUpdateOffer()).resolves.toBe(false);
+    expect(offers).toEqual([true]);
+    await expect(updates.readUpdateOffer()).resolves.toBe(true);
   });
 });

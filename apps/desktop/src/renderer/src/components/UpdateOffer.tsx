@@ -7,7 +7,7 @@ interface UpdateOfferProps {
   readonly desktopApi: DesktopApi;
 }
 
-/** The offer to restart into a downloaded update, shown once a Call ends; never during one (12-m5-build step 7). */
+/** The offer to restart into a downloaded update, shown outside Calls only (12-m5-build step 7, D97). */
 export function UpdateOffer(props: UpdateOfferProps): React.JSX.Element | null {
   const { desktopApi } = props;
   const [offered, setOffered] = useState(false);

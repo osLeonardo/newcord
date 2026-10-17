@@ -42,8 +42,9 @@ interface UpdateState {
 
 /**
  * Checks GitHub Releases at start-up and every 6 hours, and lets a downloaded update install on the
- * next restart. It never restarts during a Call: when a Call ends with an update waiting, the
- * window offers "restart to update", and joining another Call withdraws the offer (12-m5-build step 7).
+ * next restart. It never restarts during a Call: the window offers "restart to update" while an
+ * update waits outside a Call, so as soon as it is downloaded or once a Call ends, and joining a
+ * Call withdraws the offer (12-m5-build step 7, D97).
  * @example const updates = createUpdateService({ source, clock, offerChanged }); updates.start();
  */
 export function createUpdateService(
@@ -71,6 +72,7 @@ export function createUpdateService(
   };
   source.onDownloaded(() => {
     state.downloaded = true;
+    if (!state.inCall) setOffered(true);
   });
   return {
     start: (): void => {
@@ -78,10 +80,8 @@ export function createUpdateService(
       scheduleNextCheck();
     },
     callChanged: (inCall): void => {
-      const callEnded = state.inCall && !inCall;
       state.inCall = inCall;
-      if (inCall) setOffered(false);
-      else if (callEnded && state.downloaded) setOffered(true);
+      setOffered(state.downloaded && !inCall);
     },
     stop: (): void => {
       state.cancelNextCheck?.();

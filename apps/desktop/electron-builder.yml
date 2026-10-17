@@ -38,3 +38,5 @@ publish:
   provider: github
   owner: osLeonardo
   repo: newcord
+  # A tag leaves a draft, checked and published by hand (D96).
+  releaseType: draft

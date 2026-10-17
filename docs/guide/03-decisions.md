@@ -1,7 +1,7 @@
 # Decision log
 
 
-Every decision so far, D1 to D94, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
+Every decision so far, D1 to D98, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
 
 | Decision | Your choice |
 | --- | --- |
@@ -101,6 +101,10 @@ Every decision so far, D1 to D94, is made and summarized below. Each one records
 | D92 The app's final name | newcord |
 | D93 uiohook-napi's install script | Approved; it only picks the prebuilt binary |
 | D94 Rust toolchain on Windows | The GNU toolchain, wasm-bindgen-cli's prebuilt binary, and the crate's tests run as WebAssembly in Node |
+| D95 Where the installed app and development runs keep their data | Separate folders: `%APPDATA%\newcord` and `%APPDATA%\newcord-dev` |
+| D96 How a tagged release goes out | As a draft, published by hand after a check |
+| D97 When the window offers "restart to update" | As soon as an update is downloaded outside a call, and when a call ends with one waiting |
+| D98 The installer's publisher and description | "newcord", and a one-line description of the app |
 
 ## D1 — Architecture: who carries messages and calls?
 
@@ -1508,3 +1512,56 @@ Raised while setting up the MLS module (#4). Rust's default Windows toolchain li
 Recommendation: A.
 
 Your choice: A (decided October 17, 2026). The toolchain is stable-x86_64-pc-windows-gnu with the wasm32-unknown-unknown target, and wasm-bindgen-cli 0.2.129 matches the crate's pinned wasm-bindgen.
+
+## D95 — Where the installed app and development runs keep their data
+
+Raised while packaging the app (#13). Electron names the per-user data folder after the package, which the template called "desktop", so the installed app and development runs both used `%APPDATA%\desktop`. The installed app talks to the production server and development runs to a local one, yet they shared one database, identity and session.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. Separate folders: the installed app in `%APPDATA%\newcord`, development runs in `%APPDATA%\newcord-dev` | The two never mix sessions or identities; the folder carries the app's name | Development data in `%APPDATA%\desktop` is left behind, and development runs start fresh |
+| B. Both in `%APPDATA%\newcord` | One folder to know about | Development and installed copies share one session and identity |
+| C. Leave both in `%APPDATA%\desktop` | No change | The folder does not carry the app's name, and the copies still share data |
+
+Recommendation: A.
+
+Your choice: A (decided October 17, 2026). The main process sets the folder before anything opens it, including the single-instance lock; the old `%APPDATA%\desktop` folder is not touched.
+
+## D96 — How a tagged release goes out
+
+Raised while writing the release workflow (#13). electron-builder creates a GitHub release as a draft unless told otherwise, and installed apps see only published releases.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. A draft that you check (its files and SHA-256 list) and publish by hand | A bad or tampered build never reaches installed apps without a human look (D29b) | One click per release |
+| B. Published as soon as the tag is pushed | Fully automatic | Nothing stands between the CI build and every installed app |
+
+Recommendation: A.
+
+Your choice: A (decided October 17, 2026). `electron-builder.yml` sets `releaseType: draft`, and the workflow adds the SHA-256 list to the draft's notes.
+
+## D97 — When the window offers "restart to update"
+
+Raised while adding automatic updates (#13). The guide offers "restart to update" once a call ends (12-m5-build step 7); an update downloaded outside a call would wait for the next quit, and the app lives in the tray and starts with Windows (D42, D46), so it may not quit for days.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. Also offer it as soon as an update is downloaded outside a call; the offer hides during a call and comes back when the call ends | Updates install sooner; still never a restart during a call | A banner may appear while you are chatting |
+| B. Only when a call ends with an update waiting | Exactly the guide's wording | Updates may wait days for a quit or a Windows restart |
+
+Recommendation: A.
+
+Your choice: A (decided October 17, 2026).
+
+## D98 — The installer's publisher and description
+
+Raised while packaging the app (#13). The installer shows the desktop package's author as the publisher in Windows' list of installed apps, and its description in the program's details; both still held the template's "example.com" and "An Electron application with React and TypeScript".
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. "newcord" as the author, and a one-line description of the app | Neutral; no personal name or address in every installer | None |
+| B. Your name as the author | Says who makes it | Your name is embedded in every installer |
+
+Recommendation: A.
+
+Your choice: A (decided October 17, 2026). The author is "newcord" and the description "A small, security-focused chat and call app for groups of friends"; the template's homepage, electron-vite's site, is removed.

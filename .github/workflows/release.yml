@@ -1,5 +1,6 @@
-# Builds the Windows installer and publishes it to GitHub Releases when a version tag is pushed
-# (D48, D49, 12-m5-build steps 9–10). Every action is pinned to a full commit hash.
+# Builds the Windows installer and uploads it to a draft GitHub release when a version tag is
+# pushed, to be checked and published by hand (D48, D49, D96, 12-m5-build steps 9–10). Every
+# action is pinned to a full commit hash.
 name: release
 on:
   push:
@@ -42,7 +43,7 @@ jobs:
       - run: pnpm --filter desktop exec electron-builder --win --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Add each file's SHA-256 to the release notes
+      - name: Add each file's SHA-256 to the draft's notes
         shell: bash
         working-directory: apps/desktop/dist
         env:
