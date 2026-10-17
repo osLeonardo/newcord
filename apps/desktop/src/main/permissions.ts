@@ -53,13 +53,16 @@ export function grantCallPermissionsOnly(
   session.setDevicePermissionHandler(() => false);
 }
 
-/** The microphone alone, or a screen capture; a media request naming the camera is refused whole. */
+/**
+ * The microphone alone, or a screen capture; a media request naming the camera is refused whole.
+ * Electron 44 asks for a screen capture as "media" with an empty `mediaTypes`, and the display-media
+ * handler then answers only with the source picked in the app's own picker (10-m3-build step 7).
+ */
 function isCallPermission(
   permission: string,
   details: PermissionRequestDetails,
 ): boolean {
   if (permission === "display-capture") return true;
-  if (permission !== "media") return false;
-  const mediaTypes = details.mediaTypes ?? [];
-  return mediaTypes.length > 0 && mediaTypes.every((type) => type === "audio");
+  if (permission !== "media" || details.mediaTypes === undefined) return false;
+  return details.mediaTypes.every((type) => type === "audio");
 }

@@ -59,7 +59,7 @@ Based on Electron's official security recommendations ([source](https://www.elec
 | --- | --- |
 | Only known packages approved to run install scripts (D31) | M1 |
 | The lockfile committed, and builds installed with pnpm install --frozen-lockfile | M1 |
-| pnpm audit run before every release | M5 |
+| pnpm audit run before every release. Run in #15 on October 17, 2026: no high or critical findings, and one moderate one that does not apply: `sprintf-js` 1.1.3 ([GHSA-hp3w-g68c-fv3c](https://github.com/advisories/GHSA-hp3w-g68c-fv3c), a denial of service through unbounded precision specifiers) is reached only through `electron-builder` → `@electron/get` → `global-agent` → `roarr` while packaging, is not inside the packaged app, and is given only `roarr`'s own log formats; npm had no patched version (1.1.4) published | M5 |
 | The release account protected with two-factor authentication, ideally a hardware key, because nothing else stops a fake update (D29b) | M5 |
 | Releases built on a clean machine or in CI, never on a development laptop | M5 |
 
