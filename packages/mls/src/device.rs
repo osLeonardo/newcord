@@ -157,6 +157,10 @@ impl Device {
     pub(crate) fn identity(&self) -> MlsResult<&Identity> {
         self.identity.as_ref().ok_or_else(MlsError::no_identity)
     }
+
+    pub(crate) fn provider(&self) -> &DeviceProvider {
+        &self.provider
+    }
 }
 
 /// Reads and checks a Key package as a receiving Device would.

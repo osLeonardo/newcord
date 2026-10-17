@@ -6,6 +6,7 @@ use wasm_bindgen::prelude::*;
 
 pub mod device;
 pub mod error;
+pub mod groups;
 pub mod identity;
 mod provider;
 mod state;
@@ -13,6 +14,7 @@ mod wasm;
 
 pub use device::{Device, KeyPackageFacts, describe_key_package};
 pub use error::{MlsError, MlsResult};
+pub use groups::{GROUP_ID_BYTES, Incoming, MemberKey, OwnCommit};
 pub use identity::DeviceIdentity;
 pub use wasm::MlsDevice;
 
