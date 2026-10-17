@@ -87,7 +87,7 @@ describe("openMlsSession", () => {
 
   it("starts a fresh identity after the local store was erased (D60)", () => {
     openMlsSession({ stateStore, createEngine: createFakeMlsEngine, device });
-    createSqliteLocalStore(database).eraseEverything();
+    createSqliteLocalStore(database).eraseAccountData();
     const { engine, initIdentity } = spiedEngine();
 
     openMlsSession({ stateStore, createEngine: () => engine, device });

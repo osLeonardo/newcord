@@ -1,3 +1,5 @@
+import { APP_FLAGS_TABLE } from "./app-flags";
+import { DEVICE_SETTINGS_TABLE } from "./device-settings";
 import type Database from "better-sqlite3";
 import type {
   IdentityKeyPair,
@@ -32,8 +34,11 @@ export interface LocalStore extends IdentityKeyStore {
   ): boolean;
   /** Ends the local session, keeping the identity key and the Account. */
   deleteSessionTokens(): void;
-  /** Deletes every row of every table, as switching to another Account requires (D60). */
-  eraseEverything(): void;
+  /**
+   * Deletes every row of every table but this computer's settings and one-time flags, as switching
+   * to another Account requires (D60, D87).
+   */
+  eraseAccountData(): void;
 }
 
 // Each table holds at most one row: an installation belongs to one Account at a time (D60).
@@ -86,7 +91,7 @@ export function createSqliteLocalStore(
     ...accountQueries(database),
     ...sessionTokenQueries(database),
     saveLogin: saveLoginTransaction(database),
-    eraseEverything: eraseEverythingTransaction(database),
+    eraseAccountData: eraseAccountDataTransaction(database),
   };
 }
 
@@ -178,10 +183,11 @@ function saveLoginTransaction(
   };
 }
 
-function eraseEverythingTransaction(
+function eraseAccountDataTransaction(
   database: Database.Database,
-): LocalStore["eraseEverything"] {
+): LocalStore["eraseAccountData"] {
   // Every table is listed from SQLite itself, so tables added in later milestones are erased too.
+  const kept = new Set([DEVICE_SETTINGS_TABLE, APP_FLAGS_TABLE]);
   const tableNames = database
     .prepare<[], string>(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
@@ -189,6 +195,7 @@ function eraseEverythingTransaction(
     .pluck();
   const eraseAll = database.transaction((): void => {
     for (const name of tableNames.all()) {
+      if (kept.has(name)) continue;
       database.prepare(`DELETE FROM "${name.replaceAll('"', '""')}"`).run();
     }
   });

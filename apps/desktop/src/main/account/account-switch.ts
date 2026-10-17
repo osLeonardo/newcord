@@ -48,6 +48,6 @@ export async function leaveStoredAccount(
   if (tokens !== undefined) {
     await endServerSession(dependencies.server, tokens);
   }
-  dependencies.store.eraseEverything();
+  dependencies.store.eraseAccountData();
   dependencies.store.saveIdentityKey(newKeyPair);
 }

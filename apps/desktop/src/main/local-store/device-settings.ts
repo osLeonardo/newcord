@@ -25,6 +25,9 @@ export const DEFAULT_SETTINGS: DeviceSettings = {
 const MIGRATE_CALL_SETTINGS_SQL =
   "ALTER TABLE call_settings RENAME TO device_settings";
 
+/** This computer's table, which switching Accounts keeps (D87). */
+export const DEVICE_SETTINGS_TABLE = "device_settings";
+
 const CREATE_DEVICE_SETTINGS_SQL = `
 CREATE TABLE IF NOT EXISTS device_settings (
   id       INTEGER PRIMARY KEY CHECK (id = 1),

@@ -14,6 +14,9 @@ export interface AppFlags {
   set(flag: AppFlag): void;
 }
 
+/** This computer's table, which switching Accounts keeps (D87). */
+export const APP_FLAGS_TABLE = "app_flags";
+
 const CREATE_APP_FLAGS_SQL = `
 CREATE TABLE IF NOT EXISTS app_flags (
   name TEXT PRIMARY KEY

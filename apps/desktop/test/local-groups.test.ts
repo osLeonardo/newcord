@@ -78,7 +78,7 @@ describe("local Groups", () => {
   it("is erased with the rest of the local data (D60)", () => {
     groups.add({ groupId: friends, name: "friends" }, 0);
 
-    createSqliteLocalStore(database).eraseEverything();
+    createSqliteLocalStore(database).eraseAccountData();
 
     expect(groups.list()).toEqual([]);
   });

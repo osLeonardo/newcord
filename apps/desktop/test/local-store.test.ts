@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
+import { createAppFlags } from "../src/main/local-store/app-flags";
+import { createSettingsStore } from "../src/main/local-store/device-settings";
 import { createIdentityKeyPair } from "../src/main/identity/identity-key";
 import {
   createSqliteLocalStore,
@@ -184,13 +186,13 @@ describe("deleting the session tokens", () => {
   });
 });
 
-describe("erasing everything", () => {
+describe("erasing the Account's data (D60, D87)", () => {
   it("deletes the identity key, the Account and the tokens", () => {
     const { store } = memoryStore();
     store.saveIdentityKey(createIdentityKeyPair());
     store.saveLogin(account, tokens);
 
-    store.eraseEverything();
+    store.eraseAccountData();
 
     expect(store.readIdentityKey()).toBeUndefined();
     expect(store.readAccount()).toBeUndefined();
@@ -202,7 +204,7 @@ describe("erasing everything", () => {
     database.exec('CREATE TABLE "later ""milestone"" table" (value TEXT)');
     database.exec(`INSERT INTO "later ""milestone"" table" VALUES ('x')`);
 
-    store.eraseEverything();
+    store.eraseAccountData();
 
     expect(
       database
@@ -212,10 +214,26 @@ describe("erasing everything", () => {
     ).toBe(0);
   });
 
+  it("keeps this computer's settings and one-time flags", () => {
+    const { store, database } = memoryStore();
+    const settings = createSettingsStore(database);
+    const flags = createAppFlags(database);
+    settings.change({ hideMyIp: true, startAtLogin: false });
+    flags.set("first-run-done");
+
+    store.eraseAccountData();
+
+    expect(settings.read()).toMatchObject({
+      hideMyIp: true,
+      startAtLogin: false,
+    });
+    expect(flags.has("first-run-done")).toBe(true);
+  });
+
   it("lets a new identity key be stored afterwards", () => {
     const { store } = memoryStore();
     store.saveIdentityKey(createIdentityKeyPair());
-    store.eraseEverything();
+    store.eraseAccountData();
     const newKey = createIdentityKeyPair();
 
     store.saveIdentityKey(newKey);

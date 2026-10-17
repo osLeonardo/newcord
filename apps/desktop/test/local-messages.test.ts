@@ -68,7 +68,7 @@ describe("the local Chat history", () => {
   it("is erased with the rest of the local data (D60)", () => {
     messages.add(message(1));
 
-    createSqliteLocalStore(database).eraseEverything();
+    createSqliteLocalStore(database).eraseAccountData();
 
     expect(messages.listOf(friends)).toEqual([]);
   });
