@@ -4,6 +4,18 @@
 use openmls::prelude::Ciphersuite;
 use wasm_bindgen::prelude::*;
 
+pub mod device;
+pub mod error;
+pub mod identity;
+mod provider;
+mod state;
+mod wasm;
+
+pub use device::{Device, KeyPackageFacts, describe_key_package};
+pub use error::{MlsError, MlsResult};
+pub use identity::DeviceIdentity;
+pub use wasm::MlsDevice;
+
 /// The cipher suite of every Group: X25519, AES-128-GCM, SHA-256 and Ed25519 (D38).
 pub const CIPHERSUITE: Ciphersuite = Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
 

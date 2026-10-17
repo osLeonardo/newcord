@@ -1147,7 +1147,9 @@ dependencies = [
 name = "newcord-mls"
 version = "0.1.0"
 dependencies = [
+ "ed25519-dalek",
  "getrandom 0.2.17",
+ "js-sys",
  "openmls",
  "openmls_basic_credential",
  "openmls_memory_storage",
