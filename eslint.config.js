@@ -6,7 +6,13 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import tseslint from "typescript-eslint";
 
 export default defineConfig(
-  globalIgnores(["**/out/", "**/dist/", "**/coverage/"]),
+  globalIgnores([
+    "**/out/",
+    "**/dist/",
+    "**/coverage/",
+    "packages/mls/pkg/",
+    "packages/mls/target/",
+  ]),
   js.configs.recommended,
   tseslint.configs.recommendedTypeChecked,
   {

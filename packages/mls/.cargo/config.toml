@@ -1,0 +1,4 @@
+# The crate's tests run as WebAssembly in Node through wasm-bindgen's test runner (#4):
+#   cargo test --target wasm32-unknown-unknown
+[target.wasm32-unknown-unknown]
+runner = "wasm-bindgen-test-runner"

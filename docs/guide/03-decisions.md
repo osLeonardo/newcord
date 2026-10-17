@@ -1,7 +1,7 @@
 # Decision log
 
 
-Every decision so far, D1 to D93, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
+Every decision so far, D1 to D94, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
 
 | Decision | Your choice |
 | --- | --- |
@@ -100,6 +100,7 @@ Every decision so far, D1 to D93, is made and summarized below. Each one records
 | D91 Server behaviour added while building M2 | Leaving devices get the commit removing them; groups re-prompted on key-package upload and on creation; no-recipient messages not stored |
 | D92 The app's final name | newcord |
 | D93 uiohook-napi's install script | Approved; it only picks the prebuilt binary |
+| D94 Rust toolchain on Windows | The GNU toolchain, wasm-bindgen-cli's prebuilt binary, and the crate's tests run as WebAssembly in Node |
 
 ## D1 — Architecture: who carries messages and calls?
 
@@ -1493,3 +1494,17 @@ Raised while building M3's push-to-talk (#9). `uiohook-napi` (D74) is a native m
 Recommendation: A.
 
 Your choice: A, approved (decided October 17, 2026). Push-to-talk keys are keyboard keys, stored as `KeyboardEvent.code`; mouse buttons are not offered.
+
+## D94 — The Rust toolchain on Windows
+
+Raised while setting up the MLS module (#4). Rust's default Windows toolchain links with Microsoft's C++ build tools, which this development computer does not have (D80). The GNU toolchain links on its own, but anything built for Windows itself that creates import libraries (getrandom and windows-sys) needs an assembler it does not bundle; the WebAssembly build is not affected.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. GNU toolchain; wasm-bindgen-cli's official prebuilt binary from its GitHub release, its SHA-256 checked; the crate's Rust tests compiled to WebAssembly and run in Node by wasm-bindgen-test | Nothing else to install; the tests run on the target the app uses | A downloaded binary instead of one compiled locally; tests cannot use native-only code |
+| B. GNU toolchain plus a MinGW-w64 toolchain on PATH | Native Rust tests, and wasm-bindgen-cli compiles from source | Another toolchain to keep |
+| C. Visual Studio Build Tools and the MSVC toolchain | Rust's default on Windows | Several gigabytes and an administrator install |
+
+Recommendation: A.
+
+Your choice: A (decided October 17, 2026). The toolchain is stable-x86_64-pc-windows-gnu with the wasm32-unknown-unknown target, and wasm-bindgen-cli 0.2.129 matches the crate's pinned wasm-bindgen.

@@ -1,0 +1,38 @@
+[package]
+name = "newcord-mls"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.91"
+license = "AGPL-3.0-or-later"
+description = "newcord's MLS module: OpenMLS with cipher suite 1, compiled to WebAssembly for the desktop app's main process (#4)"
+publish = false
+
+[lib]
+# cdylib for WebAssembly; rlib so integration tests can use the crate too.
+crate-type = ["cdylib", "rlib"]
+
+# The companion versions openmls 0.9.1 itself depends on (#4's spec).
+[dependencies]
+openmls = "=0.9.1"
+openmls_basic_credential = "=0.6.0"
+openmls_memory_storage = "=0.6.0"
+openmls_rust_crypto = "=0.6.0"
+openmls_traits = "=0.6.0"
+# Exactly the version of the installed wasm-bindgen-cli (09-m2-build Settings).
+wasm-bindgen = "=0.2.129"
+
+# WebAssembly gets its randomness from JavaScript's crypto.getRandomValues. Without
+# these features getrandom does not compile for wasm32-unknown-unknown, so the build
+# fails instead of falling back to anything weaker.
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+openmls = { version = "=0.9.1", features = ["js"] }
+getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+
+# The crate's tests run as WebAssembly in Node, the target the app uses (#4); the release
+# matching wasm-bindgen 0.2.129.
+[dev-dependencies]
+wasm-bindgen-test = "=0.3.79"

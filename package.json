@@ -9,7 +9,7 @@
     "node": "26.x"
   },
   "scripts": {
-    "test": "vitest run",
+    "test": "pnpm --filter @newcord/mls build && pnpm --filter @newcord/mls test:rust && vitest run",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "typecheck": "pnpm -r run typecheck"
