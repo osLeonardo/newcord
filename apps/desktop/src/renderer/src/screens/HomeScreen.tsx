@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import type { DesktopApi } from "../../../preload/desktop-api";
 import type { GroupSummary } from "../../../preload/group-api";
 import type { AppView } from "../app-view";
+import { useCallSession } from "../calls/use-call-session";
 import { AccountHeader } from "../components/home/AccountHeader";
 import { GroupList } from "../components/home/GroupList";
 import { GroupPane } from "../components/home/GroupPane";
 import { InvitationList } from "../components/home/InvitationList";
 import { OnlineNow } from "../components/home/OnlineNow";
+import { RemoteAudio } from "../components/home/RemoteAudio";
 import { screenStyles } from "../components/screen-styles";
 import { groupLeftMessage } from "../groups/group-text";
 
@@ -20,6 +22,7 @@ interface HomeScreenProps {
 export function HomeScreen(props: HomeScreenProps): React.JSX.Element {
   const [openGroup, setOpenGroup] = useState<GroupSummary>();
   const [leftNotice, setLeftNotice] = useState<string>();
+  const callSession = useCallSession(props.desktopApi);
   const select = useCallback((group: GroupSummary | undefined): void => {
     setOpenGroup(group);
   }, []);
@@ -34,6 +37,7 @@ export function HomeScreen(props: HomeScreenProps): React.JSX.Element {
 
   return (
     <div className="flex h-screen w-full">
+      <RemoteAudio streams={callSession.remoteStreams} />
       <nav
         aria-label="Groups and people"
         className="flex w-72 shrink-0 flex-col overflow-y-auto border-r border-zinc-800 bg-zinc-900"
@@ -74,7 +78,11 @@ export function HomeScreen(props: HomeScreenProps): React.JSX.Element {
             Open a Group, or create one to start.
           </p>
         ) : (
-          <GroupPane desktopApi={props.desktopApi} group={openGroup} />
+          <GroupPane
+            desktopApi={props.desktopApi}
+            group={openGroup}
+            callSession={callSession}
+          />
         )}
       </main>
     </div>

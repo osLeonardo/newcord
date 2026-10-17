@@ -7,12 +7,15 @@ import {
   inviteUsernameProblem,
 } from "../../groups/group-text";
 import { screenStyles } from "../screen-styles";
+import type { CallSession } from "../../calls/use-call-session";
+import { CallPanel } from "./CallPanel";
 import { ChatView } from "./ChatView";
 import { MemberList } from "./MemberList";
 
 interface GroupPaneProps {
   readonly desktopApi: DesktopApi;
   readonly group: GroupSummary;
+  readonly callSession: CallSession;
 }
 
 interface InviteFormProps {
@@ -33,7 +36,7 @@ interface LeaveButtonProps {
   readonly groupId: string;
 }
 
-/** The open Group: its name, inviting people, its members, leaving, and the chat. */
+/** The open Group: its name, its Call, inviting people, its members, leaving, and the chat. */
 export function GroupPane(props: GroupPaneProps): React.JSX.Element {
   const [panel, setPanel] = useState<GroupPanel>();
   const { groupId } = props.group;
@@ -65,6 +68,11 @@ export function GroupPane(props: GroupPaneProps): React.JSX.Element {
           />
         </div>
       </header>
+      <CallPanel
+        desktopApi={props.desktopApi}
+        groupId={groupId}
+        callSession={props.callSession}
+      />
       {panel !== undefined && (
         <div className="border-b border-zinc-800 px-6 py-4">
           {panel === "invite" ? (
