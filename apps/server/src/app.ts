@@ -327,7 +327,10 @@ function createHub(parts: ServerParts): HubEndpoints {
       (context): void => parts.prompter.promptOnHello(context),
     ],
     {
-      ...createGroupRequestHandlers(parts),
+      ...createGroupRequestHandlers({
+        ...parts,
+        onGroupCreated: (groupId) => parts.prompter.promptGroup(groupId),
+      }),
       ...createBlockRequestHandlers(parts),
       ...createInvitationRequestHandlers({
         ...parts,

@@ -181,6 +181,24 @@ describe("new Devices (D56)", () => {
   });
 });
 
+describe("a new Group (D56)", () => {
+  it("prompts its creator's Devices to add the creator's other Devices", async () => {
+    const laptop = await logInOnNewDevice(server.app, "alice");
+    const aliceSocket = await online(alice.accessToken);
+    const groupId = randomBytes(16).toString("base64url");
+
+    sendRequest(aliceSocket, { type: "group.create", groupId, name: "mine" });
+
+    expect(await settleRequests(aliceSocket)).toContainEqual({
+      v: 1,
+      type: "device.new",
+      groupId,
+      username: "alice",
+      deviceId: laptop.deviceId,
+    });
+  });
+});
+
 describe("new Devices without Key packages yet (D56)", () => {
   it("prompt the Members again once the new Device uploaded its Key packages", async () => {
     const groupId = shareGroup(server.database, [

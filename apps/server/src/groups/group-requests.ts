@@ -15,6 +15,8 @@ export interface GroupRequestDependencies {
   >;
   messenger: HubMessenger;
   clock: () => number;
+  /** Told after a Group was created, so the creator's other Devices are prompted in (D56). */
+  onGroupCreated?: (groupId: Buffer) => void;
 }
 
 /**
@@ -42,8 +44,9 @@ function createGroup(
   context: HubContext,
   envelope: GroupCreateEnvelope,
 ): void {
+  const groupId = groupIdBytes(envelope.groupId);
   const created = dependencies.groupStore.create({
-    groupId: groupIdBytes(envelope.groupId),
+    groupId,
     name: envelope.name,
     creatorDeviceId: context.owner.deviceId,
     createdAt: dependencies.clock(),
@@ -53,6 +56,7 @@ function createGroup(
     envelope.requestId,
     created ? { ok: true } : { ok: false, code: HubErrorCode.GroupExists },
   );
+  if (created) dependencies.onGroupCreated?.(groupId);
 }
 
 function renameGroup(
