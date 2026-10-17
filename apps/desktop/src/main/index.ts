@@ -15,12 +15,13 @@ import {
   type IpcInvocation,
 } from "./ipc/checked-ipc-handler";
 import { loadMlsEngineFactory } from "./mls/mls-module";
-import { refuseEveryPermission } from "./permissions";
+import { grantCallPermissionsOnly } from "./permissions";
 import { createFetchTransport } from "./server-api/fetch-transport";
 import { createServerApiClient } from "./server-api/server-api-client";
 import { createStandardSocketOpener } from "./session/live-socket";
 import { systemSessionClock } from "./session/session-clock";
 import { hardenWebContents } from "./web-contents-hardening";
+import { hideOnClose, showAgain } from "./window-closing";
 import { hardenedWebPreferences } from "./window-preferences";
 
 const pageUrl = appPageUrl({
@@ -31,10 +32,12 @@ const pageUrl = appPageUrl({
 const appWebContentsIds = new Set<number>();
 // The local database lives in Electron's per-user data directory (D20, 08-m1-build step 7).
 const LOCAL_DATABASE_FILE_NAME = "device.db";
+let mainWindow: BrowserWindow | undefined;
+let quitting = false;
 
 function createWindow(): void {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  const window = new BrowserWindow({
     width: 900,
     height: 670,
     show: false,
@@ -44,13 +47,16 @@ function createWindow(): void {
       join(__dirname, "../preload/index.js"),
     ),
   });
-  trackAppWebContents(mainWindow);
+  trackAppWebContents(window);
+  // Closing hides the window so a Call keeps running (D42, #9's spec).
+  hideOnClose(window, () => quitting);
 
-  mainWindow.on("ready-to-show", () => {
-    mainWindow.show();
+  window.on("ready-to-show", () => {
+    window.show();
   });
 
-  void mainWindow.loadURL(pageUrl);
+  void window.loadURL(pageUrl);
+  mainWindow = window;
 }
 
 function trackAppWebContents(window: BrowserWindow): void {
@@ -117,6 +123,16 @@ function openInBrowser(url: string): void {
   });
 }
 
+// Launching the app again shows the running one's window (#9's spec).
+const isFirstInstance = app.requestSingleInstanceLock();
+if (!isFirstInstance) app.quit();
+app.on("second-instance", () => {
+  if (mainWindow !== undefined) showAgain(mainWindow);
+});
+app.on("before-quit", () => {
+  quitting = true;
+});
+
 app.enableSandbox();
 app.on("web-contents-created", (_, contents) => {
   hardenWebContents(contents, { appPageUrl: pageUrl, openInBrowser });
@@ -126,9 +142,13 @@ app.on("web-contents-created", (_, contents) => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 void app.whenReady().then(() => {
+  // A second launch only woke the first one up and is quitting.
+  if (!isFirstInstance) return;
   // Set app user model id for windows
   electronApp.setAppUserModelId("com.newcord.desktop");
-  refuseEveryPermission(session.defaultSession);
+  grantCallPermissionsOnly(session.defaultSession, (webContentsId) =>
+    appWebContentsIds.has(webContentsId),
+  );
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
