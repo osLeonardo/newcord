@@ -7,8 +7,14 @@ export interface CallSettingsStore {
   change(changes: Partial<CallSettings>): CallSettings;
 }
 
-/** Hide my IP is off unless the person turns it on (D14). */
-const DEFAULT_CALL_SETTINGS: CallSettings = { hideMyIp: false };
+/** The settings accepted on October 14, 2026 (10-m3-build and 11-m4-build Settings, #9's spec). */
+export const DEFAULT_CALL_SETTINGS: CallSettings = {
+  microphoneMode: "voice-activity",
+  pushToTalkKey: null,
+  muteHotkey: "Ctrl+Shift+M",
+  codec: "H264",
+  hideMyIp: false,
+};
 
 const CREATE_CALL_SETTINGS_SQL = `
 CREATE TABLE IF NOT EXISTS call_settings (

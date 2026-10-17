@@ -1,4 +1,11 @@
-import { app, shell, BrowserWindow, ipcMain, session } from "electron";
+import {
+  app,
+  shell,
+  BrowserWindow,
+  globalShortcut,
+  ipcMain,
+  session,
+} from "electron";
 import { join } from "path";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { APP_NAME } from "@newcord/shared";
@@ -102,6 +109,13 @@ function startServices(): DesktopApiCalls {
     notify: sendToAppWindows,
     reportError: (error) => {
       console.error("A background task failed", error);
+    },
+    hotkeys: {
+      register: (accelerator, pressed) =>
+        globalShortcut.register(accelerator, pressed),
+      unregister: (accelerator) => {
+        globalShortcut.unregister(accelerator);
+      },
     },
   });
   app.once("will-quit", () => {

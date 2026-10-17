@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CallSignal } from "@newcord/shared";
 import type {
+  CallSettings,
   CallSummary,
   IceConfiguration,
   ReceivedCallSignal,
@@ -18,6 +19,7 @@ import {
 } from "./browser-call-media";
 import { createCallMesh, type CallMesh } from "./call-mesh";
 import { createLevelGate } from "./voice-level";
+import { microphoneOpen, type MicrophoneInputs } from "./voice-settings";
 
 /** Relay passwords last an hour (10-m3-build Settings); new ones are fetched at half that. */
 const RELAY_REFRESH_MS = 30 * 60 * 1000;
@@ -29,12 +31,15 @@ const MICROPHONE_PROBLEM =
 export interface CallSession {
   readonly active: CallSummary | undefined;
   readonly remoteStreams: ReadonlyMap<string, MediaStream>;
-  /** The Devices heard speaking, this one included. */
+  /** The Devices heard speaking, this one included while its microphone sends. */
   readonly speaking: ReadonlySet<string>;
+  readonly muted: boolean;
   readonly problem: string | undefined;
   readonly joining: boolean;
   join(groupId: string): void;
   leave(): void;
+  /** Also toggled by the global mute hotkey (D44c). */
+  toggleMute(): void;
 }
 
 interface RunningCall {
@@ -63,6 +68,9 @@ export function useCallSession(desktopApi: DesktopApi): CallSession {
   const [microphone, setMicrophone] = useState<MediaStream>();
   const [problem, setProblem] = useState<string>();
   const [joining, setJoining] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const pushToTalkHeld = usePushToTalk(desktopApi);
+  const settings = useCallSettings(desktopApi);
 
   const hangUp = useCallback((): void => {
     const running = refs.current.running;
@@ -74,6 +82,7 @@ export function useCallSession(desktopApi: DesktopApi): CallSession {
     setActive(undefined);
     setRemoteStreams(new Map());
     setMicrophone(undefined);
+    setMuted(false);
   }, []);
 
   useEffect(() => {
@@ -88,6 +97,9 @@ export function useCallSession(desktopApi: DesktopApi): CallSession {
       running.mesh.participantsChanged(othersIn(call));
       setActive(call);
     });
+    const unsubscribeMute = desktopApi.onMuteToggled(() => {
+      if (current.running !== undefined) setMuted((was) => !was);
+    });
     const unsubscribeSignals = desktopApi.onCallSignal((received) => {
       if (current.joining?.groupId === received.groupId) {
         current.joining.signals.push(received);
@@ -97,6 +109,7 @@ export function useCallSession(desktopApi: DesktopApi): CallSession {
     });
     return (): void => {
       unsubscribeChanges();
+      unsubscribeMute();
       unsubscribeSignals();
       const running = current.running;
       if (running === undefined) return;
@@ -160,13 +173,101 @@ export function useCallSession(desktopApi: DesktopApi): CallSession {
     desktopApi.leaveCall(running.groupId).catch(reportCallError);
   }, [desktopApi, hangUp]);
 
-  const levelStreams = useMemo(() => {
-    if (active === undefined || microphone === undefined) return remoteStreams;
-    return new Map([...remoteStreams, [active.ownDeviceId, microphone]]);
-  }, [active, microphone, remoteStreams]);
-  const speaking = useSpeaking(levelStreams);
+  const toggleMute = useCallback((): void => {
+    if (refs.current.running !== undefined) setMuted((was) => !was);
+  }, []);
 
-  return { active, remoteStreams, speaking, problem, joining, join, leave };
+  const selfSpeaking = useMicrophoneGate(microphone, {
+    mode: settings?.microphoneMode ?? "voice-activity",
+    muted,
+    pushToTalkHeld,
+  });
+  const othersSpeaking = useSpeaking(remoteStreams);
+  const ownDeviceId = active?.ownDeviceId;
+  const speaking = useMemo(
+    () =>
+      selfSpeaking && ownDeviceId !== undefined
+        ? new Set([...othersSpeaking, ownDeviceId])
+        : othersSpeaking,
+    [othersSpeaking, ownDeviceId, selfSpeaking],
+  );
+
+  return {
+    active,
+    remoteStreams,
+    speaking,
+    muted,
+    problem,
+    joining,
+    join,
+    leave,
+    toggleMute,
+  };
+}
+
+/** The Call settings, following changes made in any window. */
+function useCallSettings(desktopApi: DesktopApi): CallSettings | undefined {
+  const [settings, setSettings] = useState<CallSettings>();
+  useEffect(() => {
+    let mounted = true;
+    desktopApi.readCallSettings().then((read) => {
+      if (mounted) setSettings(read);
+    }, reportCallError);
+    const unsubscribe = desktopApi.onCallSettingsChanged(setSettings);
+    return (): void => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, [desktopApi]);
+  return settings;
+}
+
+/** Whether the push-to-talk key is held, heard by the main process while any app is in front. */
+function usePushToTalk(desktopApi: DesktopApi): boolean {
+  const [held, setHeld] = useState(false);
+  useEffect(() => desktopApi.onPushToTalk(setHeld), [desktopApi]);
+  return held;
+}
+
+/**
+ * Turns the microphone's track on and off by voice activity or push-to-talk, and off while muted
+ * (D44). The level is measured on a copy of the track, which keeps hearing while the track is off.
+ * Answers whether this Device is sending speech now.
+ */
+function useMicrophoneGate(
+  microphone: MediaStream | undefined,
+  controls: Omit<MicrophoneInputs, "voiceDetected">,
+): boolean {
+  const [selfSpeaking, setSelfSpeaking] = useState(false);
+  const { mode, muted, pushToTalkHeld } = controls;
+  useEffect(() => {
+    if (microphone === undefined) return;
+    const tracks = microphone.getAudioTracks();
+    const listening = new MediaStream(tracks.map((track) => track.clone()));
+    const gate = createLevelGate();
+    let voiceDetected = false;
+    const apply = (): void => {
+      const open = microphoneOpen({
+        mode,
+        voiceDetected,
+        pushToTalkHeld,
+        muted,
+      });
+      for (const track of tracks) track.enabled = open;
+      setSelfSpeaking(open && voiceDetected);
+    };
+    apply();
+    const stopWatching = watchVoiceLevel(listening, (level) => {
+      voiceDetected = gate.update(level, performance.now());
+      apply();
+    });
+    return (): void => {
+      stopWatching();
+      stopStream(listening);
+      setSelfSpeaking(false);
+    };
+  }, [microphone, mode, muted, pushToTalkHeld]);
+  return selfSpeaking;
 }
 
 type StartedCall =

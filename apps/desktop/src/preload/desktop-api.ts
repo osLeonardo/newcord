@@ -1,6 +1,7 @@
 import type { ApiErrorCode } from "@newcord/shared";
 import type {
   CallApiCalls,
+  CallSettings,
   CallSettingsApiCalls,
   CallSummary,
   ReceivedCallSignal,
@@ -117,6 +118,14 @@ export interface DesktopApiSubscriptions {
   onCallChanged(listener: (call: CallSummary) => void): Unsubscribe;
   /** Hears the WebRTC signals other Participants send this Device. */
   onCallSignal(listener: (signal: ReceivedCallSignal) => void): Unsubscribe;
+  /** Hears the global mute hotkey (D44c). */
+  onMuteToggled(listener: () => void): Unsubscribe;
+  /** Hears the push-to-talk key going down and up, wherever the focus is (D44b). */
+  onPushToTalk(listener: (held: boolean) => void): Unsubscribe;
+  /** Hears the Call settings after any window changed them. */
+  onCallSettingsChanged(
+    listener: (settings: CallSettings) => void,
+  ): Unsubscribe;
 }
 
 /** The named functions the preload gives the interface as `window.desktopApi`; keys and tokens never cross it. */
@@ -154,6 +163,7 @@ export const desktopApiChannels = {
   readIceConfiguration: "calls:read-ice",
   readCallSettings: "settings:read-call",
   changeCallSettings: "settings:change-call",
+  readVoiceControls: "settings:read-voice-controls",
 } as const satisfies Record<keyof DesktopApiCalls, string>;
 
 /** The IPC channel the main process sends each change on. */
@@ -167,4 +177,7 @@ export const desktopApiEventChannels = {
   onBlocksChanged: "blocks:changed",
   onCallChanged: "calls:changed",
   onCallSignal: "calls:signal",
+  onMuteToggled: "calls:mute-toggled",
+  onPushToTalk: "calls:push-to-talk",
+  onCallSettingsChanged: "settings:call-changed",
 } as const satisfies Record<keyof DesktopApiSubscriptions, string>;

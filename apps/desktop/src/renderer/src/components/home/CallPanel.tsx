@@ -3,6 +3,7 @@ import type { CallSummary } from "../../../../preload/call-api";
 import type { DesktopApi } from "../../../../preload/desktop-api";
 import type { CallSession } from "../../calls/use-call-session";
 import { screenStyles } from "../screen-styles";
+import { CallSettingsPanel } from "./CallSettingsPanel";
 
 interface CallPanelProps {
   readonly desktopApi: DesktopApi;
@@ -14,6 +15,7 @@ interface CallPanelProps {
 export function CallPanel(props: CallPanelProps): React.JSX.Element {
   const { desktopApi, groupId, callSession } = props;
   const [heard, setHeard] = useState<CallSummary>();
+  const [showsSettings, setShowsSettings] = useState(false);
 
   useEffect(() => {
     let showsThisGroup = true;
@@ -66,15 +68,27 @@ export function CallPanel(props: CallPanelProps): React.JSX.Element {
         </ul>
       )}
       {inThisCall ? (
-        <button
-          type="button"
-          className={screenStyles.smallDangerButton}
-          onClick={() => {
-            callSession.leave();
-          }}
-        >
-          Leave Call
-        </button>
+        <>
+          <button
+            type="button"
+            aria-pressed={callSession.muted}
+            className={screenStyles.smallSecondaryButton}
+            onClick={() => {
+              callSession.toggleMute();
+            }}
+          >
+            {callSession.muted ? "Unmute" : "Mute"}
+          </button>
+          <button
+            type="button"
+            className={screenStyles.smallDangerButton}
+            onClick={() => {
+              callSession.leave();
+            }}
+          >
+            Leave Call
+          </button>
+        </>
       ) : call?.full === true ? (
         <span className="text-amber-300">Call full</span>
       ) : (
@@ -89,56 +103,22 @@ export function CallPanel(props: CallPanelProps): React.JSX.Element {
           {callSession.joining ? "Joining…" : "Join Call"}
         </button>
       )}
-      {!inThisCall && <HideMyIpToggle desktopApi={desktopApi} />}
+      <button
+        type="button"
+        aria-expanded={showsSettings}
+        className={screenStyles.linkButton}
+        onClick={() => {
+          setShowsSettings(!showsSettings);
+        }}
+      >
+        Call settings
+      </button>
       {callSession.problem !== undefined && (
         <span role="alert" className={screenStyles.errorMessage}>
           {callSession.problem}
         </span>
       )}
+      {showsSettings && <CallSettingsPanel desktopApi={desktopApi} />}
     </section>
-  );
-}
-
-/**
- * Hide my IP until the Call settings panel holds it (#9, Step 03): relay-only connections from the
- * next Call on (D14).
- */
-function HideMyIpToggle(props: {
-  readonly desktopApi: DesktopApi;
-}): React.JSX.Element {
-  const { desktopApi } = props;
-  const [hideMyIp, setHideMyIp] = useState<boolean>();
-
-  useEffect(() => {
-    let mounted = true;
-    desktopApi.readCallSettings().then(
-      (settings) => {
-        if (mounted) setHideMyIp(settings.hideMyIp);
-      },
-      () => undefined,
-    );
-    return (): void => {
-      mounted = false;
-    };
-  }, [desktopApi]);
-
-  return (
-    <label className="flex items-center gap-1 text-zinc-400">
-      <input
-        type="checkbox"
-        checked={hideMyIp ?? false}
-        disabled={hideMyIp === undefined}
-        onChange={(event) => {
-          const wanted = event.target.checked;
-          desktopApi.changeCallSettings({ hideMyIp: wanted }).then(
-            (settings) => {
-              setHideMyIp(settings.hideMyIp);
-            },
-            () => undefined,
-          );
-        }}
-      />
-      Hide my IP
-    </label>
   );
 }

@@ -4,6 +4,7 @@ import type {
   IceConfigurationResult,
   JoinCallResult,
   ReceivedCallSignal,
+  VoiceControlsStatus,
 } from "./call-api";
 import type { IpcInvoke, IpcSubscribe } from "./desktop-api-bridge";
 import {
@@ -23,6 +24,10 @@ type CallApi = Pick<
   | "readIceConfiguration"
   | "readCallSettings"
   | "changeCallSettings"
+  | "readVoiceControls"
+  | "onMuteToggled"
+  | "onPushToTalk"
+  | "onCallSettingsChanged"
   | "onCallChanged"
   | "onCallSignal"
 >;
@@ -69,6 +74,20 @@ export function createCallApi(
         desktopApiChannels.changeCallSettings,
         changes,
       ) as Promise<CallSettings>,
+    readVoiceControls: () =>
+      invoke(
+        desktopApiChannels.readVoiceControls,
+      ) as Promise<VoiceControlsStatus>,
+    onMuteToggled: (listener) =>
+      subscribe(desktopApiEventChannels.onMuteToggled, () => listener()),
+    onPushToTalk: (listener) =>
+      subscribe(desktopApiEventChannels.onPushToTalk, (payload) =>
+        listener(payload === true),
+      ),
+    onCallSettingsChanged: (listener) =>
+      subscribe(desktopApiEventChannels.onCallSettingsChanged, (payload) =>
+        listener(payload as CallSettings),
+      ),
     onCallChanged: (listener) =>
       subscribe(desktopApiEventChannels.onCallChanged, (payload) =>
         listener(payload as CallSummary),

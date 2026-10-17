@@ -1,4 +1,5 @@
 import { vi, type Mock } from "vitest";
+import { DEFAULT_CALL_SETTINGS } from "../../src/main/local-store/call-settings";
 import type {
   CallApiCalls,
   CallSettingsApiCalls,
@@ -47,10 +48,13 @@ export function fakeCallActions(): FakeCallActions {
       }),
     ),
     readCallSettings: vi.fn<CallSettingsApiCalls["readCallSettings"]>(() =>
-      Promise.resolve({ hideMyIp: false }),
+      Promise.resolve(DEFAULT_CALL_SETTINGS),
     ),
     changeCallSettings: vi.fn<CallSettingsApiCalls["changeCallSettings"]>(
-      (changes) => Promise.resolve({ hideMyIp: false, ...changes }),
+      (changes) => Promise.resolve({ ...DEFAULT_CALL_SETTINGS, ...changes }),
+    ),
+    readVoiceControls: vi.fn<CallSettingsApiCalls["readVoiceControls"]>(() =>
+      Promise.resolve({ pushToTalkAvailable: false }),
     ),
   };
 }

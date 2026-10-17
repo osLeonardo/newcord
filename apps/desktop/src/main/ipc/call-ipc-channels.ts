@@ -7,6 +7,7 @@ import type {
   CallSummary,
   IceConfigurationResult,
   JoinCallResult,
+  VoiceControlsStatus,
 } from "../../preload/call-api";
 import { desktopApiChannels } from "../../preload/desktop-api";
 import type { GroupActionResult } from "../../preload/group-api";
@@ -22,9 +23,36 @@ const ParticipantArguments = Type.Tuple([GroupId, DeviceId]);
 type ParticipantArguments = Static<typeof ParticipantArguments>;
 const NoArguments = Type.Tuple([]);
 type NoArguments = Static<typeof NoArguments>;
+/** Ctrl or Alt, then a letter, digit or F-key: never a key other apps need for typing. */
+const MuteHotkey = Type.String({
+  pattern:
+    "^(?=.*(Ctrl|Alt)\\+)(Ctrl\\+)?(Alt\\+)?(Shift\\+)?([A-Z0-9]|F([1-9]|1[0-9]|2[0-4]))$",
+});
 const SettingsChangeArguments = Type.Tuple([
   Type.Object(
-    { hideMyIp: Type.Optional(Type.Boolean()) },
+    {
+      microphoneMode: Type.Optional(
+        Type.Union([
+          Type.Literal("voice-activity"),
+          Type.Literal("push-to-talk"),
+        ]),
+      ),
+      pushToTalkKey: Type.Optional(
+        Type.Union([
+          Type.String({ pattern: "^[A-Za-z0-9]{1,32}$" }),
+          Type.Null(),
+        ]),
+      ),
+      muteHotkey: Type.Optional(MuteHotkey),
+      codec: Type.Optional(
+        Type.Union([
+          Type.Literal("H264"),
+          Type.Literal("VP8"),
+          Type.Literal("VP9"),
+        ]),
+      ),
+      hideMyIp: Type.Optional(Type.Boolean()),
+    },
     { additionalProperties: false },
   ),
 ]);
@@ -84,9 +112,16 @@ export function createCallIpcChannels(
     }),
     checkedChannel<SettingsChangeArguments, CallSettings>({
       name: desktopApiChannels.changeCallSettings,
-      expectedArguments: "changes: { hideMyIp?: boolean }",
+      expectedArguments:
+        "changes: { microphoneMode?, pushToTalkKey?, muteHotkey?, codec?, hideMyIp? }",
       argumentsMatch: argumentsMatching(SettingsChangeArguments),
       handle: (changes) => actions.changeCallSettings(changes),
+    }),
+    checkedChannel<NoArguments, VoiceControlsStatus>({
+      name: desktopApiChannels.readVoiceControls,
+      expectedArguments: "",
+      argumentsMatch: argumentsMatching(NoArguments),
+      handle: () => actions.readVoiceControls(),
     }),
   ];
 }

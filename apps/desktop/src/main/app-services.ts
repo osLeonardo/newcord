@@ -10,6 +10,12 @@ import {
   createCallSettingsActions,
 } from "./calls/call-actions";
 import {
+  createVoiceControls,
+  type HotkeyRegistry,
+  type KeyboardHook,
+  type VoiceControls,
+} from "./calls/voice-controls";
+import {
   createCallSettingsStore,
   type CallSettingsStore,
 } from "./local-store/call-settings";
@@ -44,6 +50,10 @@ export interface AppServicesDependencies {
   /** Tells the app's windows about a change on one of the desktop API's event channels. */
   readonly notify: (channel: string, payload?: unknown) => void;
   readonly reportError: (error: unknown) => void;
+  /** Electron's global shortcuts, for the mute hotkey (D44c); none in tests. */
+  readonly hotkeys?: HotkeyRegistry;
+  /** The keyboard hook for push-to-talk (D44b, D74); none until `uiohook-napi` is approved. */
+  readonly keyboardHook?: KeyboardHook;
 }
 
 /** The main process's services: the desktop API's calls, and a way to stop before quitting. */
@@ -72,8 +82,25 @@ export function startAppServices(
   loadOrCreateIdentityKey(store, createIdentityKeyPair);
   const holder: HubHolder = {};
   const callSettings = createCallSettingsStore(dependencies.database);
+  const voiceControls = createVoiceControls({
+    ...(dependencies.hotkeys === undefined
+      ? {}
+      : { hotkeys: dependencies.hotkeys }),
+    ...(dependencies.keyboardHook === undefined
+      ? {}
+      : { keyboardHook: dependencies.keyboardHook }),
+    settings: () => callSettings.read(),
+    muteToggled: () =>
+      dependencies.notify(desktopApiEventChannels.onMuteToggled),
+    pushToTalkChanged: (held) =>
+      dependencies.notify(desktopApiEventChannels.onPushToTalk, held),
+    reportError: dependencies.reportError,
+  });
   const liveSession = startLiveSession(dependencies, store, holder);
-  holder.hub = createGroupHub(dependencies, store, liveSession, callSettings);
+  holder.hub = createGroupHub(dependencies, store, liveSession, {
+    callSettings,
+    voiceControls,
+  });
   const accountActions = createAccountActions({
     store,
     server: dependencies.server,
@@ -85,12 +112,20 @@ export function startAppServices(
       ...accountActions,
       ...createGroupActions(() => holder.hub?.current()?.groups),
       ...createCallActions(() => holder.hub?.current()?.calls),
-      ...createCallSettingsActions(callSettings),
+      ...createCallSettingsActions(callSettings, voiceControls, (settings) =>
+        dependencies.notify(
+          desktopApiEventChannels.onCallSettingsChanged,
+          settings,
+        ),
+      ),
     },
     store,
     liveSession,
     deviceHub: holder.hub,
-    stop: () => liveSession.stop(),
+    stop: (): Promise<void> => {
+      voiceControls.stop();
+      return liveSession.stop();
+    },
   };
 }
 
@@ -120,11 +155,16 @@ function startLiveSession(
   return liveSession;
 }
 
+interface CallParts {
+  readonly callSettings: CallSettingsStore;
+  readonly voiceControls: VoiceControls;
+}
+
 function createGroupHub(
   dependencies: AppServicesDependencies,
   store: LocalStore,
   liveSession: LiveSession,
-  callSettings: CallSettingsStore,
+  { callSettings, voiceControls }: CallParts,
 ): DeviceHub | undefined {
   const { createEngine, database, notify } = dependencies;
   if (createEngine === undefined) return undefined;
@@ -144,8 +184,10 @@ function createGroupHub(
       groupLeft: (notice) =>
         notify(desktopApiEventChannels.onGroupLeft, notice),
       blocksChanged: () => notify(desktopApiEventChannels.onBlocksChanged),
-      callChanged: (call) =>
-        notify(desktopApiEventChannels.onCallChanged, call),
+      callChanged: (call) => {
+        voiceControls.callChanged(call);
+        notify(desktopApiEventChannels.onCallChanged, call);
+      },
       callSignalReceived: (signal) =>
         notify(desktopApiEventChannels.onCallSignal, signal),
     },

@@ -31,6 +31,20 @@ describe("the Call channels", () => {
     [desktopApiChannels.readCallSettings, []],
     [desktopApiChannels.changeCallSettings, [{ hideMyIp: true }]],
     [desktopApiChannels.changeCallSettings, [{}]],
+    [
+      desktopApiChannels.changeCallSettings,
+      [
+        {
+          microphoneMode: "push-to-talk",
+          pushToTalkKey: "KeyV",
+          muteHotkey: "Ctrl+Shift+M",
+          codec: "VP9",
+        },
+      ],
+    ],
+    [desktopApiChannels.changeCallSettings, [{ pushToTalkKey: null }]],
+    [desktopApiChannels.changeCallSettings, [{ muteHotkey: "Alt+F9" }]],
+    [desktopApiChannels.readVoiceControls, []],
   ])("%s accepts %j", (name, args) => {
     expect(channelNamed(name).channel.argumentsMatch(args)).toBe(true);
   });
@@ -47,7 +61,12 @@ describe("the Call channels", () => {
     [desktopApiChannels.dropCallParticipant, [groupId]],
     [desktopApiChannels.readIceConfiguration, [groupId]],
     [desktopApiChannels.changeCallSettings, [{ hideMyIp: "yes" }]],
-    [desktopApiChannels.changeCallSettings, [{ codec: "VP8" }]],
+    [desktopApiChannels.changeCallSettings, [{ codec: "AV1" }]],
+    [desktopApiChannels.changeCallSettings, [{ muteHotkey: "Shift+M" }]],
+    [desktopApiChannels.changeCallSettings, [{ muteHotkey: "M" }]],
+    [desktopApiChannels.changeCallSettings, [{ microphoneMode: "always" }]],
+    [desktopApiChannels.changeCallSettings, [{ pushToTalkKey: "Key V" }]],
+    [desktopApiChannels.changeCallSettings, [{ volume: 3 }]],
   ])("%s refuses %j", (name, args) => {
     expect(channelNamed(name).channel.argumentsMatch(args)).toBe(false);
   });

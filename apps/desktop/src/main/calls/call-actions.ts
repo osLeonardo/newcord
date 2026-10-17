@@ -1,7 +1,9 @@
 import type {
   CallApiCalls,
+  CallSettings,
   CallSettingsApiCalls,
 } from "../../preload/call-api";
+import type { VoiceControls } from "./voice-controls";
 import type { CallSettingsStore } from "../local-store/call-settings";
 
 /**
@@ -40,13 +42,25 @@ export function createCallActions(
 
 /**
  * The Call settings functions, answered from the local database whether or not anyone is logged in.
- * @example const settingsActions = createCallSettingsActions(createCallSettingsStore(database));
+ * Each change reaches the voice controls and every window.
+ * @example const settingsActions = createCallSettingsActions(store, voiceControls, notifyWindows);
  */
 export function createCallSettingsActions(
   store: CallSettingsStore,
+  voiceControls: Pick<VoiceControls, "settingsChanged" | "pushToTalkAvailable">,
+  settingsChanged: (settings: CallSettings) => void,
 ): CallSettingsApiCalls {
   return {
     readCallSettings: () => Promise.resolve(store.read()),
-    changeCallSettings: (changes) => Promise.resolve(store.change(changes)),
+    changeCallSettings: (changes): Promise<CallSettings> => {
+      const settings = store.change(changes);
+      voiceControls.settingsChanged();
+      settingsChanged(settings);
+      return Promise.resolve(settings);
+    },
+    readVoiceControls: () =>
+      Promise.resolve({
+        pushToTalkAvailable: voiceControls.pushToTalkAvailable(),
+      }),
   };
 }

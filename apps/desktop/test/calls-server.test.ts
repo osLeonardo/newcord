@@ -333,7 +333,7 @@ describe("the relay (#9, Step 02)", () => {
     const settings = await alice.actions.changeCallSettings({ hideMyIp: true });
     const result = await (await hubOf(alice)).calls.readIceConfiguration();
 
-    expect(settings).toEqual({ hideMyIp: true });
+    expect(settings).toMatchObject({ hideMyIp: true });
     expect(
       result.outcome === "ready" && result.configuration.iceTransportPolicy,
     ).toBe("relay");
