@@ -44,7 +44,7 @@ import {
 } from "./ipc/checked-ipc-handler";
 import { createShareChooser } from "./calls/screen-share";
 import { createUiohookKeyboardHook } from "./calls/uiohook-keyboard-hook";
-import { loadMlsEngineFactory } from "./mls/mls-module";
+import { describeMlsModule, loadMlsEngineFactory } from "./mls/mls-module";
 import { grantCallPermissionsOnly } from "./permissions";
 import { createFetchTransport } from "./server-api/fetch-transport";
 import { createServerApiClient } from "./server-api/server-api-client";
@@ -373,6 +373,7 @@ void app.whenReady().then(() => {
   createTray(services);
   createWindow(services, startsHidden(process.argv));
   console.log(`${APP_NAME} desktop ready, server ${builtInServerAddress}`);
+  console.log(describeMlsModule());
 
   app.on("activate", function () {
     // On macOS it's common to re-create a window in the app when the

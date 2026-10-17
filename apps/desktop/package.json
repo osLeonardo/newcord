@@ -12,8 +12,8 @@
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "pnpm run typecheck:node && pnpm run typecheck:web",
     "start": "electron-vite preview",
-    "dev": "electron-vite dev",
-    "build": "pnpm run typecheck && electron-vite build",
+    "dev": "node ../../packages/mls/scripts/build.mjs --if-missing && electron-vite dev",
+    "build": "node ../../packages/mls/scripts/build.mjs --if-missing && pnpm run typecheck && electron-vite build",
     "postinstall": "install-electron && electron-builder install-app-deps",
     "build:unpack": "pnpm run build && electron-builder --dir",
     "build:win": "pnpm run build && electron-builder --win",
@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
+    "@newcord/mls": "workspace:*",
     "@newcord/shared": "workspace:*",
     "better-sqlite3": "^13.0.3",
     "typebox": "^1.3.37",

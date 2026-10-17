@@ -35,6 +35,23 @@ export default defineConfig(
     rules: { "@typescript-eslint/explicit-function-return-type": "error" },
   },
   security.configs.recommended,
+  {
+    // The MLS module holds keys, so it lives only in the main process (D22, #4's spec).
+    files: ["apps/desktop/src/preload/**", "apps/desktop/src/renderer/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@newcord/mls",
+              message: "The MLS module is for the main process only (D22).",
+            },
+          ],
+        },
+      ],
+    },
+  },
   { files: ["**/*.tsx"], extends: [reactHooks.configs.flat.recommended] },
   prettierCompatibility,
 );

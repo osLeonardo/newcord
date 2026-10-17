@@ -59,7 +59,7 @@ export interface AppServicesDependencies {
   readonly server: ServerApiClient;
   readonly openSocket: LiveSocketOpener;
   readonly clock: SessionClock;
-  /** The MLS engine's factory; until #4 builds `@newcord/mls` there is none, and Groups are unavailable. */
+  /** The MLS engine's factory, from `@newcord/mls` (#4); without one, Groups are unavailable. */
   readonly createEngine: (() => MlsEngine) | undefined;
   /** Tells the app's windows about a change on one of the desktop API's event channels. */
   readonly notify: (channel: string, payload?: unknown) => void;
