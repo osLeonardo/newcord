@@ -12,7 +12,8 @@ User=newcord
 WorkingDirectory=/opt/newcord/apps/server
 # Secrets and settings, readable only by the newcord user (see deploy/env.example).
 EnvironmentFile=/etc/newcord/env
-ExecStart=/usr/bin/node dist/index.js
+# The server runs through tsx; there is no separate build (D89).
+ExecStart=/usr/bin/node --import tsx src/index.ts
 Restart=on-failure
 
 NoNewPrivileges=true
