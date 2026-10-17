@@ -126,4 +126,25 @@ describe("blocking (D57)", () => {
       );
     }, WAIT);
   });
+
+  it("can unblock someone who no longer shares any Group (D88)", async () => {
+    const { friends, family, phone, bruno } = await sharedGroups();
+    const hub = await hubOf(phone);
+    await hub.groups.blockAccount("bruno");
+    for (const groupId of [friends, family]) {
+      await hub.groups.removeMember(groupId, "bruno");
+    }
+    await vi.waitFor(async () => {
+      expect(await (await hubOf(bruno)).groups.listGroups()).toEqual([]);
+    }, WAIT);
+
+    expect(await hub.groups.listBlocked()).toEqual(["bruno"]);
+    expect(await hub.groups.unblockAccount("bruno")).toEqual({
+      outcome: "done",
+    });
+
+    await vi.waitFor(async () => {
+      expect(await hub.groups.listBlocked()).toEqual([]);
+    }, WAIT);
+  });
 });

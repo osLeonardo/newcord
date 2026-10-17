@@ -10,6 +10,7 @@ import { UNEXPECTED_FAILURE_MESSAGE } from "../../account/account-messages";
 import { SHARE_CODEC_LABELS } from "../../calls/voice-settings";
 import { screenStyles } from "../screen-styles";
 import { AudioSettings } from "./AudioSettings";
+import { BlockedList } from "./BlockedList";
 import { CpuMeasurementTool } from "./CpuMeasurementTool";
 
 interface SettingsScreenProps {
@@ -153,6 +154,7 @@ export function SettingsScreen(props: SettingsScreenProps): React.JSX.Element {
                 message arrived.
               </span>
             </fieldset>
+            <BlockedList desktopApi={desktopApi} />
           </SettingsSection>
           <SettingsSection title="App">
             <label className="flex items-center gap-2">
