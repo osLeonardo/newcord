@@ -14,6 +14,7 @@ const everyRefusal: GroupRefusal[] = [
   "TIMED_OUT",
   "INVALID_NAME",
   "INVALID_USERNAME",
+  "INVALID_TEXT",
   "NOT_IN_GROUP",
   "UNAVAILABLE",
 ];

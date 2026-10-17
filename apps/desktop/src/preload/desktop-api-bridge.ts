@@ -10,10 +10,12 @@ import {
   type Unsubscribe,
 } from "./desktop-api";
 import type {
+  ChatMessage,
   CreateGroupResult,
   GroupActionResult,
   GroupSummary,
   InvitationSummary,
+  SendMessageResult,
 } from "./group-api";
 
 /** `ipcRenderer.invoke`, which stays inside the preload and never reaches the interface. */
@@ -90,6 +92,20 @@ export function createDesktopApi(
         invitationId,
         accept,
       ) as Promise<GroupActionResult>,
+    listMessages: (groupId) =>
+      invoke(desktopApiChannels.listMessages, groupId) as Promise<
+        readonly ChatMessage[]
+      >,
+    sendMessage: (groupId, text) =>
+      invoke(
+        desktopApiChannels.sendMessage,
+        groupId,
+        text,
+      ) as Promise<SendMessageResult>,
+    onMessagesChanged: (listener) =>
+      subscribe(desktopApiEventChannels.onMessagesChanged, (payload) =>
+        listener(payload as string),
+      ),
     onGroupsChanged: (listener) =>
       subscribe(desktopApiEventChannels.onGroupsChanged, () => listener()),
     onInvitationsChanged: (listener) =>

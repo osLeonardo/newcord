@@ -26,6 +26,7 @@ export type GroupRefusal =
   | "TIMED_OUT"
   | "INVALID_NAME"
   | "INVALID_USERNAME"
+  | "INVALID_TEXT"
   | "NOT_IN_GROUP"
   | "UNAVAILABLE";
 
@@ -38,6 +39,24 @@ export type GroupActionResult =
   | { readonly outcome: "done" }
   | { readonly outcome: "refused"; readonly refusal: GroupRefusal };
 
+/** A Chat message as the Group chat shows it: always as text, never as HTML. */
+export interface ChatMessage {
+  readonly groupId: string;
+  /** The server's sequence number; every Device shows messages in this order. */
+  readonly seq: number;
+  readonly messageId: string;
+  readonly sender: string;
+  /** Whether this Account sent it, from any of its Devices. */
+  readonly own: boolean;
+  readonly text: string;
+  /** The sender's clock when it was sent, in milliseconds. */
+  readonly sentAt: number;
+}
+
+export type SendMessageResult =
+  | { readonly outcome: "sent"; readonly message: ChatMessage }
+  | { readonly outcome: "refused"; readonly refusal: GroupRefusal };
+
 /** The desktop API's Group calls (#6). */
 export interface GroupApiCalls {
   listGroups(): Promise<readonly GroupSummary[]>;
@@ -48,4 +67,6 @@ export interface GroupApiCalls {
     invitationId: string,
     accept: boolean,
   ): Promise<GroupActionResult>;
+  listMessages(groupId: string): Promise<readonly ChatMessage[]>;
+  sendMessage(groupId: string, text: string): Promise<SendMessageResult>;
 }

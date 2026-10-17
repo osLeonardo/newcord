@@ -26,5 +26,11 @@ export function fakeGroupActions(): FakeGroupActions {
     answerInvitation: vi.fn<GroupApiCalls["answerInvitation"]>(() =>
       Promise.resolve({ outcome: "done" }),
     ),
+    listMessages: vi.fn<GroupApiCalls["listMessages"]>(() =>
+      Promise.resolve([]),
+    ),
+    sendMessage: vi.fn<GroupApiCalls["sendMessage"]>(() =>
+      Promise.resolve({ outcome: "refused", refusal: "UNAVAILABLE" }),
+    ),
   };
 }

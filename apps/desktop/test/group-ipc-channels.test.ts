@@ -26,6 +26,9 @@ describe("the Group channels", () => {
     [desktopApiChannels.createGroup, ["friends"]],
     [desktopApiChannels.inviteToGroup, [groupId, "bruno"]],
     [desktopApiChannels.answerInvitation, [invitationId, true]],
+    [desktopApiChannels.listMessages, [groupId]],
+    [desktopApiChannels.sendMessage, [groupId, "hello"]],
+    [desktopApiChannels.sendMessage, [groupId, "x".repeat(4000)]],
   ])("%s accepts %j", (name, args) => {
     expect(channelNamed(name).channel.argumentsMatch(args)).toBe(true);
   });
@@ -40,6 +43,10 @@ describe("the Group channels", () => {
     [desktopApiChannels.inviteToGroup, [groupId]],
     [desktopApiChannels.answerInvitation, [invitationId, "yes"]],
     [desktopApiChannels.answerInvitation, ["short", true]],
+    [desktopApiChannels.listMessages, []],
+    [desktopApiChannels.sendMessage, [groupId, ""]],
+    [desktopApiChannels.sendMessage, [groupId, "x".repeat(4001)]],
+    [desktopApiChannels.sendMessage, [groupId, 42]],
   ])("%s refuses %j", (name, args) => {
     expect(channelNamed(name).channel.argumentsMatch(args)).toBe(false);
   });

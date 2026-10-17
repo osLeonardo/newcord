@@ -100,6 +100,8 @@ export interface DesktopApiSubscriptions {
   onGroupsChanged(listener: () => void): Unsubscribe;
   /** Hears that the pending Invitations changed; the interface reads them again. */
   onInvitationsChanged(listener: () => void): Unsubscribe;
+  /** Hears which Group's chat history changed; the interface reads it again. */
+  onMessagesChanged(listener: (groupId: string) => void): Unsubscribe;
 }
 
 /** The named functions the preload gives the interface as `window.desktopApi`; keys and tokens never cross it. */
@@ -119,6 +121,8 @@ export const desktopApiChannels = {
   inviteToGroup: "groups:invite",
   listInvitations: "invitations:list",
   answerInvitation: "invitations:answer",
+  listMessages: "messages:list",
+  sendMessage: "messages:send",
 } as const satisfies Record<keyof DesktopApiCalls, string>;
 
 /** The IPC channel the main process sends each change on. */
@@ -127,4 +131,5 @@ export const desktopApiEventChannels = {
   onOnlineAccountsChanged: "presence:changed",
   onGroupsChanged: "groups:changed",
   onInvitationsChanged: "invitations:changed",
+  onMessagesChanged: "messages:changed",
 } as const satisfies Record<keyof DesktopApiSubscriptions, string>;

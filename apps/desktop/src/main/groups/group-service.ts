@@ -14,6 +14,11 @@ import type {
 } from "../../preload/group-api";
 import type { HubEnvelopeHandlers } from "../hub/hub-inbox";
 import type { HubOutcome } from "../hub/hub-requester";
+import {
+  chatMessageReceived,
+  listChatMessages,
+  sendChatMessage,
+} from "./group-chat";
 import { addAccount } from "./group-commits";
 import {
   groupIdFromText,
@@ -46,7 +51,11 @@ export function createGroupService(
   options: GroupServiceOptions = {},
 ): GroupService {
   const addsUnderWay = new Set<string>();
-  const hooks = options.hooks ?? {};
+  const hooks: DeliveryHooks = {
+    messageReceived: (groupId, delivery, message) =>
+      chatMessageReceived(context, groupId, delivery, message),
+    ...options.hooks,
+  };
   return {
     listGroups: () => Promise.resolve(groupSummaries(context)),
     createGroup: (name) => createGroup(context, name, options.newGroupId),
@@ -54,6 +63,9 @@ export function createGroupService(
     listInvitations: () => Promise.resolve(invitationSummaries(context)),
     answerInvitation: (invitationId, accept) =>
       answerInvitation(context, invitationId, accept),
+    listMessages: (groupId) =>
+      Promise.resolve(listChatMessages(context, groupId)),
+    sendMessage: (groupId, text) => sendChatMessage(context, groupId, text),
     inboxHandlers: {
       "mls.welcome": (delivery) => receiveDelivery(context, delivery, hooks),
       "mls.commit": (delivery) => receiveDelivery(context, delivery, hooks),

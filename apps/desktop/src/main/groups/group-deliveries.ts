@@ -6,6 +6,7 @@ import type {
 } from "@newcord/shared";
 import type { IncomingMls } from "../mls/mls-engine";
 import {
+  forgetGroup,
   groupIdFromText,
   groupIdText,
   payloadBytes,
@@ -144,10 +145,8 @@ function applyCommit(
 ): void {
   const commit = incomingOfKind(context, delivery.commit, "commit");
   hooks.commitApplied?.(groupId, delivery, commit);
-  if (commit.removed.includes(context.ownIdentity)) {
-    context.localGroups.remove(groupId);
-    context.events.groupsChanged();
-  }
+  if (commit.removed.includes(context.ownIdentity))
+    forgetGroup(context, groupId);
 }
 
 function incomingOfKind<Kind extends IncomingMls["kind"]>(

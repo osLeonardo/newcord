@@ -34,6 +34,8 @@ export interface LiveInstallation {
 export interface LiveInstallations {
   install(): LiveInstallation;
   signedUp(username: string): Promise<LiveInstallation>;
+  /** Quits the installation's app and starts it again on the same local database. */
+  restart(installation: LiveInstallation): Promise<LiveInstallation>;
   close(): Promise<void>;
 }
 
@@ -46,21 +48,30 @@ export function credentialsOf(username: string): Credentials {
 export function createLiveInstallations(
   server: InProcessServer,
 ): LiveInstallations {
-  const opened: { database: Database.Database; liveSession: LiveSession }[] =
-    [];
-  const install = (): LiveInstallation => {
-    const installation = installApp(server, new Database(":memory:"));
-    opened.push(installation.resources);
+  const liveSessions: LiveSession[] = [];
+  const databases = new Map<LiveInstallation, Database.Database>();
+  const installOn = (database: Database.Database): LiveInstallation => {
+    const installation = installApp(server, database);
+    liveSessions.push(installation.resources.liveSession);
+    databases.set(installation.view, database);
     return installation.view;
   };
+  const install = (): LiveInstallation => installOn(new Database(":memory:"));
   return {
     install,
     signedUp: (username) => signUpOn(install(), username),
+    restart: async (installation): Promise<LiveInstallation> => {
+      const database = databases.get(installation);
+      if (database === undefined) throw new Error("unknown installation");
+      await installation.liveSession.stop();
+      databases.delete(installation);
+      return installOn(database);
+    },
     close: async (): Promise<void> => {
-      for (const { database, liveSession } of opened.splice(0)) {
+      for (const liveSession of liveSessions.splice(0))
         await liveSession.stop();
-        database.close();
-      }
+      for (const database of new Set(databases.values())) database.close();
+      databases.clear();
     },
   };
 }

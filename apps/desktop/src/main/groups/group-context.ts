@@ -1,5 +1,6 @@
 import type { HubRequester } from "../hub/hub-requester";
 import type { LocalGroups } from "../local-store/local-groups";
+import type { LocalMessages } from "../local-store/local-messages";
 import type { MlsSession } from "../mls/mls-session";
 import type { GroupLanes } from "./group-lanes";
 
@@ -7,6 +8,8 @@ import type { GroupLanes } from "./group-lanes";
 export interface GroupEvents {
   groupsChanged(): void;
   invitationsChanged(): void;
+  /** The Group's chat history changed; its ID is the base64url text Envelopes carry. */
+  messagesChanged(groupId: string): void;
 }
 
 /** Everything the Group features share for the logged-in Device. */
@@ -14,6 +17,7 @@ export interface GroupContext {
   readonly mls: MlsSession;
   readonly requester: HubRequester;
   readonly localGroups: LocalGroups;
+  readonly localMessages: LocalMessages;
   readonly lanes: GroupLanes;
   /** This Device's credential identity, `<username>:<deviceId>` (D70). */
   readonly ownIdentity: string;
@@ -21,6 +25,18 @@ export interface GroupContext {
   readonly sendAck: (groupId: Uint8Array, seq: number) => void;
   readonly events: GroupEvents;
   readonly reportError: (error: unknown) => void;
+  /** The current time, in milliseconds. */
+  readonly now: () => number;
+}
+
+/**
+ * Forgets a Group the Device left or was removed from, with its whole history (#6's spec).
+ * @example forgetGroup(context, groupId);
+ */
+export function forgetGroup(context: GroupContext, groupId: Uint8Array): void {
+  context.localGroups.remove(groupId);
+  context.localMessages.removeGroup(groupId);
+  context.events.groupsChanged();
 }
 
 /**

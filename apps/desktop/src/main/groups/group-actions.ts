@@ -22,5 +22,10 @@ export function createGroupActions(
     answerInvitation: (invitationId, accept) =>
       currentService()?.answerInvitation(invitationId, accept) ??
       Promise.resolve(unavailable),
+    listMessages: (groupId) =>
+      currentService()?.listMessages(groupId) ?? Promise.resolve([]),
+    sendMessage: (groupId, text) =>
+      currentService()?.sendMessage(groupId, text) ??
+      Promise.resolve(unavailable),
   };
 }

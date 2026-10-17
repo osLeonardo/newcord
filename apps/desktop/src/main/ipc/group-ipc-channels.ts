@@ -1,12 +1,20 @@
-import { GroupId, GroupName, InvitationId, Username } from "@newcord/shared";
+import {
+  ChatTextPayload,
+  GroupId,
+  GroupName,
+  InvitationId,
+  Username,
+} from "@newcord/shared";
 import { Type, type Static } from "typebox";
 import { desktopApiChannels } from "../../preload/desktop-api";
 import type {
+  ChatMessage,
   CreateGroupResult,
   GroupActionResult,
   GroupApiCalls,
   GroupSummary,
   InvitationSummary,
+  SendMessageResult,
 } from "../../preload/group-api";
 import { checkedChannel, type CheckedIpcChannel } from "./checked-ipc-handler";
 import { argumentsMatching } from "./typebox-arguments";
@@ -20,6 +28,14 @@ const InviteArguments = Type.Tuple([GroupId, Username]);
 type InviteArguments = Static<typeof InviteArguments>;
 const AnswerArguments = Type.Tuple([InvitationId, Type.Boolean()]);
 type AnswerArguments = Static<typeof AnswerArguments>;
+const GroupArguments = Type.Tuple([GroupId]);
+type GroupArguments = Static<typeof GroupArguments>;
+/** The screen checks the length first; the shared schema holds the limit. */
+const SendMessageArguments = Type.Tuple([
+  GroupId,
+  ChatTextPayload.properties.text,
+]);
+type SendMessageArguments = Static<typeof SendMessageArguments>;
 
 /**
  * The channels of the desktop API's Group calls (#6), each behind the sender and argument checks.
@@ -59,6 +75,19 @@ export function createGroupIpcChannels(
       argumentsMatch: argumentsMatching(AnswerArguments),
       handle: (invitationId, accept) =>
         actions.answerInvitation(invitationId, accept),
+    }),
+    checkedChannel<GroupArguments, readonly ChatMessage[]>({
+      name: desktopApiChannels.listMessages,
+      expectedArguments: "groupId: GroupId",
+      argumentsMatch: argumentsMatching(GroupArguments),
+      handle: (groupId) => actions.listMessages(groupId),
+    }),
+    checkedChannel<SendMessageArguments, SendMessageResult>({
+      name: desktopApiChannels.sendMessage,
+      expectedArguments:
+        "groupId: GroupId, text: string of 1 to 4000 characters",
+      argumentsMatch: argumentsMatching(SendMessageArguments),
+      handle: (groupId, text) => actions.sendMessage(groupId, text),
     }),
   ];
 }
