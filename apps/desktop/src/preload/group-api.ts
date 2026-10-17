@@ -60,7 +60,8 @@ export interface ChatMessage {
 
 /**
  * A system line in a Group's chat, stored on this Device and never sent (#6's spec): a commit that
- * did something other than declared or took the Group past 10 people (D71), or a new Device (D56).
+ * did something other than declared or took the Group past 10 people (D71), a new Device (D56), or
+ * a person whose set of Device keys changed, so their Safety number did too (#11).
  */
 export type GroupNotice =
   | {
@@ -75,7 +76,8 @@ export type GroupNotice =
       readonly sender: string;
       readonly people: number;
     }
-  | { readonly type: "new-device"; readonly username: string };
+  | { readonly type: "new-device"; readonly username: string }
+  | { readonly type: "safety-number-changed"; readonly username: string };
 
 /** A notice as the chat shows it, at the position of the commit that caused it. */
 export interface ChatNotice {

@@ -150,3 +150,57 @@ describe("Safety numbers (#11, Step 01)", () => {
     );
   });
 });
+
+describe("Safety number changes (#11, Step 02)", () => {
+  async function safetyNoticesAbout(
+    installation: LiveInstallation,
+    groupId: string,
+    username: string,
+  ): Promise<number> {
+    const entries = await (
+      await hubOf(installation)
+    ).groups.listMessages(groupId);
+    return entries.filter(
+      (entry) =>
+        entry.kind === "notice" &&
+        entry.notice.type === "safety-number-changed" &&
+        entry.notice.username === username,
+    ).length;
+  }
+
+  it("post one notice in every Group shared with a person who adds a Device", async () => {
+    const { groupId: first, alice, bruno } = await twoInAGroup();
+    const second = await createdGroup(alice, "second");
+    await inviteAndJoin(alice, bruno, second, "bruno");
+
+    const laptop = await secondDevice(server, installations, "bruno");
+    await waitUntilInGroup(laptop, first);
+    await waitUntilInGroup(laptop, second);
+
+    for (const groupId of [first, second]) {
+      await vi.waitFor(async () => {
+        expect(await safetyNoticesAbout(alice, groupId, "bruno")).toBe(1);
+      }, WAIT);
+      expect(await safetyNoticesAbout(bruno, groupId, "bruno")).toBe(0);
+    }
+  });
+
+  it("clear the person's verified mark", async () => {
+    const { groupId, alice } = await twoInAGroup();
+    const shown = await numberSeenBy(alice, groupId, "bruno");
+    await (await hubOf(alice)).groups.markVerified(groupId, "bruno", shown);
+
+    const laptop = await secondDevice(server, installations, "bruno");
+    await waitUntilInGroup(laptop, groupId);
+
+    await vi.waitFor(async () => {
+      expect(await safetyNoticesAbout(alice, groupId, "bruno")).toBe(1);
+    }, WAIT);
+    expect(
+      alice.database
+        .prepare("SELECT count(*) FROM verified_marks WHERE username = ?")
+        .pluck()
+        .get("bruno"),
+    ).toBe(0);
+  });
+});

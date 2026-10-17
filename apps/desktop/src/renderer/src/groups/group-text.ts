@@ -97,6 +97,8 @@ export function noticeText(notice: GroupNotice): string {
   switch (notice.type) {
     case "new-device":
       return `${notice.username} has a new Device in this Group.`;
+    case "safety-number-changed":
+      return `${notice.username}'s safety number changed.`;
     case "group-over-limit":
       return `${notice.sender}'s change brought this Group to ${notice.people} people, over the limit of 10.`;
     case "commit-mismatch":

@@ -20,6 +20,8 @@ export const LIVE_TEST_PASSWORD = "correct horse battery staple";
 
 /** One app installation with its live session, as the main process builds it. */
 export interface LiveInstallation {
+  /** The installation's local database, for checks the interface cannot make. */
+  readonly database: Database.Database;
   readonly store: LocalStore;
   readonly clock: ManualClock;
   readonly liveSession: LiveSession;
@@ -105,6 +107,7 @@ function installApp(
   const { store, liveSession } = services;
   return {
     view: {
+      database,
       store,
       clock,
       liveSession,

@@ -21,6 +21,7 @@ export function recordReceivedCommit(
   commit: Extract<IncomingMls, { kind: "commit" }>,
 ): void {
   record(context, groupId, delivery.seq, {
+    self: context.ownIdentity,
     sender: commit.sender,
     declaredAdded: delivery.added,
     declaredRemoved: delivery.removed,
@@ -45,6 +46,7 @@ export function recordOwnCommit(
     engine.groupMembers(groupId),
   );
   record(context, groupId, seq, {
+    self: context.ownIdentity,
     sender: context.ownIdentity,
     declaredAdded: declared.added,
     declaredRemoved: declared.removed,
@@ -64,6 +66,12 @@ function record(
 ): void {
   const notices = noticesForCommit(facts);
   if (notices.length === 0) return;
+  // The mark no longer matches the person's number (#11).
+  for (const notice of notices) {
+    if (notice.type === "safety-number-changed") {
+      context.verifiedMarks.clear(notice.username);
+    }
+  }
   context.localMessages.addNotices(groupId, seq, notices);
   context.events.messagesChanged(groupIdText(groupId));
 }

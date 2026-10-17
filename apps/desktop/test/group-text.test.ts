@@ -99,6 +99,10 @@ describe("noticeText", () => {
       "bruno has a new Device in this Group.",
     ],
     [
+      { type: "safety-number-changed", username: "bruno" } as const,
+      "bruno's safety number changed.",
+    ],
+    [
       { type: "group-over-limit", sender: "alice", people: 11 } as const,
       "alice's change brought this Group to 11 people, over the limit of 10.",
     ],

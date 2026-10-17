@@ -4,6 +4,8 @@ import { parseCredentialIdentity } from "../mls/credential-identity";
 
 /** What a commit declared (Device IDs, D41) and what it really did (credential identities, D70). */
 export interface CommitFacts {
+  /** This Device's credential identity. */
+  readonly self: string;
   /** The sender's credential identity. */
   readonly sender: string;
   readonly declaredAdded: readonly string[];
@@ -16,8 +18,9 @@ export interface CommitFacts {
 
 /**
  * The notices a commit earns in its Group: a change other than the declared one, more than 10
- * people afterwards (D71), and a Member's new Device (D56). The commit is applied either way.
- * @example noticesForCommit(facts) // [{ type: "new-device", username: "bruno" }]
+ * people afterwards (D71), a Member's new Device (D56), and a Safety number that changed because a
+ * person who stays gained or lost a Device (#11). The commit is applied either way.
+ * @example noticesForCommit(facts) // [{ type: "new-device", username: "bruno" }, …]
  */
 export function noticesForCommit(facts: CommitFacts): GroupNotice[] {
   const sender = usernameOf(facts.sender);
@@ -25,6 +28,7 @@ export function noticesForCommit(facts: CommitFacts): GroupNotice[] {
     ...mismatchNotices(facts, sender),
     ...overLimitNotices(facts, sender),
     ...newDeviceNotices(facts),
+    ...safetyNumberNotices(facts),
   ];
 }
 
@@ -71,10 +75,7 @@ function overLimitNotices(facts: CommitFacts, sender: string): GroupNotice[] {
 
 /** A Device re-added in the same commit (a resync, D24) is not new. */
 function newDeviceNotices(facts: CommitFacts): GroupNotice[] {
-  const before = facts.membersAfter
-    .filter((identity) => !facts.realAdded.includes(identity))
-    .concat(facts.realRemoved);
-  const peopleBefore = new Set(before.map(usernameOf));
+  const peopleBefore = new Set(membersBefore(facts).map(usernameOf));
   const usernames = facts.realAdded
     .filter((identity) => !facts.realRemoved.includes(identity))
     .map(usernameOf)
@@ -83,6 +84,40 @@ function newDeviceNotices(facts: CommitFacts): GroupNotice[] {
     type: "new-device",
     username,
   }));
+}
+
+/**
+ * People in the Group before and after whose Devices changed; a reinstall is a new Device. People
+ * who joined or left, and this Account itself, are left out.
+ */
+function safetyNumberNotices(facts: CommitFacts): GroupNotice[] {
+  const peopleBefore = new Set(membersBefore(facts).map(usernameOf));
+  const peopleAfter = new Set(facts.membersAfter.map(usernameOf));
+  const changed = [...facts.realAdded, ...facts.realRemoved]
+    .filter(
+      (identity) =>
+        !(
+          facts.realAdded.includes(identity) &&
+          facts.realRemoved.includes(identity)
+        ),
+    )
+    .map(usernameOf)
+    .filter(
+      (username) =>
+        peopleBefore.has(username) &&
+        peopleAfter.has(username) &&
+        username !== usernameOf(facts.self),
+    );
+  return [...new Set(changed)].map((username) => ({
+    type: "safety-number-changed",
+    username,
+  }));
+}
+
+function membersBefore(facts: CommitFacts): string[] {
+  return facts.membersAfter
+    .filter((identity) => !facts.realAdded.includes(identity))
+    .concat(facts.realRemoved);
 }
 
 /** The Account part of an identity, or the whole identity when it is malformed. */

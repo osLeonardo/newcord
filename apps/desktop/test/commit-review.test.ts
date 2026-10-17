@@ -3,6 +3,7 @@ import {
   noticesForCommit,
   type CommitFacts,
 } from "../src/main/groups/commit-review";
+import type { GroupNotice } from "../src/preload/group-api";
 
 /** A valid identity: the username and a 22-character Device ID built from `device`. */
 function identity(username: string, device: string): string {
@@ -19,6 +20,7 @@ const carla = identity("carla", "c1");
 
 function facts(overrides: Partial<CommitFacts> = {}): CommitFacts {
   return {
+    self: carla,
     sender: alice,
     declaredAdded: [],
     declaredRemoved: [],
@@ -104,7 +106,7 @@ describe("noticesForCommit", () => {
           realAdded: [brunoLaptop],
           membersAfter: [alice, bruno, brunoLaptop],
         }),
-      ),
+      ).filter((notice) => notice.type === "new-device"),
     ).toEqual([{ type: "new-device", username: "bruno" }]);
   });
 
@@ -128,5 +130,72 @@ describe("noticesForCommit", () => {
         }),
       ),
     ).toEqual([]);
+  });
+
+  describe("safety number changes (#11)", () => {
+    const changed = (username: string): GroupNotice => ({
+      type: "safety-number-changed",
+      username,
+    });
+
+    it("notice a person who stays and gains a Device", () => {
+      expect(
+        noticesForCommit(
+          facts({
+            declaredAdded: [deviceOf(brunoLaptop)],
+            realAdded: [brunoLaptop],
+            membersAfter: [alice, bruno, brunoLaptop],
+          }),
+        ),
+      ).toContainEqual(changed("bruno"));
+    });
+
+    it("notice a person who stays and loses a Device", () => {
+      expect(
+        noticesForCommit(
+          facts({
+            declaredRemoved: [deviceOf(brunoLaptop)],
+            realRemoved: [brunoLaptop],
+            membersAfter: [alice, bruno],
+          }),
+        ),
+      ).toEqual([changed("bruno")]);
+    });
+
+    it("leave out people who joined or left, resyncs, and this Account", () => {
+      const quiet = [
+        facts({
+          declaredAdded: [deviceOf(carla)],
+          realAdded: [carla],
+          membersAfter: [alice, bruno, carla],
+        }),
+        facts({
+          declaredRemoved: [deviceOf(bruno)],
+          realRemoved: [bruno],
+          membersAfter: [alice],
+        }),
+        facts({
+          declaredAdded: [deviceOf(bruno)],
+          declaredRemoved: [deviceOf(bruno)],
+          realAdded: [bruno],
+          realRemoved: [bruno],
+        }),
+      ];
+      for (const commit of quiet) {
+        expect(noticesForCommit(commit)).not.toContainEqual(
+          expect.objectContaining({ type: "safety-number-changed" }),
+        );
+      }
+      expect(
+        noticesForCommit(
+          facts({
+            self: brunoLaptop,
+            declaredAdded: [deviceOf(brunoLaptop)],
+            realAdded: [brunoLaptop],
+            membersAfter: [alice, bruno, brunoLaptop],
+          }),
+        ),
+      ).not.toContainEqual(changed("bruno"));
+    });
   });
 });

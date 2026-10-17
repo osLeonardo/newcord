@@ -120,7 +120,9 @@ function NoticeLine({
 }: {
   readonly notice: ChatNotice;
 }): React.JSX.Element {
-  const warning = notice.notice.type !== "new-device";
+  const warning =
+    notice.notice.type === "commit-mismatch" ||
+    notice.notice.type === "group-over-limit";
   return (
     <li
       className={
