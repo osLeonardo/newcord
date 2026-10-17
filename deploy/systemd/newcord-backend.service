@@ -1,0 +1,26 @@
+# The backend as a systemd service (14-server-deployment step 9), run by its own
+# user with only what it needs (#14's spec). Install as
+# /etc/systemd/system/newcord-backend.service, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now newcord-backend
+
+[Unit]
+Description=newcord backend
+After=network.target
+
+[Service]
+User=newcord
+WorkingDirectory=/opt/newcord/apps/server
+# Secrets and settings, readable only by the newcord user (see deploy/env.example).
+EnvironmentFile=/etc/newcord/env
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ReadWritePaths=/var/lib/newcord
+
+[Install]
+WantedBy=multi-user.target

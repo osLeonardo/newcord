@@ -124,4 +124,25 @@ describe("loadServerConfig", () => {
       ),
     ).not.toContain(shortSecret);
   });
+
+  it("listens on this computer and trusts no proxy unless told", () => {
+    expect(loadServerConfig(env())).toMatchObject({
+      listenHost: "localhost",
+      trustProxy: undefined,
+    });
+  });
+
+  it("reads production's listen address and proxy (#14)", () => {
+    expect(
+      loadServerConfig(
+        env({ LISTEN_HOST: "127.0.0.1", TRUST_PROXY: "127.0.0.1" }),
+      ),
+    ).toMatchObject({ listenHost: "127.0.0.1", trustProxy: "127.0.0.1" });
+  });
+
+  it("refuses a proxy that is not an IP address", () => {
+    expect(() => loadServerConfig(env({ TRUST_PROXY: "true" }))).toThrow(
+      /TRUST_PROXY is "true"/,
+    );
+  });
 });

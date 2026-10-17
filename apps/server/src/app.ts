@@ -141,6 +141,11 @@ export interface ServerAppOptions {
   clock?: () => number;
   /** Told when a Device's session ends by logout or a reused refresh token (D62), after its sockets close. */
   onDeviceSessionEnded?: DeviceSessionEndedListener;
+  /**
+   * The proxy whose client-address header is believed, so per-IP rate limits and logs see the real
+   * client (14-server-deployment step 5); none in development.
+   */
+  trustProxy?: string;
 }
 
 /** The session services the routes share; the WebSocket's `hello` reuses the verifier. */
@@ -180,7 +185,7 @@ interface ServerParts extends SessionParts, LiveHub {
 export async function buildServerApp(
   options: ServerAppOptions,
 ): Promise<FastifyInstance> {
-  const app = Fastify(createFastifyOptions(options.log));
+  const app = Fastify(createFastifyOptions(options.log, options.trustProxy));
   await app.register(websocket, WEBSOCKET_PLUGIN_OPTIONS);
   await app.register(fastifyJwt, accessTokenPluginOptions(options.jwtSecret));
   await app.register(rateLimit, RATE_LIMIT_PLUGIN_OPTIONS);
@@ -201,9 +206,11 @@ export async function buildServerApp(
 
 function createFastifyOptions(
   log: ServerLogOptions | undefined,
+  trustProxy: string | undefined,
 ): FastifyServerOptions {
   return {
     bodyLimit: MAX_REQUEST_BODY_BYTES,
+    ...(trustProxy === undefined ? {} : { trustProxy }),
     logger: log ? createLoggerOptions(log) : false,
     // Fastify's defaults strip unknown fields and coerce types; schemas must reject both.
     ajv: { customOptions: { removeAdditional: false, coerceTypes: false } },

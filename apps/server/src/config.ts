@@ -1,3 +1,4 @@
+import { isIP } from "node:net";
 import type { RelaySettings } from "./relay/relay-credentials.js";
 
 /** The JWT secret must hold at least 32 random bytes (13-security-checklist). */
@@ -7,12 +8,18 @@ export const MIN_JWT_SECRET_BYTES = 32;
 export const MIN_RELAY_SECRET_BYTES = 32;
 
 const DEFAULT_DATABASE_PATH = "newcord.db";
+/** Development listens on this computer only; production sets 127.0.0.1 behind nginx (#14). */
+const DEFAULT_LISTEN_HOST = "localhost";
 const RELAY_URL_PATTERN = /^(stun|turn|turns):\S+$/;
 
 export interface ServerConfig {
   jwtSecret: string;
   databasePath: string;
   relay: RelaySettings;
+  /** Where the server listens, on port 3000. */
+  listenHost: string;
+  /** The proxy whose client-address header is believed, nginx's 127.0.0.1 in production (14-server-deployment step 5). */
+  trustProxy: string | undefined;
 }
 
 /**
@@ -34,7 +41,19 @@ export function loadServerConfig(
       ),
       urls: readRelayUrls(env.RELAY_URLS),
     },
+    listenHost: env.LISTEN_HOST || DEFAULT_LISTEN_HOST,
+    trustProxy: readTrustProxy(env.TRUST_PROXY),
   };
+}
+
+function readTrustProxy(address: string | undefined): string | undefined {
+  if (!address) return undefined;
+  if (isIP(address) === 0) {
+    throw new Error(
+      `TRUST_PROXY is "${address}"; set it to the proxy's IP address, such as 127.0.0.1 for nginx on the same machine, or leave it empty`,
+    );
+  }
+  return address;
 }
 
 function readSecret(
