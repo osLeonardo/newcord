@@ -12,7 +12,7 @@ import { createGroupService, type GroupService } from "../groups/group-service";
 import type { LocalGroups } from "../local-store/local-groups";
 import type { LocalMessages } from "../local-store/local-messages";
 import type { VerifiedMarks } from "../local-store/verified-marks";
-import type { CallSettingsStore } from "../local-store/call-settings";
+import type { SettingsStore } from "../local-store/device-settings";
 import { createSafetyHalves } from "../safety/safety-numbers";
 import type { LocalStore } from "../local-store/local-store";
 import { credentialIdentity } from "../mls/credential-identity";
@@ -42,7 +42,7 @@ export interface AccountHubDependencies {
     ServerApiClient,
     "uploadKeyPackages" | "relayCredentials"
   >;
-  readonly callSettings: CallSettingsStore;
+  readonly deviceSettings: SettingsStore;
   readonly liveSession: Pick<LiveSession, "send" | "renewAccessToken">;
   readonly clock: SessionClock;
   /** Told about failures no request can report, such as a Key package upload that threw. */
@@ -110,7 +110,7 @@ export function openAccountHub(
       callAuthenticated((accessToken) =>
         dependencies.server.relayCredentials(accessToken),
       ),
-    hideMyIp: () => dependencies.callSettings.read().hideMyIp,
+    hideMyIp: () => dependencies.deviceSettings.read().hideMyIp,
   });
   return {
     deviceId: account.deviceId,

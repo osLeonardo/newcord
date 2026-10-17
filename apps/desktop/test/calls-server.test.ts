@@ -330,7 +330,7 @@ describe("the relay (#9, Step 02)", () => {
   it("forces relayed connections once Hide my IP is on", async () => {
     const alice = await memberReady(server, installations, "alice");
 
-    const settings = await alice.actions.changeCallSettings({ hideMyIp: true });
+    const settings = await alice.actions.changeSettings({ hideMyIp: true });
     const result = await (await hubOf(alice)).calls.readIceConfiguration();
 
     expect(settings).toMatchObject({ hideMyIp: true });

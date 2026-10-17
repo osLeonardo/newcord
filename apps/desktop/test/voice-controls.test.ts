@@ -5,7 +5,9 @@ import {
   type KeyboardHook,
   type VoiceControls,
 } from "../src/main/calls/voice-controls";
-import type { CallSettings, CallSummary } from "../src/preload/call-api";
+import { DEFAULT_SETTINGS } from "../src/main/local-store/device-settings";
+import type { CallSummary } from "../src/preload/call-api";
+import type { DeviceSettings } from "../src/preload/settings-api";
 
 const groupId = "MgZoqEdt4EEfhsMd_7xNqw";
 
@@ -49,7 +51,7 @@ class FakeKeyboardHook implements KeyboardHook {
   }
 }
 
-let settings: CallSettings;
+let settings: DeviceSettings;
 let hotkeys: FakeHotkeys;
 let hook: FakeKeyboardHook;
 let muteToggled: ReturnType<typeof vi.fn<() => void>>;
@@ -57,13 +59,7 @@ let pushToTalk: boolean[];
 let controls: VoiceControls;
 
 beforeEach(() => {
-  settings = {
-    microphoneMode: "voice-activity",
-    pushToTalkKey: null,
-    muteHotkey: "Ctrl+Shift+M",
-    codec: "H264",
-    hideMyIp: false,
-  };
+  settings = DEFAULT_SETTINGS;
   hotkeys = new FakeHotkeys();
   hook = new FakeKeyboardHook();
   muteToggled = vi.fn<() => void>();

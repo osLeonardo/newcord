@@ -5,10 +5,7 @@ import {
 } from "../preload/desktop-api";
 import { createAccountActions } from "./account/account-actions";
 import { sessionStateOf } from "./account/session-state";
-import {
-  createCallActions,
-  createCallSettingsActions,
-} from "./calls/call-actions";
+import { createCallActions, createSettingsActions } from "./calls/call-actions";
 import {
   createVoiceControls,
   type HotkeyRegistry,
@@ -16,9 +13,9 @@ import {
   type VoiceControls,
 } from "./calls/voice-controls";
 import {
-  createCallSettingsStore,
-  type CallSettingsStore,
-} from "./local-store/call-settings";
+  createSettingsStore,
+  type SettingsStore,
+} from "./local-store/device-settings";
 import { createGroupActions } from "./groups/group-actions";
 import { createDeviceHub, type DeviceHub } from "./hub/device-hub";
 import {
@@ -87,7 +84,7 @@ export function startAppServices(
   const store = createSqliteLocalStore(dependencies.database);
   loadOrCreateIdentityKey(store, createIdentityKeyPair);
   const holder: HubHolder = {};
-  const callSettings = createCallSettingsStore(dependencies.database);
+  const deviceSettings = createSettingsStore(dependencies.database);
   const voiceControls = createVoiceControls({
     ...(dependencies.hotkeys === undefined
       ? {}
@@ -95,7 +92,7 @@ export function startAppServices(
     ...(dependencies.keyboardHook === undefined
       ? {}
       : { keyboardHook: dependencies.keyboardHook }),
-    settings: () => callSettings.read(),
+    settings: () => deviceSettings.read(),
     muteToggled: () =>
       dependencies.notify(desktopApiEventChannels.onMuteToggled),
     pushToTalkChanged: (held) =>
@@ -104,7 +101,7 @@ export function startAppServices(
   });
   const liveSession = startLiveSession(dependencies, store, holder);
   holder.hub = createGroupHub(dependencies, store, liveSession, {
-    callSettings,
+    deviceSettings,
     voiceControls,
   });
   const accountActions = createAccountActions({
@@ -118,9 +115,9 @@ export function startAppServices(
       ...accountActions,
       ...createGroupActions(() => holder.hub?.current()?.groups),
       ...createCallActions(() => holder.hub?.current()?.calls),
-      ...createCallSettingsActions(callSettings, voiceControls, (settings) =>
+      ...createSettingsActions(deviceSettings, voiceControls, (settings) =>
         dependencies.notify(
-          desktopApiEventChannels.onCallSettingsChanged,
+          desktopApiEventChannels.onSettingsChanged,
           settings,
         ),
       ),
@@ -174,7 +171,7 @@ function startLiveSession(
 }
 
 interface CallParts {
-  readonly callSettings: CallSettingsStore;
+  readonly deviceSettings: SettingsStore;
   readonly voiceControls: VoiceControls;
 }
 
@@ -182,7 +179,7 @@ function createGroupHub(
   dependencies: AppServicesDependencies,
   store: LocalStore,
   liveSession: LiveSession,
-  { callSettings, voiceControls }: CallParts,
+  { deviceSettings, voiceControls }: CallParts,
 ): DeviceHub | undefined {
   const { createEngine, database, notify } = dependencies;
   if (createEngine === undefined) return undefined;
@@ -192,7 +189,7 @@ function createGroupHub(
     localGroups: createLocalGroups(database),
     localMessages: createLocalMessages(database),
     verifiedMarks: createVerifiedMarks(database),
-    callSettings,
+    deviceSettings,
     groupEvents: {
       groupsChanged: () => notify(desktopApiEventChannels.onGroupsChanged),
       invitationsChanged: () =>

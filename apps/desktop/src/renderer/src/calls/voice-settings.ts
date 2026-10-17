@@ -1,4 +1,4 @@
-import type { CallSettings } from "../../../preload/call-api";
+import type { DeviceSettings } from "../../../preload/settings-api";
 
 /** The keys of a press, as a `KeyboardEvent` gives them. */
 export interface KeyPress {
@@ -44,7 +44,7 @@ export function keyLabel(code: string): string {
 
 /** What decides whether the microphone sends right now. */
 export interface MicrophoneInputs {
-  readonly mode: CallSettings["microphoneMode"];
+  readonly mode: DeviceSettings["microphoneMode"];
   readonly voiceDetected: boolean;
   readonly pushToTalkHeld: boolean;
   readonly muted: boolean;
@@ -64,7 +64,7 @@ export function microphoneOpen(inputs: MicrophoneInputs): boolean {
 
 /** The codecs a screen share can prefer (D11b), as the settings show them. */
 export const SHARE_CODEC_LABELS: Readonly<
-  Record<CallSettings["codec"], string>
+  Record<DeviceSettings["codec"], string>
 > = {
   H264: "H.264",
   VP8: "VP8",

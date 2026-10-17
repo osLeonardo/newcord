@@ -4,7 +4,8 @@ import type {
   PeerConnectionEvents,
   SessionDescription,
 } from "./call-mesh";
-import type { IceConfiguration, ShareCodec } from "../../../preload/call-api";
+import type { IceConfiguration } from "../../../preload/call-api";
+import type { ShareCodec } from "../../../preload/settings-api";
 import {
   preferCodec,
   SCREEN_SHARE_MAX_FRAMERATE,

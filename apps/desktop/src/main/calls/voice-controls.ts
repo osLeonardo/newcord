@@ -1,4 +1,5 @@
-import type { CallSettings, CallSummary } from "../../preload/call-api";
+import type { CallSummary } from "../../preload/call-api";
+import type { DeviceSettings } from "../../preload/settings-api";
 
 /** Electron's `globalShortcut`, or a test's stand-in. */
 export interface HotkeyRegistry {
@@ -20,7 +21,7 @@ export interface VoiceControlsDependencies {
   readonly hotkeys?: HotkeyRegistry;
   /** Missing until `uiohook-napi` is approved and installed (#9, Step 03). */
   readonly keyboardHook?: KeyboardHook;
-  readonly settings: () => CallSettings;
+  readonly settings: () => DeviceSettings;
   muteToggled(): void;
   pushToTalkChanged(held: boolean): void;
   reportError(error: unknown): void;
@@ -76,7 +77,7 @@ export function createVoiceControls(
 
 function wantedPushToTalkKey(
   state: ControlsState,
-  settings: CallSettings,
+  settings: DeviceSettings,
 ): string | undefined {
   if (state.inCall === undefined) return undefined;
   if (settings.microphoneMode !== "push-to-talk") return undefined;

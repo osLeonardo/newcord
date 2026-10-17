@@ -1,15 +1,15 @@
 import { vi, type Mock } from "vitest";
-import { DEFAULT_CALL_SETTINGS } from "../../src/main/local-store/call-settings";
+import { DEFAULT_SETTINGS } from "../../src/main/local-store/device-settings";
 import type {
   CallApiCalls,
-  CallSettingsApiCalls,
   CallSummary,
   DiagnosticsApiCalls,
   ScreenShareApiCalls,
 } from "../../src/preload/call-api";
+import type { SettingsApiCalls } from "../../src/preload/settings-api";
 
 type CallCalls = CallApiCalls &
-  CallSettingsApiCalls &
+  SettingsApiCalls &
   ScreenShareApiCalls &
   DiagnosticsApiCalls;
 
@@ -52,13 +52,13 @@ export function fakeCallActions(): FakeCallActions {
         configuration: { iceServers: [], iceTransportPolicy: "all" },
       }),
     ),
-    readCallSettings: vi.fn<CallSettingsApiCalls["readCallSettings"]>(() =>
-      Promise.resolve(DEFAULT_CALL_SETTINGS),
+    readSettings: vi.fn<SettingsApiCalls["readSettings"]>(() =>
+      Promise.resolve(DEFAULT_SETTINGS),
     ),
-    changeCallSettings: vi.fn<CallSettingsApiCalls["changeCallSettings"]>(
-      (changes) => Promise.resolve({ ...DEFAULT_CALL_SETTINGS, ...changes }),
+    changeSettings: vi.fn<SettingsApiCalls["changeSettings"]>((changes) =>
+      Promise.resolve({ ...DEFAULT_SETTINGS, ...changes }),
     ),
-    readVoiceControls: vi.fn<CallSettingsApiCalls["readVoiceControls"]>(() =>
+    readVoiceControls: vi.fn<SettingsApiCalls["readVoiceControls"]>(() =>
       Promise.resolve({ pushToTalkAvailable: false }),
     ),
     listShareSources: vi.fn<ScreenShareApiCalls["listShareSources"]>(() =>

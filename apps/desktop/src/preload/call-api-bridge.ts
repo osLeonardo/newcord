@@ -1,13 +1,12 @@
 import type {
-  CallSettings,
   CpuMeasurement,
   CallSummary,
   IceConfigurationResult,
   JoinCallResult,
   ReceivedCallSignal,
   ShareSourceSummary,
-  VoiceControlsStatus,
 } from "./call-api";
+import type { DeviceSettings, VoiceControlsStatus } from "./settings-api";
 import type { IpcInvoke, IpcSubscribe } from "./desktop-api-bridge";
 import {
   desktopApiChannels,
@@ -24,15 +23,15 @@ type CallApi = Pick<
   | "sendCallSignal"
   | "dropCallParticipant"
   | "readIceConfiguration"
-  | "readCallSettings"
-  | "changeCallSettings"
+  | "readSettings"
+  | "changeSettings"
   | "readVoiceControls"
   | "listShareSources"
   | "chooseShareSource"
   | "measureCpu"
   | "onMuteToggled"
   | "onPushToTalk"
-  | "onCallSettingsChanged"
+  | "onSettingsChanged"
   | "onCallChanged"
   | "onCallSignal"
 >;
@@ -72,13 +71,13 @@ export function createCallApi(
       invoke(
         desktopApiChannels.readIceConfiguration,
       ) as Promise<IceConfigurationResult>,
-    readCallSettings: () =>
-      invoke(desktopApiChannels.readCallSettings) as Promise<CallSettings>,
-    changeCallSettings: (changes) =>
+    readSettings: () =>
+      invoke(desktopApiChannels.readSettings) as Promise<DeviceSettings>,
+    changeSettings: (changes) =>
       invoke(
-        desktopApiChannels.changeCallSettings,
+        desktopApiChannels.changeSettings,
         changes,
-      ) as Promise<CallSettings>,
+      ) as Promise<DeviceSettings>,
     readVoiceControls: () =>
       invoke(
         desktopApiChannels.readVoiceControls,
@@ -100,9 +99,9 @@ export function createCallApi(
       subscribe(desktopApiEventChannels.onPushToTalk, (payload) =>
         listener(payload === true),
       ),
-    onCallSettingsChanged: (listener) =>
-      subscribe(desktopApiEventChannels.onCallSettingsChanged, (payload) =>
-        listener(payload as CallSettings),
+    onSettingsChanged: (listener) =>
+      subscribe(desktopApiEventChannels.onSettingsChanged, (payload) =>
+        listener(payload as DeviceSettings),
       ),
     onCallChanged: (listener) =>
       subscribe(desktopApiEventChannels.onCallChanged, (payload) =>

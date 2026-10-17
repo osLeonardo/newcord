@@ -1,13 +1,12 @@
 import type { ApiErrorCode } from "@newcord/shared";
 import type {
   CallApiCalls,
-  CallSettings,
-  CallSettingsApiCalls,
   CallSummary,
   DiagnosticsApiCalls,
   ReceivedCallSignal,
   ScreenShareApiCalls,
 } from "./call-api";
+import type { DeviceSettings, SettingsApiCalls } from "./settings-api";
 import type { GroupApiCalls, GroupLeftNotice } from "./group-api";
 
 /** A username and password as typed on the sign-up or login screen. */
@@ -101,7 +100,7 @@ export interface DesktopApiCalls
     AccountApiCalls,
     GroupApiCalls,
     CallApiCalls,
-    CallSettingsApiCalls,
+    SettingsApiCalls,
     ScreenShareApiCalls,
     DiagnosticsApiCalls {}
 
@@ -130,10 +129,8 @@ export interface DesktopApiSubscriptions {
   onMuteToggled(listener: () => void): Unsubscribe;
   /** Hears the push-to-talk key going down and up, wherever the focus is (D44b). */
   onPushToTalk(listener: (held: boolean) => void): Unsubscribe;
-  /** Hears the Call settings after any window changed them. */
-  onCallSettingsChanged(
-    listener: (settings: CallSettings) => void,
-  ): Unsubscribe;
+  /** Hears the settings after any window changed them. */
+  onSettingsChanged(listener: (settings: DeviceSettings) => void): Unsubscribe;
 }
 
 /** The named functions the preload gives the interface as `window.desktopApi`; keys and tokens never cross it. */
@@ -169,8 +166,8 @@ export const desktopApiChannels = {
   sendCallSignal: "calls:send-signal",
   dropCallParticipant: "calls:drop",
   readIceConfiguration: "calls:read-ice",
-  readCallSettings: "settings:read-call",
-  changeCallSettings: "settings:change-call",
+  readSettings: "settings:read",
+  changeSettings: "settings:change",
   readVoiceControls: "settings:read-voice-controls",
   listShareSources: "share:list-sources",
   chooseShareSource: "share:choose-source",
@@ -190,5 +187,5 @@ export const desktopApiEventChannels = {
   onCallSignal: "calls:signal",
   onMuteToggled: "calls:mute-toggled",
   onPushToTalk: "calls:push-to-talk",
-  onCallSettingsChanged: "settings:call-changed",
+  onSettingsChanged: "settings:changed",
 } as const satisfies Record<keyof DesktopApiSubscriptions, string>;

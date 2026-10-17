@@ -1,4 +1,4 @@
-import type { ShareCodec } from "../../../preload/call-api";
+import type { ShareCodec } from "../../../preload/settings-api";
 
 /** Each viewer's share is capped at 1.5 Mbps (10-m3-build Settings). */
 export const SCREEN_SHARE_MAX_BITRATE = 1_500_000;

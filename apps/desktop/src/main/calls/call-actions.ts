@@ -1,10 +1,10 @@
+import type { CallApiCalls } from "../../preload/call-api";
 import type {
-  CallApiCalls,
-  CallSettings,
-  CallSettingsApiCalls,
-} from "../../preload/call-api";
+  DeviceSettings,
+  SettingsApiCalls,
+} from "../../preload/settings-api";
 import type { VoiceControls } from "./voice-controls";
-import type { CallSettingsStore } from "../local-store/call-settings";
+import type { SettingsStore } from "../local-store/device-settings";
 
 /**
  * The desktop API's Call functions, answered by the logged-in Device's Call service; without one
@@ -41,18 +41,18 @@ export function createCallActions(
 }
 
 /**
- * The Call settings functions, answered from the local database whether or not anyone is logged in.
+ * The settings functions, answered from the local database whether or not anyone is logged in.
  * Each change reaches the voice controls and every window.
- * @example const settingsActions = createCallSettingsActions(store, voiceControls, notifyWindows);
+ * @example const settingsActions = createSettingsActions(store, voiceControls, notifyWindows);
  */
-export function createCallSettingsActions(
-  store: CallSettingsStore,
+export function createSettingsActions(
+  store: SettingsStore,
   voiceControls: Pick<VoiceControls, "settingsChanged" | "pushToTalkAvailable">,
-  settingsChanged: (settings: CallSettings) => void,
-): CallSettingsApiCalls {
+  settingsChanged: (settings: DeviceSettings) => void,
+): SettingsApiCalls {
   return {
-    readCallSettings: () => Promise.resolve(store.read()),
-    changeCallSettings: (changes): Promise<CallSettings> => {
+    readSettings: () => Promise.resolve(store.read()),
+    changeSettings: (changes): Promise<DeviceSettings> => {
       const settings = store.change(changes);
       voiceControls.settingsChanged();
       settingsChanged(settings);

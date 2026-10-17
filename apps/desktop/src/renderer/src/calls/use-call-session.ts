@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CallSignal } from "@newcord/shared";
 import type {
-  CallSettings,
   CallSummary,
   IceConfiguration,
   ReceivedCallSignal,
 } from "../../../preload/call-api";
+import type { DeviceSettings } from "../../../preload/settings-api";
 import type { DesktopApi } from "../../../preload/desktop-api";
 import { UNEXPECTED_FAILURE_MESSAGE } from "../account/account-messages";
 import { groupRefusalMessage } from "../groups/group-text";
@@ -294,15 +294,15 @@ async function shareScreen(
   return { outcome: "shared", screen: { stream, track, codec } };
 }
 
-/** The Call settings, following changes made in any window. */
-function useCallSettings(desktopApi: DesktopApi): CallSettings | undefined {
-  const [settings, setSettings] = useState<CallSettings>();
+/** The Device settings, following changes made in any window. */
+function useCallSettings(desktopApi: DesktopApi): DeviceSettings | undefined {
+  const [settings, setSettings] = useState<DeviceSettings>();
   useEffect(() => {
     let mounted = true;
-    desktopApi.readCallSettings().then((read) => {
+    desktopApi.readSettings().then((read) => {
       if (mounted) setSettings(read);
     }, reportCallError);
-    const unsubscribe = desktopApi.onCallSettingsChanged(setSettings);
+    const unsubscribe = desktopApi.onSettingsChanged(setSettings);
     return (): void => {
       mounted = false;
       unsubscribe();

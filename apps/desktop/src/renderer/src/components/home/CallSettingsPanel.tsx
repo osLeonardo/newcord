@@ -1,10 +1,10 @@
 import { useEffect, useState, type KeyboardEvent } from "react";
+import type { CpuMeasurement } from "../../../../preload/call-api";
 import type {
-  CallSettings,
-  CpuMeasurement,
+  DeviceSettings,
   ShareCodec,
   VoiceControlsStatus,
-} from "../../../../preload/call-api";
+} from "../../../../preload/settings-api";
 import type { DesktopApi } from "../../../../preload/desktop-api";
 import { UNEXPECTED_FAILURE_MESSAGE } from "../../account/account-messages";
 import {
@@ -39,7 +39,7 @@ export function CallSettingsPanel(
   props: CallSettingsPanelProps,
 ): React.JSX.Element {
   const { desktopApi } = props;
-  const [settings, setSettings] = useState<CallSettings>();
+  const [settings, setSettings] = useState<DeviceSettings>();
   const [status, setStatus] = useState<VoiceControlsStatus>();
   const [capturing, setCapturing] = useState<Capturing>();
   const [message, setMessage] = useState<string>();
@@ -47,7 +47,7 @@ export function CallSettingsPanel(
   useEffect(() => {
     let mounted = true;
     Promise.all([
-      desktopApi.readCallSettings(),
+      desktopApi.readSettings(),
       desktopApi.readVoiceControls(),
     ]).then(
       ([read, controls]) => {
@@ -59,15 +59,15 @@ export function CallSettingsPanel(
         if (mounted) setMessage(UNEXPECTED_FAILURE_MESSAGE);
       },
     );
-    const unsubscribe = desktopApi.onCallSettingsChanged(setSettings);
+    const unsubscribe = desktopApi.onSettingsChanged(setSettings);
     return (): void => {
       mounted = false;
       unsubscribe();
     };
   }, [desktopApi]);
 
-  function change(changes: Partial<CallSettings>): void {
-    desktopApi.changeCallSettings(changes).then(setSettings, () => {
+  function change(changes: Partial<DeviceSettings>): void {
+    desktopApi.changeSettings(changes).then(setSettings, () => {
       setMessage(UNEXPECTED_FAILURE_MESSAGE);
     });
   }

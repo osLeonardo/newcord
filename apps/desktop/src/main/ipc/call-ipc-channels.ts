@@ -2,8 +2,6 @@ import { CallSignal, DeviceId } from "@newcord/shared";
 import { Type, type Static } from "typebox";
 import type {
   CallApiCalls,
-  CallSettings,
-  CallSettingsApiCalls,
   CallSummary,
   CpuMeasurement,
   DiagnosticsApiCalls,
@@ -11,8 +9,12 @@ import type {
   JoinCallResult,
   ScreenShareApiCalls,
   ShareSourceSummary,
-  VoiceControlsStatus,
 } from "../../preload/call-api";
+import type {
+  DeviceSettings,
+  SettingsApiCalls,
+  VoiceControlsStatus,
+} from "../../preload/settings-api";
 import { desktopApiChannels } from "../../preload/desktop-api";
 import type { GroupActionResult } from "../../preload/group-api";
 import { checkedChannel, type CheckedIpcChannel } from "./checked-ipc-handler";
@@ -64,6 +66,24 @@ const SettingsChangeArguments = Type.Tuple([
         ]),
       ),
       hideMyIp: Type.Optional(Type.Boolean()),
+      inputDeviceId: Type.Optional(
+        Type.Union([
+          Type.String({ minLength: 1, maxLength: 256 }),
+          Type.Null(),
+        ]),
+      ),
+      voiceSensitivity: Type.Optional(
+        Type.Integer({ minimum: 0, maximum: 100 }),
+      ),
+      previewMode: Type.Optional(
+        Type.Union([
+          Type.Literal("full"),
+          Type.Literal("sender"),
+          Type.Literal("generic"),
+        ]),
+      ),
+      startAtLogin: Type.Optional(Type.Boolean()),
+      quitOnClose: Type.Optional(Type.Boolean()),
     },
     { additionalProperties: false },
   ),
@@ -76,7 +96,7 @@ type SettingsChangeArguments = Static<typeof SettingsChangeArguments>;
  */
 export function createCallIpcChannels(
   actions: CallApiCalls &
-    CallSettingsApiCalls &
+    SettingsApiCalls &
     ScreenShareApiCalls &
     DiagnosticsApiCalls,
 ): CheckedIpcChannel[] {
@@ -119,18 +139,17 @@ export function createCallIpcChannels(
       argumentsMatch: argumentsMatching(NoArguments),
       handle: () => actions.readIceConfiguration(),
     }),
-    checkedChannel<NoArguments, CallSettings>({
-      name: desktopApiChannels.readCallSettings,
+    checkedChannel<NoArguments, DeviceSettings>({
+      name: desktopApiChannels.readSettings,
       expectedArguments: "",
       argumentsMatch: argumentsMatching(NoArguments),
-      handle: () => actions.readCallSettings(),
+      handle: () => actions.readSettings(),
     }),
-    checkedChannel<SettingsChangeArguments, CallSettings>({
-      name: desktopApiChannels.changeCallSettings,
-      expectedArguments:
-        "changes: { microphoneMode?, pushToTalkKey?, muteHotkey?, codec?, hideMyIp? }",
+    checkedChannel<SettingsChangeArguments, DeviceSettings>({
+      name: desktopApiChannels.changeSettings,
+      expectedArguments: "changes: Partial<DeviceSettings>, each field checked",
       argumentsMatch: argumentsMatching(SettingsChangeArguments),
-      handle: (changes) => actions.changeCallSettings(changes),
+      handle: (changes) => actions.changeSettings(changes),
     }),
     checkedChannel<NoArguments, VoiceControlsStatus>({
       name: desktopApiChannels.readVoiceControls,
