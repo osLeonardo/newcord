@@ -36,6 +36,7 @@ import type { AppServices } from "./app-services";
 import { appPageUrl } from "./app-page";
 import { startAppServices } from "./app-services";
 import { builtInServerAddress } from "./built-in-server-address";
+import { localDataFolderName } from "./local-data-folder";
 import { createAppIpcChannels } from "./ipc/app-ipc-channels";
 import { isAppIpcSender } from "./ipc/app-ipc-sender";
 import {
@@ -52,6 +53,11 @@ import { createStandardSocketOpener } from "./session/live-socket";
 import { systemSessionClock } from "./session/session-clock";
 import { hardenWebContents } from "./web-contents-hardening";
 import { hideOnClose, showAgain } from "./window-closing";
+import { createElectronUpdateSource } from "./updates/electron-update-source";
+import {
+  createUpdateService,
+  type UpdateService,
+} from "./updates/update-service";
 import { hardenedWebPreferences } from "./window-preferences";
 
 const pageUrl = appPageUrl({
@@ -83,6 +89,8 @@ let quitting = false;
 let tray: Tray | undefined;
 const trayState = { inCall: false, muted: false };
 let callGroupId: string | undefined;
+// Only the installed app updates itself; in development the executable is Electron itself (#13).
+let updates: UpdateService | undefined;
 
 // In development the executable is Electron itself, which must not start at login.
 const loginItems: LoginItems = {
@@ -225,6 +233,7 @@ const shellEvents = {
       trayState.muted = false;
     }
     refreshTray(services);
+    updates?.callChanged(trayState.inCall);
   },
   callMediaChanged: (services: AppServices, report: CallMediaReport): void => {
     trayState.muted = report.muted;
@@ -295,6 +304,7 @@ function startServices(): AppServices {
         percentCpu: metric.cpu.percentCPUUsage,
       })),
     notifications: notificationPort(() => services),
+    ...(updates === undefined ? {} : { updates }),
     shell: {
       callChanged: (call) => {
         shellEvents.callChanged(services, call);
@@ -308,10 +318,24 @@ function startServices(): AppServices {
     },
   });
   app.once("will-quit", () => {
+    updates?.stop();
     void services.stop();
     database.close();
   });
   return services;
+}
+
+/** Checks GitHub Releases at start-up and every 6 hours, never restarting during a Call (#13). */
+function createAppUpdates(): UpdateService {
+  return createUpdateService({
+    source: createElectronUpdateSource((error) => {
+      console.error("Checking for or downloading an update failed", error);
+    }),
+    clock: systemSessionClock,
+    offerChanged: (offered) => {
+      sendToAppWindows(desktopApiEventChannels.onUpdateOfferChanged, offered);
+    },
+  });
 }
 
 function registerAppIpcHandlers(calls: DesktopApiCalls): void {
@@ -325,6 +349,12 @@ function openInBrowser(url: string): void {
     console.error(`Could not open ${url} in the default browser`, error);
   });
 }
+
+// Set before anything opens the folder, the single-instance lock included (D95).
+app.setPath(
+  "userData",
+  join(app.getPath("appData"), localDataFolderName(app.isPackaged)),
+);
 
 // Launching the app again shows the running one's window (#9's spec).
 const isFirstInstance = app.requestSingleInstanceLock();
@@ -367,6 +397,7 @@ void app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window);
   });
 
+  if (app.isPackaged) updates = createAppUpdates();
   const services = startServices();
   registerAppIpcHandlers(services.calls);
   setUpFirstRun(services.flags, loginItems);
@@ -374,6 +405,7 @@ void app.whenReady().then(() => {
   createWindow(services, startsHidden(process.argv));
   console.log(`${APP_NAME} desktop ready, server ${builtInServerAddress}`);
   console.log(describeMlsModule());
+  updates?.start();
 
   app.on("activate", function () {
     // On macOS it's common to re-create a window in the app when the

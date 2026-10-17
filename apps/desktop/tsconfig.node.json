@@ -1,6 +1,7 @@
 {
   "extends": "@electron-toolkit/tsconfig/tsconfig.node.json",
   "include": [
+    "build-hooks/**/*.d.mts",
     "electron.vite.config.*",
     "src/build-config/**/*",
     "src/main/**/*",

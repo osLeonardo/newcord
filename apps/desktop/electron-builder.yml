@@ -9,35 +9,34 @@ files:
   - "!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}"
   - "!{.env,.env.*,.npmrc,pnpm-lock.yaml}"
   - "!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}"
+  - "!{build-hooks,test}/**"
+  # Windows only in version 1 (D73): the other systems' prebuilt native binaries stay out.
+  - "!node_modules/{better-sqlite3,uiohook-napi}/prebuilds/{darwin,linux}*"
+  - "!node_modules/{better-sqlite3,uiohook-napi}/prebuilds/{darwin,linux}*/**"
+  # The MLS module ships only its built pkg/ folder, not the crate or its 1.8 GB Rust build (#4).
+  - "!node_modules/@newcord/mls/{target,src,scripts,test,.cargo}/**"
+  - "!node_modules/@newcord/mls/{Cargo.toml,Cargo.lock,tsconfig.json}"
 asarUnpack:
   - resources/**
+# Windows only in version 1 (D73).
 win:
-  executableName: desktop
+  target: nsis
+  executableName: newcord
+# Installs for the current user, with no administrator prompt (12-m5-build step 4).
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
+  perMachine: false
+  artifactName: ${productName}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
-mac:
-  entitlementsInherit: build/entitlements.mac.plist
-  extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
-  notarize: false
-dmg:
-  artifactName: ${name}-${version}.${ext}
-linux:
-  target:
-    - AppImage
-    - snap
-    - deb
-  maintainer: electronjs.org
-  category: Utility
-appImage:
-  artifactName: ${name}-${version}.${ext}
 npmRebuild: false
+# Switches off the Electron fuses the app does not need (12-m5-build step 5).
+afterPack: ./build-hooks/after-pack.mjs
+# Named explicitly: electron-builder reads the git remote only from this folder, not the
+# repository root two levels up.
 publish:
-  provider: generic
-  url: https://example.com/auto-updates
+  provider: github
+  owner: osLeonardo
+  repo: newcord
+  # A tag leaves a draft, checked and published by hand (D96).
+  releaseType: draft
