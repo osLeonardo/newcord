@@ -29,14 +29,16 @@ Proposed by me and accepted by you on October 14, 2026.
 
 ## Server
 
-1. Add the server libraries, plus TypeBox for the shared package ([source](https://fastify.dev/docs/latest/Reference/Type-Providers/)). Then approve better-sqlite3 and argon2 when pnpm asks, since both compile native code:
+1. Add the server libraries, plus TypeBox for the shared package ([source](https://fastify.dev/docs/latest/Reference/Type-Providers/)). Then answer pnpm's build question for the two native modules: approve argon2, whose install script picks its prebuilt binary, and deny better-sqlite3 (D80). better-sqlite3 13 ships prebuilt Node-API binaries, and approving it makes pnpm compile it from source, which fails on a computer without Visual Studio's C++ tools:
 
 ```bash
 pnpm --filter server add better-sqlite3 argon2 @fastify/jwt @fastify/rate-limit typebox @fastify/type-provider-typebox
 pnpm --filter server add -D @types/better-sqlite3
 pnpm --filter @your-app/shared add typebox
-pnpm approve-builds better-sqlite3 argon2
+pnpm approve-builds argon2
 ```
+
+Then set `better-sqlite3: false` under `allowBuilds` in `pnpm-workspace.yaml`.
 
 2. Create the tables. Refresh tokens are stored only as a SHA-256 hash and kept, marked as used, until they expire, so a reused one can be recognised (D62); each device's identity key is its Ed25519 public key, a device's ID is a random value created by the server (D59), and an identity key can belong to only one account (D60):
 

@@ -1,7 +1,7 @@
 # Decision log
 
 
-Every decision so far, D1 to D79, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
+Every decision so far, D1 to D82, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
 
 | Decision | Your choice |
 | --- | --- |
@@ -86,6 +86,9 @@ Every decision so far, D1 to D79, is made and summarized below. Each one records
 | D77 Lint and format strictness | Warnings fail lint; type-aware rules plus explicit return types; Markdown not formatted; React hooks plugin only |
 | D78 Electron version | Pinned exactly in the desktop app's `package.json` |
 | D79 electron-winstaller install script | Denied; NSIS does not use it |
+| D80 better-sqlite3 install script | Denied; its prebuilt Node-API binaries are used |
+| D81 Logging in again on a device | Deletes that device's other refresh tokens |
+| D82 Values filled in while building M1 | See the entry: status codes, database path, secret length, cleanup interval, release address, IPC checks, key directory, WebSocket codes, heartbeat (#17) |
 
 ## D1 — Architecture: who carries messages and calls?
 
@@ -1287,3 +1290,48 @@ Raised while adding the desktop app (#1). electron-builder installs `electron-wi
 Recommendation: A.
 
 Your choice: A, denied (decided October 15, 2026).
+
+## D80 — better-sqlite3's install script
+
+Raised while building M1 (#2, #3). The guide approves better-sqlite3's install script so it can compile. Version 13 ships prebuilt Node-API binaries for Windows, which load in Node.js and, being Node-API, in Electron too, and its `package.json` says it needs no compiling. Approving it anyway makes pnpm compile it from source, which fails on any computer without Visual Studio's C++ tools. A fresh checkout of the repository could not install.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. Deny it (`better-sqlite3: false` in `allowBuilds`) | Nothing runs; the prebuilt binary is used; installs work on any Windows computer | If a future version stops shipping prebuilt binaries, this has to be revisited |
+| B. Keep it approved and install Visual Studio's C++ tools on every computer | Builds from source | A multi-gigabyte install on every development computer, including the second one for the M1 gate, to compile what is already prebuilt |
+
+Recommendation: A.
+
+Your choice: A, denied (decided October 15, 2026). This replaces the approval in `08-m1-build.md` step 1.
+
+## D81 — A new login replaces the device's refresh tokens
+
+Raised while building M1 (#2). D62 assumes each device holds one refresh token. Logging in again on the same device, for example after a crash, issued a new token without cancelling the old ones, so a device could hold several valid tokens for up to 30 days and keep counting as logged in at the 15-minute check.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. Keep the old tokens | Nothing to build | Stray tokens linger for 30 days |
+| B. A login deletes that device's other refresh tokens | One token per device, as D62 assumes; one line in the login transaction | Someone with the password and the device's public key could log the real device out, but they could already change the password |
+
+Recommendation: B.
+
+Your choice: B (decided October 15, 2026).
+
+## D82 — Values filled in while building M1
+
+Values the guide did not give, proposed while building M1 and accepted on October 15, 2026.
+
+| Value | Choice |
+| --- | --- |
+| Response when an identity key already belongs to another account | `409` with the error code `IDENTITY_KEY_TAKEN`, the same status as a taken username; the code tells them apart |
+| Where the server's database file lives | The `DATABASE_PATH` environment variable, defaulting to `newcord.db` in the working directory; production sets it explicitly (#14) |
+| How the JWT secret's minimum length is measured | At least 32 bytes of the environment variable's text |
+| How often expired refresh tokens are deleted | Every 15 minutes, and once at start-up |
+| The release build's server address | `https://newcord.duckdns.org`, following the working-title rule (D58), until the final name and deployment (#12, #14) |
+| How the desktop app checks IPC arguments | With the shared TypeBox schemas, so `typebox` is a dependency of the desktop app too |
+| Key directory response | `{ "identityKeys": [...] }`, oldest device first, with no device IDs; revisited in M2 (#5) if commits need keys matched to devices |
+| A username parameter over 100 characters | Fastify's router answers `414` before any check runs; 33 to 100 characters get `400` |
+| Unknown query-string fields | Ignored, since no handler reads the query |
+| WebSocket Envelope version field and close codes | The field is `v`. `4001` authentication failed or `hello` too late (the app renews its token and reconnects); `4002` session ended (the app shows the login screen); `1008` for any message after `hello` in M1 |
+| Types for the WebSocket library | `@types/ws` as a development dependency of the server, so the hub's socket interfaces are checked against `ws` |
+| Detecting dead WebSocket connections | A server heartbeat, built in its own follow-up issue (#17) |

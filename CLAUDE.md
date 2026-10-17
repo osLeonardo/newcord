@@ -4,7 +4,7 @@
 
 A small, security-focused Discord alternative. There are no Discord-style servers (guilds): only flat group chats of up to 10 people, each with one drop-in call for up to about 6 people (voice and screen sharing, peer-to-peer mesh). Desktop first, Windows only in version 1 (D73). License: AGPL-3.0-or-later.
 
-Status: the design is complete (decisions D1 to D79, all made by the user). Milestone M1 is in progress: the repository scaffold (#1) is built.
+Status: the design is complete (decisions D1 to D82, all made by the user). Milestone M1 is in progress: the repository scaffold (#1) is built.
 
 The full design lives in `docs/guide/`. `docs/README.md` explains which file to read for what.
 
@@ -57,7 +57,7 @@ Run every command from the repository root:
 
 - `pnpm install` installs all packages; after adding a package that runs install scripts, run `pnpm approve-builds <package>`. pnpm 11 stops the install until each one is approved or denied, and its settings live in `pnpm-workspace.yaml`, not `.npmrc`
 - `pnpm --filter desktop dev` runs the desktop app in development mode (electron-vite with hot reload) and opens its window
-- `pnpm --filter server dev` runs the server in watch mode (http://localhost:3000/health should answer `{"ok":true}`)
+- `pnpm --filter server dev` runs the server in watch mode (http://localhost:3000/health should answer `{"ok":true}`). It reads `apps/server/.env` with Node's `--env-file-if-exists`: copy `apps/server/.env.example` to `apps/server/.env` (ignored by git) and set `JWT_SECRET` to the output of `openssl rand -base64 48`, because the server refuses to start without a secret of at least 32 bytes. `DATABASE_PATH` names the SQLite file, `newcord.db` by default
 - `pnpm test` runs every package's tests once with Vitest; `pnpm exec vitest --project server` runs one package's tests in watch mode
 - `pnpm lint` runs ESLint over the whole repository with type-aware rules and explicit return types, and any warning fails it (D77)
 - `pnpm format` rewrites code and configuration files with Prettier (Markdown and the lockfile are excluded in `.prettierignore`)
