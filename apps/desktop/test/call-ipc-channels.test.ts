@@ -27,6 +27,10 @@ describe("the Call channels", () => {
     [desktopApiChannels.leaveCall, [groupId]],
     [desktopApiChannels.sendCallSignal, [groupId, deviceId, offer]],
     [desktopApiChannels.dropCallParticipant, [groupId, deviceId]],
+    [desktopApiChannels.readIceConfiguration, []],
+    [desktopApiChannels.readCallSettings, []],
+    [desktopApiChannels.changeCallSettings, [{ hideMyIp: true }]],
+    [desktopApiChannels.changeCallSettings, [{}]],
   ])("%s accepts %j", (name, args) => {
     expect(channelNamed(name).channel.argumentsMatch(args)).toBe(true);
   });
@@ -41,6 +45,9 @@ describe("the Call channels", () => {
       [groupId, deviceId, { ...offer, script: "<x>" }],
     ],
     [desktopApiChannels.dropCallParticipant, [groupId]],
+    [desktopApiChannels.readIceConfiguration, [groupId]],
+    [desktopApiChannels.changeCallSettings, [{ hideMyIp: "yes" }]],
+    [desktopApiChannels.changeCallSettings, [{ codec: "VP8" }]],
   ])("%s refuses %j", (name, args) => {
     expect(channelNamed(name).channel.argumentsMatch(args)).toBe(false);
   });

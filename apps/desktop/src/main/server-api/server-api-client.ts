@@ -5,6 +5,7 @@ import {
   PasswordRecoveryResponse,
   RefreshResponse,
   RegisterResponse,
+  RelayCredentialsResponse,
   type KeyPackageUploadRequest,
   type LoginRequest,
   type PasswordChangeRequest,
@@ -47,6 +48,10 @@ export interface ServerApiClient {
     accessToken: string,
     request: KeyPackageUploadRequest,
   ): Promise<ServerCallResult<KeyPackageUploadResponse>>;
+  /** A 1-hour relay password and the relay's addresses (#8). */
+  relayCredentials(
+    accessToken: string,
+  ): Promise<ServerCallResult<RelayCredentialsResponse>>;
 }
 
 interface ExpectedReply<Schema extends TSchema> {
@@ -109,15 +114,27 @@ export function createServerApiClient(
         { path: "/keypackages", body: request, accessToken },
         { status: 200, schema: KeyPackageUploadResponse },
       ),
+    relayCredentials: (accessToken) =>
+      checkedReply(
+        () => transport.get({ path: "/relay/credentials", accessToken }),
+        { status: 200, schema: RelayCredentialsResponse },
+      ),
   };
 }
 
-async function post<Schema extends TSchema>(
+function post<Schema extends TSchema>(
   transport: ServerTransport,
   request: ServerPost,
   expected: ExpectedReply<Schema>,
 ): Promise<ServerCallResult<Static<Schema>>> {
-  const reply = await sendOrUndefined(transport, request);
+  return checkedReply(() => transport.post(request), expected);
+}
+
+async function checkedReply<Schema extends TSchema>(
+  send: () => Promise<ServerReply>,
+  expected: ExpectedReply<Schema>,
+): Promise<ServerCallResult<Static<Schema>>> {
+  const reply = await sendOrUndefined(send);
   if (reply === undefined) return { ok: false, failure: "SERVER_UNREACHABLE" };
   const { body } = reply;
   if (reply.status === expected.status && Value.Check(expected.schema, body)) {
@@ -127,11 +144,10 @@ async function post<Schema extends TSchema>(
 }
 
 async function sendOrUndefined(
-  transport: ServerTransport,
-  request: ServerPost,
+  send: () => Promise<ServerReply>,
 ): Promise<ServerReply | undefined> {
   try {
-    return await transport.post(request);
+    return await send();
   } catch {
     // The transport rejects only when the server cannot be reached; there is nothing more to tell.
     return undefined;

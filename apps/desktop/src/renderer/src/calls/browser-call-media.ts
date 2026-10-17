@@ -4,6 +4,7 @@ import type {
   PeerConnectionEvents,
   SessionDescription,
 } from "./call-mesh";
+import type { IceConfiguration } from "../../../preload/call-api";
 import { rmsLevel } from "./voice-level";
 
 /** How often a stream's loudness is measured for the speaking indicator. */
@@ -24,16 +25,22 @@ export function openMicrophone(): Promise<MediaStream> {
   });
 }
 
+/** The Call's connections, so fresh relay passwords reach each one. */
+export type OpenConnections = Set<RTCPeerConnection>;
+
 /**
- * Wraps an `RTCPeerConnection` carrying the microphone for the Call mesh. The relay arrives in
- * Step 02; until then only direct connections are tried.
- * @example createConnection: (peer, events) => browserPeerConnection(microphone, events)
+ * Wraps an `RTCPeerConnection` carrying the microphone for the Call mesh, reaching the others
+ * through the app's own relay, and only through it with Hide my IP (10-m3-build step 5).
+ * @example createConnection: (peer, events) => browserPeerConnection(microphone, configuration, connections, events)
  */
 export function browserPeerConnection(
   microphone: MediaStream,
+  configuration: IceConfiguration,
+  connections: OpenConnections,
   events: PeerConnectionEvents<MediaStream>,
 ): PeerConnection {
-  const connection = new RTCPeerConnection({ iceServers: [] });
+  const connection = new RTCPeerConnection(rtcConfiguration(configuration));
+  connections.add(connection);
   connection.addEventListener("negotiationneeded", () => {
     events.negotiationNeeded();
   });
@@ -72,8 +79,35 @@ export function browserPeerConnection(
         usernameFragment: candidate.usernameFragment ?? null,
       }),
     close: (): void => {
+      connections.delete(connection);
       connection.close();
     },
+  };
+}
+
+/**
+ * Hands every open connection the relay's fresh passwords; the old ones expire after an hour.
+ * @example reconfigure(connections, configuration);
+ */
+export function reconfigure(
+  connections: OpenConnections,
+  configuration: IceConfiguration,
+): void {
+  for (const connection of connections) {
+    connection.setConfiguration(rtcConfiguration(configuration));
+  }
+}
+
+function rtcConfiguration(configuration: IceConfiguration): RTCConfiguration {
+  return {
+    iceServers: configuration.iceServers.map((server) => ({
+      urls: [...server.urls],
+      ...(server.username === undefined ? {} : { username: server.username }),
+      ...(server.credential === undefined
+        ? {}
+        : { credential: server.credential }),
+    })),
+    iceTransportPolicy: configuration.iceTransportPolicy,
   };
 }
 

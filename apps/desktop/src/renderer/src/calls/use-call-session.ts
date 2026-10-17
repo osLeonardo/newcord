@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CallSignal } from "@newcord/shared";
 import type {
   CallSummary,
+  IceConfiguration,
   ReceivedCallSignal,
 } from "../../../preload/call-api";
 import type { DesktopApi } from "../../../preload/desktop-api";
@@ -10,11 +11,16 @@ import { groupRefusalMessage } from "../groups/group-text";
 import {
   browserPeerConnection,
   openMicrophone,
+  reconfigure,
   stopStream,
   watchVoiceLevel,
+  type OpenConnections,
 } from "./browser-call-media";
 import { createCallMesh, type CallMesh } from "./call-mesh";
 import { createLevelGate } from "./voice-level";
+
+/** Relay passwords last an hour (10-m3-build Settings); new ones are fetched at half that. */
+const RELAY_REFRESH_MS = 30 * 60 * 1000;
 
 const MICROPHONE_PROBLEM =
   "The microphone could not be opened. Check that one is connected and allowed in Windows.";
@@ -35,6 +41,7 @@ interface RunningCall {
   readonly groupId: string;
   readonly microphone: MediaStream;
   readonly mesh: CallMesh;
+  readonly stopRefreshing: () => void;
 }
 
 interface CallRefs {
@@ -61,6 +68,7 @@ export function useCallSession(desktopApi: DesktopApi): CallSession {
     const running = refs.current.running;
     if (running === undefined) return;
     refs.current.running = undefined;
+    running.stopRefreshing();
     running.mesh.close();
     stopStream(running.microphone);
     setActive(undefined);
@@ -113,13 +121,19 @@ export function useCallSession(desktopApi: DesktopApi): CallSession {
           }
           // The main process left any other Call before joining this one.
           hangUp();
-          const mesh = meshFor(desktopApi, started.call, started.microphone, {
+          const media: CallMedia = {
+            microphone: started.microphone,
+            configuration: { current: started.configuration },
+            connections: new Set(),
+          };
+          const mesh = meshFor(desktopApi, started.call, media, {
             remoteStreamsChanged: setRemoteStreams,
           });
           refs.current.running = {
             groupId,
             microphone: started.microphone,
             mesh,
+            stopRefreshing: keepRelayFresh(desktopApi, media),
           };
           setMicrophone(started.microphone);
           setActive(started.call);
@@ -160,10 +174,14 @@ type StartedCall =
       readonly outcome: "joined";
       readonly call: CallSummary;
       readonly microphone: MediaStream;
+      readonly configuration: IceConfiguration;
     }
   | { readonly outcome: "refused"; readonly problem: string };
 
-/** Opens the microphone first, so a refused permission sends nothing; a refused join turns it off again. */
+/**
+ * Opens the microphone and gets the relay's passwords before joining, so a refused permission or
+ * an unreachable relay with Hide my IP sends nothing; a refused join turns the microphone off again.
+ */
 async function startCall(
   desktopApi: DesktopApi,
   groupId: string,
@@ -174,24 +192,64 @@ async function startCall(
   } catch {
     return { outcome: "refused", problem: MICROPHONE_PROBLEM };
   }
-  const result = await desktopApi.joinCall(groupId).catch((error: unknown) => {
+  try {
+    const relay = await desktopApi.readIceConfiguration();
+    if (relay.outcome === "refused") {
+      stopStream(microphone);
+      return {
+        outcome: "refused",
+        problem: groupRefusalMessage(relay.refusal),
+      };
+    }
+    const result = await desktopApi.joinCall(groupId);
+    if (result.outcome === "refused") {
+      stopStream(microphone);
+      return {
+        outcome: "refused",
+        problem: groupRefusalMessage(result.refusal),
+      };
+    }
+    return {
+      outcome: "joined",
+      call: result.call,
+      microphone,
+      configuration: relay.configuration,
+    };
+  } catch (error) {
     stopStream(microphone);
     throw error;
-  });
-  if (result.outcome === "refused") {
-    stopStream(microphone);
-    return {
-      outcome: "refused",
-      problem: groupRefusalMessage(result.refusal),
-    };
   }
-  return { outcome: "joined", call: result.call, microphone };
+}
+
+interface CallMedia {
+  readonly microphone: MediaStream;
+  /** The newest relay passwords, used by every new connection. */
+  readonly configuration: { current: IceConfiguration };
+  readonly connections: OpenConnections;
+}
+
+/** Fetches fresh relay passwords every 30 minutes and hands them to every connection. */
+function keepRelayFresh(desktopApi: DesktopApi, media: CallMedia): () => void {
+  const timer = setInterval(() => {
+    desktopApi
+      .readIceConfiguration()
+      .then((relay) => {
+        // Without new passwords the connections keep the ones they have.
+        if (relay.outcome !== "ready") return;
+        media.configuration.current = relay.configuration;
+        reconfigure(media.connections, relay.configuration);
+      })
+      .catch(reportCallError);
+  }, RELAY_REFRESH_MS);
+  return (): void => {
+    clearInterval(timer);
+  };
 }
 
 function meshFor(
   desktopApi: DesktopApi,
   call: CallSummary,
-  microphone: MediaStream,
+  media: CallMedia,
   callbacks: {
     remoteStreamsChanged(streams: ReadonlyMap<string, MediaStream>): void;
   },
@@ -200,7 +258,12 @@ function meshFor(
   return createCallMesh<MediaStream>({
     ownDeviceId: call.ownDeviceId,
     createConnection: (_peer, events) =>
-      browserPeerConnection(microphone, events),
+      browserPeerConnection(
+        media.microphone,
+        media.configuration.current,
+        media.connections,
+        events,
+      ),
     sendSignal: (to: string, signal: CallSignal) => {
       desktopApi.sendCallSignal(groupId, to, signal).catch(reportCallError);
     },

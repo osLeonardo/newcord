@@ -1,8 +1,14 @@
 import { vi, type Mock } from "vitest";
-import type { CallApiCalls, CallSummary } from "../../src/preload/call-api";
+import type {
+  CallApiCalls,
+  CallSettingsApiCalls,
+  CallSummary,
+} from "../../src/preload/call-api";
+
+type CallCalls = CallApiCalls & CallSettingsApiCalls;
 
 export type FakeCallActions = {
-  [Name in keyof CallApiCalls]: Mock<CallApiCalls[Name]>;
+  [Name in keyof CallCalls]: Mock<CallCalls[Name]>;
 };
 
 const emptyCall = (groupId: string): CallSummary => ({
@@ -33,6 +39,18 @@ export function fakeCallActions(): FakeCallActions {
     ),
     dropCallParticipant: vi.fn<CallApiCalls["dropCallParticipant"]>(() =>
       Promise.resolve(),
+    ),
+    readIceConfiguration: vi.fn<CallApiCalls["readIceConfiguration"]>(() =>
+      Promise.resolve({
+        outcome: "ready",
+        configuration: { iceServers: [], iceTransportPolicy: "all" },
+      }),
+    ),
+    readCallSettings: vi.fn<CallSettingsApiCalls["readCallSettings"]>(() =>
+      Promise.resolve({ hideMyIp: false }),
+    ),
+    changeCallSettings: vi.fn<CallSettingsApiCalls["changeCallSettings"]>(
+      (changes) => Promise.resolve({ hideMyIp: false, ...changes }),
     ),
   };
 }

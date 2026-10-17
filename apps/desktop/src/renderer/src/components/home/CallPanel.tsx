@@ -89,11 +89,56 @@ export function CallPanel(props: CallPanelProps): React.JSX.Element {
           {callSession.joining ? "Joining…" : "Join Call"}
         </button>
       )}
+      {!inThisCall && <HideMyIpToggle desktopApi={desktopApi} />}
       {callSession.problem !== undefined && (
         <span role="alert" className={screenStyles.errorMessage}>
           {callSession.problem}
         </span>
       )}
     </section>
+  );
+}
+
+/**
+ * Hide my IP until the Call settings panel holds it (#9, Step 03): relay-only connections from the
+ * next Call on (D14).
+ */
+function HideMyIpToggle(props: {
+  readonly desktopApi: DesktopApi;
+}): React.JSX.Element {
+  const { desktopApi } = props;
+  const [hideMyIp, setHideMyIp] = useState<boolean>();
+
+  useEffect(() => {
+    let mounted = true;
+    desktopApi.readCallSettings().then(
+      (settings) => {
+        if (mounted) setHideMyIp(settings.hideMyIp);
+      },
+      () => undefined,
+    );
+    return (): void => {
+      mounted = false;
+    };
+  }, [desktopApi]);
+
+  return (
+    <label className="flex items-center gap-1 text-zinc-400">
+      <input
+        type="checkbox"
+        checked={hideMyIp ?? false}
+        disabled={hideMyIp === undefined}
+        onChange={(event) => {
+          const wanted = event.target.checked;
+          desktopApi.changeCallSettings({ hideMyIp: wanted }).then(
+            (settings) => {
+              setHideMyIp(settings.hideMyIp);
+            },
+            () => undefined,
+          );
+        }}
+      />
+      Hide my IP
+    </label>
   );
 }

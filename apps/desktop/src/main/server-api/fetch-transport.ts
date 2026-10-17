@@ -5,6 +5,12 @@ export interface ServerPost {
   readonly accessToken?: string;
 }
 
+/** A GET to the server with an access token, as `GET /relay/credentials` needs (#8). */
+export interface ServerGet {
+  readonly path: string;
+  readonly accessToken: string;
+}
+
 /** The server's answer: its status, and its JSON body, or undefined when it is empty or not JSON. */
 export interface ServerReply {
   readonly status: number;
@@ -14,10 +20,11 @@ export interface ServerReply {
 /** Sends requests to the server; rejects only when the server cannot be reached. */
 export interface ServerTransport {
   post(request: ServerPost): Promise<ServerReply>;
+  get(request: ServerGet): Promise<ServerReply>;
 }
 
 export interface FetchInit {
-  readonly method: "POST";
+  readonly method: "GET" | "POST";
   readonly headers: Readonly<Record<string, string>>;
   readonly body?: string;
   readonly redirect: "error";
@@ -47,6 +54,20 @@ export function createFetchTransport(
       const response = await fetchFunction(
         new URL(request.path, serverAddress).href,
         fetchInitFor(request),
+      );
+      return {
+        status: response.status,
+        body: jsonOrUndefined(await response.text()),
+      };
+    },
+    get: async (request: ServerGet): Promise<ServerReply> => {
+      const response = await fetchFunction(
+        new URL(request.path, serverAddress).href,
+        {
+          method: "GET",
+          headers: { authorization: `Bearer ${request.accessToken}` },
+          redirect: "error",
+        },
       );
       return {
         status: response.status,

@@ -92,7 +92,11 @@ function installApp(
   loadOrCreateIdentityKey(store, createIdentityKeyPair);
   const posts = vi.fn((request: ServerPost) => transport.post(request));
   const liveSession = fakeLiveSession();
-  const actions = restartApp(store, { post: posts }, liveSession);
+  const actions = restartApp(
+    store,
+    { post: posts, get: () => Promise.reject(new TypeError("fetch failed")) },
+    liveSession,
+  );
   return { database, store, posts, liveSession, actions };
 }
 

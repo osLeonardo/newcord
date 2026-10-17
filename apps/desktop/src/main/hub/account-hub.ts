@@ -12,6 +12,7 @@ import { createGroupService, type GroupService } from "../groups/group-service";
 import type { LocalGroups } from "../local-store/local-groups";
 import type { LocalMessages } from "../local-store/local-messages";
 import type { VerifiedMarks } from "../local-store/verified-marks";
+import type { CallSettingsStore } from "../local-store/call-settings";
 import { createSafetyHalves } from "../safety/safety-numbers";
 import type { LocalStore } from "../local-store/local-store";
 import { credentialIdentity } from "../mls/credential-identity";
@@ -37,7 +38,11 @@ export interface AccountHubDependencies {
   readonly verifiedMarks: VerifiedMarks;
   readonly groupEvents: GroupEvents;
   readonly createEngine: () => MlsEngine;
-  readonly server: Pick<ServerApiClient, "uploadKeyPackages">;
+  readonly server: Pick<
+    ServerApiClient,
+    "uploadKeyPackages" | "relayCredentials"
+  >;
+  readonly callSettings: CallSettingsStore;
   readonly liveSession: Pick<LiveSession, "send" | "renewAccessToken">;
   readonly clock: SessionClock;
   /** Told about failures no request can report, such as a Key package upload that threw. */
@@ -99,7 +104,14 @@ export function openAccountHub(
     now: () => dependencies.clock.now(),
   };
   const groups = createGroupService(context);
-  const calls = createCallService(context);
+  const callAuthenticated = createAuthenticatedCall(dependencies);
+  const calls = createCallService(context, {
+    credentials: () =>
+      callAuthenticated((accessToken) =>
+        dependencies.server.relayCredentials(accessToken),
+      ),
+    hideMyIp: () => dependencies.callSettings.read().hideMyIp,
+  });
   return {
     deviceId: account.deviceId,
     mls,

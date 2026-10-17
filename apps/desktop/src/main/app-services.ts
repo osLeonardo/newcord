@@ -5,7 +5,14 @@ import {
 } from "../preload/desktop-api";
 import { createAccountActions } from "./account/account-actions";
 import { sessionStateOf } from "./account/session-state";
-import { createCallActions } from "./calls/call-actions";
+import {
+  createCallActions,
+  createCallSettingsActions,
+} from "./calls/call-actions";
+import {
+  createCallSettingsStore,
+  type CallSettingsStore,
+} from "./local-store/call-settings";
 import { createGroupActions } from "./groups/group-actions";
 import { createDeviceHub, type DeviceHub } from "./hub/device-hub";
 import {
@@ -64,8 +71,9 @@ export function startAppServices(
   const store = createSqliteLocalStore(dependencies.database);
   loadOrCreateIdentityKey(store, createIdentityKeyPair);
   const holder: HubHolder = {};
+  const callSettings = createCallSettingsStore(dependencies.database);
   const liveSession = startLiveSession(dependencies, store, holder);
-  holder.hub = createGroupHub(dependencies, store, liveSession);
+  holder.hub = createGroupHub(dependencies, store, liveSession, callSettings);
   const accountActions = createAccountActions({
     store,
     server: dependencies.server,
@@ -77,6 +85,7 @@ export function startAppServices(
       ...accountActions,
       ...createGroupActions(() => holder.hub?.current()?.groups),
       ...createCallActions(() => holder.hub?.current()?.calls),
+      ...createCallSettingsActions(callSettings),
     },
     store,
     liveSession,
@@ -115,6 +124,7 @@ function createGroupHub(
   dependencies: AppServicesDependencies,
   store: LocalStore,
   liveSession: LiveSession,
+  callSettings: CallSettingsStore,
 ): DeviceHub | undefined {
   const { createEngine, database, notify } = dependencies;
   if (createEngine === undefined) return undefined;
@@ -124,6 +134,7 @@ function createGroupHub(
     localGroups: createLocalGroups(database),
     localMessages: createLocalMessages(database),
     verifiedMarks: createVerifiedMarks(database),
+    callSettings,
     groupEvents: {
       groupsChanged: () => notify(desktopApiEventChannels.onGroupsChanged),
       invitationsChanged: () =>

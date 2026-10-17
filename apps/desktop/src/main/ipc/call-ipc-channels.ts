@@ -2,7 +2,10 @@ import { CallSignal, DeviceId } from "@newcord/shared";
 import { Type, type Static } from "typebox";
 import type {
   CallApiCalls,
+  CallSettings,
+  CallSettingsApiCalls,
   CallSummary,
+  IceConfigurationResult,
   JoinCallResult,
 } from "../../preload/call-api";
 import { desktopApiChannels } from "../../preload/desktop-api";
@@ -17,13 +20,22 @@ const SignalArguments = Type.Tuple([GroupId, DeviceId, CallSignal]);
 type SignalArguments = Static<typeof SignalArguments>;
 const ParticipantArguments = Type.Tuple([GroupId, DeviceId]);
 type ParticipantArguments = Static<typeof ParticipantArguments>;
+const NoArguments = Type.Tuple([]);
+type NoArguments = Static<typeof NoArguments>;
+const SettingsChangeArguments = Type.Tuple([
+  Type.Object(
+    { hideMyIp: Type.Optional(Type.Boolean()) },
+    { additionalProperties: false },
+  ),
+]);
+type SettingsChangeArguments = Static<typeof SettingsChangeArguments>;
 
 /**
  * The Call channels, each checked for its sender and arguments before the Call service sees it.
  * @example createCallIpcChannels(callActions)
  */
 export function createCallIpcChannels(
-  actions: CallApiCalls,
+  actions: CallApiCalls & CallSettingsApiCalls,
 ): CheckedIpcChannel[] {
   return [
     checkedChannel<GroupArguments, CallSummary>({
@@ -57,6 +69,24 @@ export function createCallIpcChannels(
       argumentsMatch: argumentsMatching(ParticipantArguments),
       handle: (groupId, deviceId) =>
         actions.dropCallParticipant(groupId, deviceId),
+    }),
+    checkedChannel<NoArguments, IceConfigurationResult>({
+      name: desktopApiChannels.readIceConfiguration,
+      expectedArguments: "",
+      argumentsMatch: argumentsMatching(NoArguments),
+      handle: () => actions.readIceConfiguration(),
+    }),
+    checkedChannel<NoArguments, CallSettings>({
+      name: desktopApiChannels.readCallSettings,
+      expectedArguments: "",
+      argumentsMatch: argumentsMatching(NoArguments),
+      handle: () => actions.readCallSettings(),
+    }),
+    checkedChannel<SettingsChangeArguments, CallSettings>({
+      name: desktopApiChannels.changeCallSettings,
+      expectedArguments: "changes: { hideMyIp?: boolean }",
+      argumentsMatch: argumentsMatching(SettingsChangeArguments),
+      handle: (changes) => actions.changeCallSettings(changes),
     }),
   ];
 }

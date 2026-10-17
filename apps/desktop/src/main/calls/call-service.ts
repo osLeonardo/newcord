@@ -3,12 +3,19 @@ import {
   isStaleCallMessage,
   type CallPayload,
   type CallSignal,
+  type RelayCredentialsResponse,
 } from "@newcord/shared";
 import type {
   CallApiCalls,
   CallSummary,
+  IceConfigurationResult,
   JoinCallResult,
 } from "../../preload/call-api";
+import type { ServerCallResult } from "../server-api/server-api-client";
+import {
+  DIRECT_ONLY_CONFIGURATION,
+  iceConfigurationOf,
+} from "./ice-configuration";
 import type { GroupActionResult } from "../../preload/group-api";
 import { groupIdFromText, type GroupContext } from "../groups/group-context";
 import { sendGroupPayload } from "../groups/group-payloads";
@@ -21,13 +28,23 @@ export interface CallService extends CallApiCalls {
   onlineAccountsChanged(usernames: readonly string[]): void;
 }
 
+/** Where the Call service gets relay passwords and the Hide my IP setting. */
+export interface CallRelay {
+  credentials(): Promise<ServerCallResult<RelayCredentialsResponse>>;
+  hideMyIp(): boolean;
+}
+
 /**
  * Creates the Call service over the logged-in Device's Groups. Call messages travel only inside
  * MLS; the window gets plain details through the preload API (10-m3-build step 4).
- * @example const calls = createCallService(context); await calls.joinCall(groupId);
+ * @example const calls = createCallService(context, relay); await calls.joinCall(groupId);
  */
-export function createCallService(context: GroupContext): CallService {
+export function createCallService(
+  context: GroupContext,
+  relay: CallRelay,
+): CallService {
   return {
+    readIceConfiguration: () => readIceConfiguration(relay),
     readCall: (groupId) => Promise.resolve(summaryOf(context, groupId)),
     joinCall: (groupId) => joinCall(context, groupId),
     leaveCall: (groupId) => leaveCall(context, groupId),
@@ -92,6 +109,23 @@ function signalReceived(
     from: participant.deviceId,
     signal: payload.signal,
   });
+}
+
+/** With Hide my IP on, no relay means no Call: a direct connection would show this Device's address. */
+async function readIceConfiguration(
+  relay: CallRelay,
+): Promise<IceConfigurationResult> {
+  const hideMyIp = relay.hideMyIp();
+  const credentials = await relay.credentials();
+  if (credentials.ok) {
+    return {
+      outcome: "ready",
+      configuration: iceConfigurationOf(credentials.body, hideMyIp),
+    };
+  }
+  return hideMyIp
+    ? { outcome: "refused", refusal: "RELAY_UNAVAILABLE" }
+    : { outcome: "ready", configuration: DIRECT_ONLY_CONFIGURATION };
 }
 
 async function joinCall(

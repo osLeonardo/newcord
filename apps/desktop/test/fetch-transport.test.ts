@@ -110,4 +110,22 @@ describe("createFetchTransport", () => {
       "fetch failed",
     );
   });
+
+  it("gets a path with the access token and no body", async () => {
+    const fetchFunction = fakeFetch(200, '{"ok":true}');
+
+    const reply = await createFetchTransport(serverAddress, fetchFunction).get({
+      path: "/relay/credentials",
+      accessToken: "token",
+    });
+
+    const { url, init } = sentRequest(fetchFunction);
+    expect(url).toBe("http://localhost:3000/relay/credentials");
+    expect(init).toEqual({
+      method: "GET",
+      headers: { authorization: "Bearer token" },
+      redirect: "error",
+    });
+    expect(reply).toEqual({ status: 200, body: { ok: true } });
+  });
 });

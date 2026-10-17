@@ -49,6 +49,7 @@ export async function startInProcessServer(): Promise<InProcessServer> {
 /** A transport for a server that cannot be reached, as when it is down or the network is out. */
 export const unreachableTransport: ServerTransport = {
   post: () => Promise.reject(new TypeError("fetch failed")),
+  get: () => Promise.reject(new TypeError("fetch failed")),
 };
 
 /** Counts the server's rows of an Account's Devices and of a Device's refresh tokens. */

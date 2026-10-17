@@ -35,6 +35,8 @@ const groupRefusalMessages: ReadonlyMap<string, string> = new Map(
     CANNOT_VERIFY_SELF: "Compare safety numbers with someone else.",
     CALL_FULL: "This Call is full: it already has 6 people.",
     NOT_IN_CALL: "You are not in this Call.",
+    RELAY_UNAVAILABLE:
+      "The relay cannot be reached, and Hide my IP needs it. Try again in a moment.",
     SAFETY_NUMBER_CHANGED:
       "The safety number changed while it was open. Compare the new one.",
   } satisfies Record<GroupRefusal, string>),

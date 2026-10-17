@@ -302,3 +302,40 @@ describe("dropping Participants (#9's spec)", () => {
     }, WAIT);
   });
 });
+
+describe("the relay (#9, Step 02)", () => {
+  it("gives each Call fresh relay passwords for the app's own relay only", async () => {
+    const alice = await memberReady(server, installations, "alice");
+
+    const result = await (await hubOf(alice)).calls.readIceConfiguration();
+
+    expect(result).toEqual({
+      outcome: "ready",
+      configuration: {
+        iceServers: [
+          { urls: ["stun:relay.test:3478"] },
+          {
+            urls: ["turn:relay.test:3478"],
+            username: expect.stringContaining(
+              `:${deviceIdOf(alice)}`,
+            ) as unknown,
+            credential: expect.any(String) as unknown,
+          },
+        ],
+        iceTransportPolicy: "all",
+      },
+    });
+  });
+
+  it("forces relayed connections once Hide my IP is on", async () => {
+    const alice = await memberReady(server, installations, "alice");
+
+    const settings = await alice.actions.changeCallSettings({ hideMyIp: true });
+    const result = await (await hubOf(alice)).calls.readIceConfiguration();
+
+    expect(settings).toEqual({ hideMyIp: true });
+    expect(
+      result.outcome === "ready" && result.configuration.iceTransportPolicy,
+    ).toBe("relay");
+  });
+});

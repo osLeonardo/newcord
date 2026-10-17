@@ -31,6 +31,29 @@ export interface ReceivedCallSignal {
   readonly signal: CallSignal;
 }
 
+/** One STUN or TURN entry of `RTCConfiguration.iceServers`, all on the app's own relay (D23). */
+export interface IceServer {
+  readonly urls: readonly string[];
+  readonly username?: string;
+  readonly credential?: string;
+}
+
+/** How each Call connection reaches the others: the relay, and only the relay with Hide my IP (D14). */
+export interface IceConfiguration {
+  readonly iceServers: readonly IceServer[];
+  readonly iceTransportPolicy: "all" | "relay";
+}
+
+export type IceConfigurationResult =
+  | { readonly outcome: "ready"; readonly configuration: IceConfiguration }
+  | { readonly outcome: "refused"; readonly refusal: GroupRefusal };
+
+/** The Call settings stored on this Device (10-m3-build Settings: settings live on each device). */
+export interface CallSettings {
+  /** Relay-only connections from the next Call on, so Participants never see this Device's IP (D14). */
+  readonly hideMyIp: boolean;
+}
+
 /** The Call functions the window uses; WebRTC itself runs in the window (D42). */
 export interface CallApiCalls {
   readCall(groupId: string): Promise<CallSummary>;
@@ -45,4 +68,12 @@ export interface CallApiCalls {
   ): Promise<GroupActionResult>;
   /** Takes a Participant off the list after its connection failed or never came up in 30 seconds. */
   dropCallParticipant(groupId: string, deviceId: string): Promise<void>;
+  /** Fresh relay passwords for new connections; refused with RELAY_UNAVAILABLE when Hide my IP cannot be kept. */
+  readIceConfiguration(): Promise<IceConfigurationResult>;
+}
+
+/** The Call settings, which need no Account: they belong to the computer. */
+export interface CallSettingsApiCalls {
+  readCallSettings(): Promise<CallSettings>;
+  changeCallSettings(changes: Partial<CallSettings>): Promise<CallSettings>;
 }

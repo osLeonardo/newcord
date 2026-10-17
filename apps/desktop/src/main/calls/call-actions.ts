@@ -1,4 +1,8 @@
-import type { CallApiCalls } from "../../preload/call-api";
+import type {
+  CallApiCalls,
+  CallSettingsApiCalls,
+} from "../../preload/call-api";
+import type { CallSettingsStore } from "../local-store/call-settings";
 
 /**
  * The desktop API's Call functions, answered by the logged-in Device's Call service; without one
@@ -29,5 +33,20 @@ export function createCallActions(
     dropCallParticipant: (groupId, deviceId) =>
       currentService()?.dropCallParticipant(groupId, deviceId) ??
       Promise.resolve(),
+    readIceConfiguration: () =>
+      currentService()?.readIceConfiguration() ?? Promise.resolve(unavailable),
+  };
+}
+
+/**
+ * The Call settings functions, answered from the local database whether or not anyone is logged in.
+ * @example const settingsActions = createCallSettingsActions(createCallSettingsStore(database));
+ */
+export function createCallSettingsActions(
+  store: CallSettingsStore,
+): CallSettingsApiCalls {
+  return {
+    readCallSettings: () => Promise.resolve(store.read()),
+    changeCallSettings: (changes) => Promise.resolve(store.change(changes)),
   };
 }

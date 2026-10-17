@@ -1,5 +1,10 @@
 import type { ApiErrorCode } from "@newcord/shared";
-import type { CallApiCalls, CallSummary, ReceivedCallSignal } from "./call-api";
+import type {
+  CallApiCalls,
+  CallSettingsApiCalls,
+  CallSummary,
+  ReceivedCallSignal,
+} from "./call-api";
 import type { GroupApiCalls, GroupLeftNotice } from "./group-api";
 
 /** A username and password as typed on the sign-up or login screen. */
@@ -89,7 +94,7 @@ export interface AccountApiCalls {
 
 /** The desktop API's calls into the main process, each checked there for its sender and arguments. */
 export interface DesktopApiCalls
-  extends AccountApiCalls, GroupApiCalls, CallApiCalls {}
+  extends AccountApiCalls, GroupApiCalls, CallApiCalls, CallSettingsApiCalls {}
 
 /** The changes the main process tells the interface about. */
 export interface DesktopApiSubscriptions {
@@ -146,6 +151,9 @@ export const desktopApiChannels = {
   leaveCall: "calls:leave",
   sendCallSignal: "calls:send-signal",
   dropCallParticipant: "calls:drop",
+  readIceConfiguration: "calls:read-ice",
+  readCallSettings: "settings:read-call",
+  changeCallSettings: "settings:change-call",
 } as const satisfies Record<keyof DesktopApiCalls, string>;
 
 /** The IPC channel the main process sends each change on. */

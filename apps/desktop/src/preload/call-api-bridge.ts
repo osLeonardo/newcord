@@ -1,5 +1,7 @@
 import type {
+  CallSettings,
   CallSummary,
+  IceConfigurationResult,
   JoinCallResult,
   ReceivedCallSignal,
 } from "./call-api";
@@ -18,6 +20,9 @@ type CallApi = Pick<
   | "leaveCall"
   | "sendCallSignal"
   | "dropCallParticipant"
+  | "readIceConfiguration"
+  | "readCallSettings"
+  | "changeCallSettings"
   | "onCallChanged"
   | "onCallSignal"
 >;
@@ -53,6 +58,17 @@ export function createCallApi(
         groupId,
         deviceId,
       ) as Promise<void>,
+    readIceConfiguration: () =>
+      invoke(
+        desktopApiChannels.readIceConfiguration,
+      ) as Promise<IceConfigurationResult>,
+    readCallSettings: () =>
+      invoke(desktopApiChannels.readCallSettings) as Promise<CallSettings>,
+    changeCallSettings: (changes) =>
+      invoke(
+        desktopApiChannels.changeCallSettings,
+        changes,
+      ) as Promise<CallSettings>,
     onCallChanged: (listener) =>
       subscribe(desktopApiEventChannels.onCallChanged, (payload) =>
         listener(payload as CallSummary),
