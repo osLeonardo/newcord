@@ -1,7 +1,7 @@
 # Decision log
 
 
-Every decision so far, D1 to D92, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
+Every decision so far, D1 to D93, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
 
 | Decision | Your choice |
 | --- | --- |
@@ -99,6 +99,7 @@ Every decision so far, D1 to D92, is made and summarized below. Each one records
 | D90 MLS module functions beyond the guide's table | `groupEpoch`, `groupMembers`, `groupMemberKeys`, and one past epoch kept readable |
 | D91 Server behaviour added while building M2 | Leaving devices get the commit removing them; groups re-prompted on key-package upload and on creation; no-recipient messages not stored |
 | D92 The app's final name | newcord |
+| D93 uiohook-napi's install script | Approved; it only picks the prebuilt binary |
 
 ## D1 — Architecture: who carries messages and calls?
 
@@ -1479,3 +1480,16 @@ The name chosen before M5 (D58, #12).
 | B. A new name | | A search-and-replace pass before M5 |
 
 Your choice: A, "newcord" is the final name (decided October 17, 2026). The appId stays `com.newcord.desktop`.
+
+## D93 — uiohook-napi's install script
+
+Raised while building M3's push-to-talk (#9). `uiohook-napi` (D74) is a native module whose install script, `node-gyp-build`, picks the prebuilt binary for the platform and compiles only when none fits; the package ships prebuilt binaries for Windows on x64 and Arm.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A. Approve it (`uiohook-napi: true` in `allowBuilds`) | Push-to-talk works while a game is in front (D44b) | One more install script runs |
+| B. Deny it | Nothing runs | No global push-to-talk |
+
+Recommendation: A.
+
+Your choice: A, approved (decided October 17, 2026). Push-to-talk keys are keyboard keys, stored as `KeyboardEvent.code`; mouse buttons are not offered.

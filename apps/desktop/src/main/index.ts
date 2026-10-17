@@ -43,6 +43,7 @@ import {
   type IpcInvocation,
 } from "./ipc/checked-ipc-handler";
 import { createShareChooser } from "./calls/screen-share";
+import { createUiohookKeyboardHook } from "./calls/uiohook-keyboard-hook";
 import { loadMlsEngineFactory } from "./mls/mls-module";
 import { grantCallPermissionsOnly } from "./permissions";
 import { createFetchTransport } from "./server-api/fetch-transport";
@@ -275,6 +276,7 @@ function startServices(): AppServices {
     reportError: (error) => {
       console.error("A background task failed", error);
     },
+    keyboardHook: createUiohookKeyboardHook(),
     hotkeys: {
       register: (accelerator, pressed) =>
         globalShortcut.register(accelerator, pressed),
