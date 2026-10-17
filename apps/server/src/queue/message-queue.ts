@@ -32,7 +32,7 @@ export interface QueuedMessage {
 
 /** The queue: each message stored once, with a delivery row per recipient Device, deleted on ack (D9). */
 export interface MessageQueue {
-  /** Gives the message the Group's next sequence number and a delivery row per recipient; returns the number. */
+  /** Gives the message the Group's next sequence number and a delivery row per recipient; returns the number. A message for nobody is not stored. */
   enqueue(message: NewQueuedMessage): number;
   /** Deletes the Device's copy, and the message once no copies remain. */
   acknowledge(groupId: Buffer, seq: number, deviceId: string): void;
@@ -98,6 +98,9 @@ function createEnqueue(database: Database.Database): MessageQueue["enqueue"] {
         `Cannot queue a ${message.kind} for Group ${message.groupId.toString("base64url")}: no such Group`,
       );
     }
+    // With nobody to deliver to, no ack would ever delete it: only the number is used.
+    const recipients = new Set(message.recipients);
+    if (recipients.size === 0) return seq;
     insertMessage.run(
       message.groupId,
       seq,
@@ -107,7 +110,7 @@ function createEnqueue(database: Database.Database): MessageQueue["enqueue"] {
       message.declared === undefined ? null : JSON.stringify(message.declared),
       message.createdAt,
     );
-    for (const deviceId of new Set(message.recipients)) {
+    for (const deviceId of recipients) {
       insertDelivery.run(message.groupId, seq, deviceId);
     }
     return seq;

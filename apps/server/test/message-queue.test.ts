@@ -64,6 +64,13 @@ describe("enqueue", () => {
     expect(rowCounts()).toEqual({ messages: 1, deliveries: 2 });
   });
 
+  it("uses up a sequence number but stores nothing for a message with no recipient", () => {
+    expect(queue.enqueue(message({ recipients: [] }))).toBe(1);
+
+    expect(rowCounts()).toEqual({ messages: 0, deliveries: 0 });
+    expect(queue.enqueue(message())).toBe(2);
+  });
+
   it("keeps counting after delivered messages are deleted", () => {
     queue.enqueue(message({ recipients: ["bruno-phone"] }));
     queue.acknowledge(groupId, 1, "bruno-phone");
