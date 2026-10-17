@@ -13,6 +13,28 @@ export interface GroupEvents {
   messagesChanged(groupId: string): void;
   /** This Device is no longer in the Group. */
   groupLeft(notice: GroupLeftNotice): void;
+  /** The Account's block list changed. */
+  blocksChanged(): void;
+}
+
+/** The Account's block list as the server last sent it (D57); kept in memory only. */
+export interface BlockList {
+  usernames(): readonly string[];
+  replace(usernames: readonly string[]): void;
+}
+
+/**
+ * Creates an empty block list; the server sends the real one right after `hello`.
+ * @example const blocks = createBlockList(); blocks.replace(["bruno"]);
+ */
+export function createBlockList(): BlockList {
+  let blocked: readonly string[] = [];
+  return {
+    usernames: (): readonly string[] => blocked,
+    replace: (usernames): void => {
+      blocked = [...usernames];
+    },
+  };
 }
 
 /** Everything the Group features share for the logged-in Device. */
@@ -21,6 +43,7 @@ export interface GroupContext {
   readonly requester: HubRequester;
   readonly localGroups: LocalGroups;
   readonly localMessages: LocalMessages;
+  readonly blockList: BlockList;
   readonly lanes: GroupLanes;
   /** This Device's credential identity, `<username>:<deviceId>` (D70). */
   readonly ownIdentity: string;

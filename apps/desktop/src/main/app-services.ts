@@ -126,6 +126,7 @@ function createGroupHub(
         notify(desktopApiEventChannels.onMessagesChanged, groupId),
       groupLeft: (notice) =>
         notify(desktopApiEventChannels.onGroupLeft, notice),
+      blocksChanged: () => notify(desktopApiEventChannels.onBlocksChanged),
     },
     createEngine,
     server: dependencies.server,

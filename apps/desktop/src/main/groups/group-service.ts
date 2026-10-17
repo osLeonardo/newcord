@@ -82,6 +82,9 @@ export function createGroupService(
     removeMember: (groupId, username) =>
       removeGroupMember(context, groupId, username),
     leaveGroup: (groupId) => leaveGroup(context, groupId),
+    listBlocked: () => Promise.resolve(context.blockList.usernames()),
+    blockAccount: (username) => changeBlock(context, "block", username),
+    unblockAccount: (username) => changeBlock(context, "unblock", username),
     inboxHandlers: {
       "mls.welcome": (delivery) => receiveDelivery(context, delivery, hooks),
       "mls.commit": (delivery) => receiveDelivery(context, delivery, hooks),
@@ -98,6 +101,10 @@ export function createGroupService(
         addFromPrompt(context, prompt, addsUnderWay),
       "device.new": (prompt) => addFromPrompt(context, prompt, addsUnderWay),
       resync: (prompt) => addFromPrompt(context, prompt, addsUnderWay),
+      blocks: (envelope): void => {
+        context.blockList.replace(envelope.usernames);
+        context.events.blocksChanged();
+      },
       "group.renamed": (envelope): void => {
         context.localGroups.rename(
           groupIdFromText(envelope.groupId),
@@ -133,19 +140,25 @@ async function createGroup(
     return { outcome: "refused", refusal: "INVALID_NAME" };
   }
   const groupId = newGroupId();
-  const reply = await context.mls.runThenSend(
-    (engine) => engine.createGroup(groupId),
-    () =>
-      context.requester.request({
-        type: "group.create",
-        groupId: groupIdText(groupId),
-        name,
-      }),
-  );
-  if (!reply.ok) return { outcome: "refused", refusal: reply.code };
-  context.localGroups.add({ groupId, name }, 0);
-  context.events.groupsChanged();
-  return { outcome: "created", group: { groupId: groupIdText(groupId), name } };
+  // In the lane, so a prompt that arrives with the reply waits until the Group is stored.
+  return context.lanes.run(groupId, async () => {
+    const reply = await context.mls.runThenSend(
+      (engine) => engine.createGroup(groupId),
+      () =>
+        context.requester.request({
+          type: "group.create",
+          groupId: groupIdText(groupId),
+          name,
+        }),
+    );
+    if (!reply.ok) return { outcome: "refused", refusal: reply.code };
+    context.localGroups.add({ groupId, name }, 0);
+    context.events.groupsChanged();
+    return {
+      outcome: "created",
+      group: { groupId: groupIdText(groupId), name },
+    };
+  });
 }
 
 /** The server answers an Invitation from someone the invitee blocks like any other (D57). */
@@ -203,10 +216,15 @@ function addFromPrompt(
 ): void {
   const groupId = groupIdFromText(prompt.groupId);
   const key = `${prompt.groupId}:${prompt.username}`;
-  if (!context.localGroups.has(groupId) || addsUnderWay.has(key)) return;
+  if (addsUnderWay.has(key)) return;
   addsUnderWay.add(key);
   void context.lanes
-    .run(groupId, () => addAccount(context, groupId, prompt.username))
+    .run(groupId, () =>
+      // Checked in the lane: the Group may still be being created or joined.
+      context.localGroups.has(groupId)
+        ? addAccount(context, groupId, prompt.username)
+        : Promise.resolve("nothing-to-add" as const),
+    )
     .then((outcome) => {
       addsUnderWay.delete(key);
       if (outcome === "lost-race" && attemptsLeft > 1) {
@@ -217,4 +235,16 @@ function addFromPrompt(
       addsUnderWay.delete(key);
       context.reportError(error);
     });
+}
+
+/** The server sends the new block list to every Device of the Account, this one included. */
+async function changeBlock(
+  context: GroupContext,
+  type: "block" | "unblock",
+  username: string,
+): Promise<GroupActionResult> {
+  if (!Value.Check(Username, username)) {
+    return { outcome: "refused", refusal: "INVALID_USERNAME" };
+  }
+  return actionResult(await context.requester.request({ type, username }));
 }

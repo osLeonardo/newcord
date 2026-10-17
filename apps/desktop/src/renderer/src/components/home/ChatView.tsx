@@ -45,13 +45,16 @@ export function ChatView(props: ChatViewProps): React.JSX.Element {
         () => undefined,
       );
     };
-    const unsubscribe = desktopApi.onMessagesChanged((changed) => {
+    const unsubscribeMessages = desktopApi.onMessagesChanged((changed) => {
       if (changed === groupId) refresh();
     });
+    // Blocking hides, and unblocking shows again, messages already listed (D57).
+    const unsubscribeBlocks = desktopApi.onBlocksChanged(refresh);
     refresh();
     return (): void => {
       showsThisChat = false;
-      unsubscribe();
+      unsubscribeMessages();
+      unsubscribeBlocks();
     };
   }, [desktopApi, groupId]);
 

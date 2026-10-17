@@ -104,6 +104,8 @@ export interface DesktopApiSubscriptions {
   onMessagesChanged(listener: (groupId: string) => void): Unsubscribe;
   /** Hears that this Device left a Group or was removed from it. */
   onGroupLeft(listener: (notice: GroupLeftNotice) => void): Unsubscribe;
+  /** Hears that the Account's block list changed; chats and member lists read again. */
+  onBlocksChanged(listener: () => void): Unsubscribe;
 }
 
 /** The named functions the preload gives the interface as `window.desktopApi`; keys and tokens never cross it. */
@@ -128,6 +130,9 @@ export const desktopApiChannels = {
   listMembers: "members:list",
   removeMember: "members:remove",
   leaveGroup: "groups:leave",
+  listBlocked: "blocks:list",
+  blockAccount: "blocks:block",
+  unblockAccount: "blocks:unblock",
 } as const satisfies Record<keyof DesktopApiCalls, string>;
 
 /** The IPC channel the main process sends each change on. */
@@ -138,4 +143,5 @@ export const desktopApiEventChannels = {
   onInvitationsChanged: "invitations:changed",
   onMessagesChanged: "messages:changed",
   onGroupLeft: "groups:left",
+  onBlocksChanged: "blocks:changed",
 } as const satisfies Record<keyof DesktopApiSubscriptions, string>;

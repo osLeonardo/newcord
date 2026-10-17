@@ -34,5 +34,11 @@ export function createGroupActions(
       Promise.resolve(unavailable),
     leaveGroup: (groupId) =>
       currentService()?.leaveGroup(groupId) ?? Promise.resolve(unavailable),
+    listBlocked: () => currentService()?.listBlocked() ?? Promise.resolve([]),
+    blockAccount: (username) =>
+      currentService()?.blockAccount(username) ?? Promise.resolve(unavailable),
+    unblockAccount: (username) =>
+      currentService()?.unblockAccount(username) ??
+      Promise.resolve(unavailable),
   };
 }

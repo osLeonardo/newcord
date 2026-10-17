@@ -129,8 +129,13 @@ export function listChatMessages(
   context: GroupContext,
   groupId: string,
 ): ChatEntry[] {
+  // Hidden, never deleted: unblocking shows them again (D57).
+  const blocked = new Set(context.blockList.usernames());
   return context.localMessages
     .listOf(groupIdFromText(groupId))
+    .filter(
+      (stored) => stored.kind !== "text" || !blocked.has(stored.senderUsername),
+    )
     .map((stored) => chatEntry(context, stored));
 }
 

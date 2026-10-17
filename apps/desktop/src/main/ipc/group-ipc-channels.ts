@@ -39,6 +39,8 @@ const SendMessageArguments = Type.Tuple([
 type SendMessageArguments = Static<typeof SendMessageArguments>;
 const MemberArguments = Type.Tuple([GroupId, Username]);
 type MemberArguments = Static<typeof MemberArguments>;
+const UsernameArguments = Type.Tuple([Username]);
+type UsernameArguments = Static<typeof UsernameArguments>;
 
 /**
  * The channels of the desktop API's Group calls (#6), each behind the sender and argument checks.
@@ -109,6 +111,24 @@ export function createGroupIpcChannels(
       expectedArguments: "groupId: GroupId",
       argumentsMatch: argumentsMatching(GroupArguments),
       handle: (groupId) => actions.leaveGroup(groupId),
+    }),
+    checkedChannel<NoArguments, readonly string[]>({
+      name: desktopApiChannels.listBlocked,
+      expectedArguments: "",
+      argumentsMatch: argumentsMatching(NoArguments),
+      handle: () => actions.listBlocked(),
+    }),
+    checkedChannel<UsernameArguments, GroupActionResult>({
+      name: desktopApiChannels.blockAccount,
+      expectedArguments: "username: Username",
+      argumentsMatch: argumentsMatching(UsernameArguments),
+      handle: (username) => actions.blockAccount(username),
+    }),
+    checkedChannel<UsernameArguments, GroupActionResult>({
+      name: desktopApiChannels.unblockAccount,
+      expectedArguments: "username: Username",
+      argumentsMatch: argumentsMatching(UsernameArguments),
+      handle: (username) => actions.unblockAccount(username),
     }),
   ];
 }

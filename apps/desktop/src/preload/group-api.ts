@@ -121,4 +121,9 @@ export interface GroupApiCalls {
   removeMember(groupId: string, username: string): Promise<GroupActionResult>;
   /** Sends this Device's leave request and forgets the Group and its history here (D57). */
   leaveGroup(groupId: string): Promise<GroupActionResult>;
+  /** The usernames this Account blocks, sorted, as the server last sent them (D57). */
+  listBlocked(): Promise<readonly string[]>;
+  /** Blocks someone: their Invitations stop and their messages are hidden on every Device of the Account. */
+  blockAccount(username: string): Promise<GroupActionResult>;
+  unblockAccount(username: string): Promise<GroupActionResult>;
 }

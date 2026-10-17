@@ -13,10 +13,14 @@ interface MemberListProps {
   readonly groupId: string;
 }
 
-/** The Group's people with their Device counts; removing someone removes all their Devices. */
+/**
+ * The Group's people with their Device counts; removing someone removes all their Devices, and
+ * blocking someone hides their messages without removing them (D57).
+ */
 export function MemberList(props: MemberListProps): React.JSX.Element {
   const { desktopApi, groupId } = props;
   const [members, setMembers] = useState<readonly GroupMemberSummary[]>([]);
+  const blocked = useBlockedUsernames(desktopApi);
   const [confirming, setConfirming] = useState<string>();
   const [message, setMessage] = useState<string>();
 
@@ -54,6 +58,21 @@ export function MemberList(props: MemberListProps): React.JSX.Element {
     }
   }
 
+  async function toggleBlock(username: string): Promise<void> {
+    try {
+      const result = blocked.has(username)
+        ? await desktopApi.unblockAccount(username)
+        : await desktopApi.blockAccount(username);
+      setMessage(
+        result.outcome === "done"
+          ? undefined
+          : groupRefusalMessage(result.refusal),
+      );
+    } catch {
+      setMessage(UNEXPECTED_FAILURE_MESSAGE);
+    }
+  }
+
   return (
     <section aria-label="Members" className="flex flex-col gap-2">
       <ul className="flex flex-col gap-1 text-sm">
@@ -65,25 +84,39 @@ export function MemberList(props: MemberListProps): React.JSX.Element {
             <span>
               {member.username}
               {member.self && <span className="text-zinc-500"> (you)</span>}
+              {blocked.has(member.username) && (
+                <span className="text-zinc-500"> (blocked)</span>
+              )}
               <span className="text-zinc-500">
                 {" "}
                 · {memberDevicesLabel(member)}
               </span>
             </span>
             {!member.self && (
-              <button
-                type="button"
-                className={screenStyles.smallSecondaryButton}
-                onClick={() => {
-                  if (confirming === member.username) {
-                    void remove(member.username);
-                  } else {
-                    setConfirming(member.username);
-                  }
-                }}
-              >
-                {confirming === member.username ? "Confirm removal" : "Remove"}
-              </button>
+              <span className="flex gap-1">
+                <button
+                  type="button"
+                  className={screenStyles.smallSecondaryButton}
+                  onClick={() => void toggleBlock(member.username)}
+                >
+                  {blocked.has(member.username) ? "Unblock" : "Block"}
+                </button>
+                <button
+                  type="button"
+                  className={screenStyles.smallSecondaryButton}
+                  onClick={() => {
+                    if (confirming === member.username) {
+                      void remove(member.username);
+                    } else {
+                      setConfirming(member.username);
+                    }
+                  }}
+                >
+                  {confirming === member.username
+                    ? "Confirm removal"
+                    : "Remove"}
+                </button>
+              </span>
             )}
           </li>
         ))}
@@ -95,4 +128,27 @@ export function MemberList(props: MemberListProps): React.JSX.Element {
       )}
     </section>
   );
+}
+
+/** The Account's block list, following every change the server sends. */
+function useBlockedUsernames(desktopApi: DesktopApi): ReadonlySet<string> {
+  const [blocked, setBlocked] = useState<ReadonlySet<string>>(new Set());
+  useEffect(() => {
+    let mounted = true;
+    const refresh = (): void => {
+      desktopApi.listBlocked().then(
+        (usernames) => {
+          if (mounted) setBlocked(new Set(usernames));
+        },
+        () => undefined,
+      );
+    };
+    const unsubscribe = desktopApi.onBlocksChanged(refresh);
+    refresh();
+    return (): void => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, [desktopApi]);
+  return blocked;
 }

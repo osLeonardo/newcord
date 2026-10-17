@@ -119,6 +119,20 @@ export function createDesktopApi(
         desktopApiChannels.leaveGroup,
         groupId,
       ) as Promise<GroupActionResult>,
+    listBlocked: () =>
+      invoke(desktopApiChannels.listBlocked) as Promise<readonly string[]>,
+    blockAccount: (username) =>
+      invoke(
+        desktopApiChannels.blockAccount,
+        username,
+      ) as Promise<GroupActionResult>,
+    unblockAccount: (username) =>
+      invoke(
+        desktopApiChannels.unblockAccount,
+        username,
+      ) as Promise<GroupActionResult>,
+    onBlocksChanged: (listener) =>
+      subscribe(desktopApiEventChannels.onBlocksChanged, () => listener()),
     onGroupLeft: (listener) =>
       subscribe(desktopApiEventChannels.onGroupLeft, (payload) =>
         listener(payload as GroupLeftNotice),

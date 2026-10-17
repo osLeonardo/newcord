@@ -39,5 +39,12 @@ export function fakeGroupActions(): FakeGroupActions {
     leaveGroup: vi.fn<GroupApiCalls["leaveGroup"]>(() =>
       Promise.resolve({ outcome: "done" }),
     ),
+    listBlocked: vi.fn<GroupApiCalls["listBlocked"]>(() => Promise.resolve([])),
+    blockAccount: vi.fn<GroupApiCalls["blockAccount"]>(() =>
+      Promise.resolve({ outcome: "done" }),
+    ),
+    unblockAccount: vi.fn<GroupApiCalls["unblockAccount"]>(() =>
+      Promise.resolve({ outcome: "done" }),
+    ),
   };
 }

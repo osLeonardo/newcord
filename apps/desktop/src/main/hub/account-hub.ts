@@ -1,6 +1,6 @@
 import { PROTOCOL_VERSION } from "@newcord/shared";
 import type { GroupEvents } from "../groups/group-context";
-import { groupIdText } from "../groups/group-context";
+import { createBlockList, groupIdText } from "../groups/group-context";
 import { createGroupLanes } from "../groups/group-lanes";
 import { createGroupService, type GroupService } from "../groups/group-service";
 import type { LocalGroups } from "../local-store/local-groups";
@@ -71,6 +71,7 @@ export function openAccountHub(
     requester,
     localGroups: dependencies.localGroups,
     localMessages: dependencies.localMessages,
+    blockList: createBlockList(),
     lanes: createGroupLanes(),
     ownIdentity: credentialIdentity(account),
     sendAck: (groupId, seq) =>
