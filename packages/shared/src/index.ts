@@ -4,6 +4,7 @@ export const APP_NAME = "newcord";
 export * from "./accounts.js";
 export * from "./api-errors.js";
 export * from "./blocks.js";
+export * from "./call-payloads.js";
 export * from "./envelopes.js";
 export * from "./groups.js";
 export * from "./invitations.js";
