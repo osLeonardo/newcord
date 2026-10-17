@@ -1,5 +1,6 @@
 import { createCallApi } from "./call-api-bridge";
 import { createShellApi } from "./shell-api-bridge";
+import { createUpdateApi } from "./update-api-bridge";
 import {
   desktopApiChannels,
   desktopApiEventChannels,
@@ -47,6 +48,7 @@ export function createDesktopApi(
   return {
     ...createCallApi(invoke, subscribe),
     ...createShellApi(invoke, subscribe),
+    ...createUpdateApi(invoke, subscribe),
     readSessionState: () =>
       invoke(desktopApiChannels.readSessionState) as Promise<SessionState>,
     signUp: (credentials, choice) =>

@@ -9,6 +9,7 @@ import type {
 import type { DeviceSettings, SettingsApiCalls } from "./settings-api";
 import type { GroupApiCalls, GroupLeftNotice } from "./group-api";
 import type { ShellApiCalls } from "./shell-api";
+import type { UpdateApiCalls } from "./update-api";
 
 /** A username and password as typed on the sign-up or login screen. */
 export interface Credentials {
@@ -104,7 +105,8 @@ export interface DesktopApiCalls
     SettingsApiCalls,
     ScreenShareApiCalls,
     DiagnosticsApiCalls,
-    ShellApiCalls {}
+    ShellApiCalls,
+    UpdateApiCalls {}
 
 /** The changes the main process tells the interface about. */
 export interface DesktopApiSubscriptions {
@@ -135,6 +137,8 @@ export interface DesktopApiSubscriptions {
   onPushToTalk(listener: (held: boolean) => void): Unsubscribe;
   /** Hears the settings after any window changed them. */
   onSettingsChanged(listener: (settings: DeviceSettings) => void): Unsubscribe;
+  /** Hears whether to offer "restart to update": after a Call ends with an update waiting (#13). */
+  onUpdateOfferChanged(listener: (offered: boolean) => void): Unsubscribe;
 }
 
 /** The named functions the preload gives the interface as `window.desktopApi`; keys and tokens never cross it. */
@@ -180,6 +184,8 @@ export const desktopApiChannels = {
   dismissStartupNotice: "shell:dismiss-startup-notice",
   reportCallMedia: "shell:report-call-media",
   setViewedGroup: "shell:set-viewed-group",
+  readUpdateOffer: "updates:read-offer",
+  restartToUpdate: "updates:restart",
 } as const satisfies Record<keyof DesktopApiCalls, string>;
 
 /** The IPC channel the main process sends each change on. */
@@ -197,4 +203,5 @@ export const desktopApiEventChannels = {
   onMuteToggled: "calls:mute-toggled",
   onPushToTalk: "calls:push-to-talk",
   onSettingsChanged: "settings:changed",
+  onUpdateOfferChanged: "updates:offer-changed",
 } as const satisfies Record<keyof DesktopApiSubscriptions, string>;

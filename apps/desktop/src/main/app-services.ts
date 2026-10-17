@@ -47,12 +47,14 @@ import {
   type NotificationPort,
   type ViewState,
 } from "./app-shell/message-notices";
+import type { UpdateApiCalls } from "../preload/update-api";
 import { measureCpu, type ProcessCpu } from "./calls/cpu-measurement";
 import type { ServerApiClient } from "./server-api/server-api-client";
 import { createLiveSession, type LiveSession } from "./session/live-session";
 import type { LiveSocketOpener } from "./session/live-socket";
 import type { SessionClock } from "./session/session-clock";
 import { createTokenRenewal } from "./session/token-renewal";
+import { NO_UPDATES } from "./updates/update-service";
 
 export interface AppServicesDependencies {
   readonly database: Database.Database;
@@ -76,6 +78,8 @@ export interface AppServicesDependencies {
   readonly shell?: AppShellEvents;
   /** Windows notifications for new messages (#10's spec); none in tests. */
   readonly notifications?: NotificationPort;
+  /** Automatic updates (#13); none in development and tests, where the app does not update itself. */
+  readonly updates?: UpdateApiCalls;
 }
 
 /** The main process's services: the desktop API's calls, and a way to stop before quitting. */
@@ -153,6 +157,7 @@ export function startAppServices(
         view,
         groupViewed,
       }),
+      ...updateCalls(dependencies.updates ?? NO_UPDATES),
     },
     store,
     deviceSettings,
@@ -282,4 +287,12 @@ function createGroupHub(
     reportError: dependencies.reportError,
     inView: (groupId) => isInView(view, groupId),
   });
+}
+
+/** Only the desktop API's two update calls, whatever else the updater gives the main process. */
+function updateCalls(updates: UpdateApiCalls): UpdateApiCalls {
+  return {
+    readUpdateOffer: () => updates.readUpdateOffer(),
+    restartToUpdate: () => updates.restartToUpdate(),
+  };
 }

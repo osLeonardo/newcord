@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { DesktopApi } from "../../preload/desktop-api";
 import { viewForSessionState, type AppView } from "./app-view";
 import { StartupNotice } from "./components/StartupNotice";
+import { UpdateOffer } from "./components/UpdateOffer";
 import { AccountSwitchScreen } from "./screens/AccountSwitchScreen";
 import { HomeScreen } from "./screens/HomeScreen";
 import { LogInScreen } from "./screens/LogInScreen";
@@ -55,6 +56,7 @@ function App({ desktopApi }: AppProps): React.JSX.Element {
       }
     >
       <StartupNotice desktopApi={desktopApi} />
+      <UpdateOffer desktopApi={desktopApi} />
       <CurrentScreen view={view} desktopApi={desktopApi} show={setView} />
     </div>
   );
