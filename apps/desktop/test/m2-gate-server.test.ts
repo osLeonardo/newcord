@@ -9,6 +9,7 @@ import {
   sendText,
   WAIT,
 } from "./support/group-scenarios";
+import { loadMlsEngineFactory } from "../src/main/mls/mls-module";
 import {
   startInProcessServer,
   type InProcessServer,
@@ -20,9 +21,8 @@ import {
 } from "./support/live-installations";
 
 /**
- * M2's gate (05-milestones), run as three app instances against the real server. Until #4 builds
- * the MLS module the instances use the fake engine, which does not encrypt: the database check
- * proves only that no Chat text is stored as readable text, and becomes the full check with #4.
+ * M2's gate (05-milestones), run as three app instances against the real server, each with the
+ * real MLS module (#4), so the server only ever holds ciphertext.
  */
 
 let server: InProcessServer;
@@ -30,7 +30,9 @@ let installations: LiveInstallations;
 
 beforeEach(async () => {
   server = await startInProcessServer();
-  installations = createLiveInstallations(server);
+  installations = createLiveInstallations(server, {
+    createEngine: loadMlsEngineFactory(),
+  });
 });
 
 afterEach(async () => {
@@ -120,7 +122,12 @@ describe("the M2 gate", () => {
     ).toBeGreaterThanOrEqual(CHAT.length);
     expect(stored).toContain("friday night");
     for (const text of CHAT) {
-      expect(stored.filter((value) => value.includes(text))).toEqual([]);
+      const encodings = [text, Buffer.from(text).toString("base64")];
+      expect(
+        stored.filter((value) =>
+          encodings.some((encoded) => value.includes(encoded)),
+        ),
+      ).toEqual([]);
     }
   });
 

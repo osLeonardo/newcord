@@ -24,6 +24,7 @@ import {
   createLiveInstallations,
   type LiveInstallation,
   type LiveInstallations,
+  REAL_MLS,
 } from "./support/live-installations";
 
 let server: InProcessServer;
@@ -110,51 +111,59 @@ describe("commit checks (D41, D71)", () => {
     }
   });
 
-  it("apply a commit that removed someone it did not declare, with a notice naming the sender", async () => {
-    const { groupId, alice, bruno, carla } = await threeInAGroup();
+  // Forged in the fake engine's own wire format, so only with the fake engine.
+  it.skipIf(REAL_MLS)(
+    "apply a commit that removed someone it did not declare, with a notice naming the sender",
+    async () => {
+      const { groupId, alice, bruno, carla } = await threeInAGroup();
 
-    await sendForgedCommit(alice, groupId, [
-      identityOf(alice),
-      identityOf(bruno),
-    ]);
-
-    await vi.waitFor(async () => {
-      expect(await noticesOf(bruno, groupId)).toEqual([
-        {
-          type: "commit-mismatch",
-          sender: "alice",
-          added: [],
-          removed: [identityOf(carla)],
-        },
+      await sendForgedCommit(alice, groupId, [
+        identityOf(alice),
+        identityOf(bruno),
       ]);
-    }, WAIT);
-    expect((await mlsView(bruno, groupId)).members).not.toContain(
-      identityOf(carla),
-    );
-  });
 
-  it("apply a commit that took the Group past 10 people, with a notice", async () => {
-    const { groupId, alice, bruno, carla } = await threeInAGroup();
-    const strangers = Array.from(
-      { length: 9 },
-      (_, index) => `stranger${index}:${"S".repeat(21)}${index}`,
-    );
+      await vi.waitFor(async () => {
+        expect(await noticesOf(bruno, groupId)).toEqual([
+          {
+            type: "commit-mismatch",
+            sender: "alice",
+            added: [],
+            removed: [identityOf(carla)],
+          },
+        ]);
+      }, WAIT);
+      expect((await mlsView(bruno, groupId)).members).not.toContain(
+        identityOf(carla),
+      );
+    },
+  );
 
-    await sendForgedCommit(alice, groupId, [
-      identityOf(alice),
-      identityOf(bruno),
-      identityOf(carla),
-      ...strangers,
-    ]);
+  // Forged in the fake engine's own wire format, so only with the fake engine.
+  it.skipIf(REAL_MLS)(
+    "apply a commit that took the Group past 10 people, with a notice",
+    async () => {
+      const { groupId, alice, bruno, carla } = await threeInAGroup();
+      const strangers = Array.from(
+        { length: 9 },
+        (_, index) => `stranger${index}:${"S".repeat(21)}${index}`,
+      );
 
-    await vi.waitFor(async () => {
-      expect(await noticesOf(bruno, groupId)).toContainEqual({
-        type: "group-over-limit",
-        sender: "alice",
-        people: 12,
-      });
-    }, WAIT);
-  });
+      await sendForgedCommit(alice, groupId, [
+        identityOf(alice),
+        identityOf(bruno),
+        identityOf(carla),
+        ...strangers,
+      ]);
+
+      await vi.waitFor(async () => {
+        expect(await noticesOf(bruno, groupId)).toContainEqual({
+          type: "group-over-limit",
+          sender: "alice",
+          people: 12,
+        });
+      }, WAIT);
+    },
+  );
 });
 
 describe("new Devices (D56)", () => {
@@ -188,7 +197,9 @@ describe("resync (D24)", () => {
   it("removes and re-adds a Device that missed a commit, which then reads new messages again", async () => {
     const { groupId, alice, carla } = await threeInAGroup();
     await carla.liveSession.stop();
-    await keyUpdate(alice, groupId);
+    // Alice's new laptop joins: a commit carla misses.
+    const aliceLaptop = await secondDevice(server, installations, "alice");
+    await waitUntilInGroup(aliceLaptop, groupId);
     expireCopiesFor(groupId, deviceIdOf(carla));
 
     await alice.liveSession.stop();
@@ -213,27 +224,6 @@ describe("resync (D24)", () => {
     expect([...alice.hubErrors]).toEqual([]);
   });
 });
-
-/** A commit that changes nobody, made and merged as the app does, that `carla` will miss. */
-async function keyUpdate(
-  sender: LiveInstallation,
-  groupId: string,
-): Promise<void> {
-  const hub = await hubOf(sender);
-  const id = groupIdFromText(groupId);
-  const before = (await mlsView(sender, groupId)).epoch;
-  const own = hub.mls.run((engine) => engine.removeMembers(id, []));
-  const reply = await hub.requester.request({
-    type: "mls.commit",
-    groupId,
-    epoch: before,
-    added: [],
-    removed: [],
-    commit: payloadText(own.commit),
-  });
-  expect(reply.ok).toBe(true);
-  hub.mls.run((engine) => engine.mergePendingCommit(id));
-}
 
 /** Simulates 30 days passing for one Device: its queued copies expire and it needs a resync (D24). */
 function expireCopiesFor(groupId: string, deviceId: string): void {

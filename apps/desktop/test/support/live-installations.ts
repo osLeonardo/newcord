@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import type { MlsEngine } from "../../src/main/mls/mls-engine";
 import type { NoticeContent } from "../../src/main/app-shell/message-notices";
 import { vi } from "vitest";
 import { startAppServices } from "../../src/main/app-services";
@@ -11,6 +12,7 @@ import {
   type Credentials,
   type DesktopApiCalls,
 } from "../../src/preload/desktop-api";
+import { loadMlsEngineFactory } from "../../src/main/mls/mls-module";
 import { createFakeMlsEngine } from "./fake-mls-engine";
 import { createInjectedSocketOpener } from "./injected-socket-opener";
 import type { InProcessServer } from "./in-process-server";
@@ -53,14 +55,26 @@ export function credentialsOf(username: string): Credentials {
   return { username, password: LIVE_TEST_PASSWORD };
 }
 
+/** Set by the "desktop-real-mls" test project: every installation runs the real MLS module (#4). */
+export const REAL_MLS = process.env["NEWCORD_TEST_MLS"] === "real";
+
+export interface LiveInstallationOptions {
+  /** The MLS engine each installation uses: the test-only fake by default, or the real module. */
+  readonly createEngine?: () => MlsEngine;
+}
+
 /** Creates the installation factory for `server`. */
 export function createLiveInstallations(
   server: InProcessServer,
+  options: LiveInstallationOptions = {},
 ): LiveInstallations {
+  const createEngine =
+    options.createEngine ??
+    (REAL_MLS ? loadMlsEngineFactory() : createFakeMlsEngine);
   const liveSessions: LiveSession[] = [];
   const databases = new Map<LiveInstallation, Database.Database>();
   const installOn = (database: Database.Database): LiveInstallation => {
-    const installation = installApp(server, database);
+    const installation = installApp(server, database, createEngine);
     liveSessions.push(installation.resources.liveSession);
     databases.set(installation.view, database);
     return installation.view;
@@ -88,6 +102,7 @@ export function createLiveInstallations(
 function installApp(
   server: InProcessServer,
   database: Database.Database,
+  createEngine: () => MlsEngine,
 ): {
   view: LiveInstallation;
   resources: { database: Database.Database; liveSession: LiveSession };
@@ -102,7 +117,7 @@ function installApp(
     server: createServerApiClient(server.transport),
     openSocket: createInjectedSocketOpener(server.app),
     clock,
-    createEngine: createFakeMlsEngine,
+    createEngine,
     notify: (channel, payload) => {
       notifications.push({ channel, payload });
       if (channel === desktopApiEventChannels.onSessionChanged) sessionEnded();
