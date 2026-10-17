@@ -21,7 +21,7 @@ The full design lives in `docs/guide/`. `docs/README.md` explains which file to 
 
 ## Before writing any code
 
-1. **Use the working title "newcord" (D58).** The final name is chosen before M5 starts. Until then, "newcord" replaces every placeholder in the guide: `your-app`, `yourapp`, `Your App`, `@your-app/shared`, `com.yourapp.desktop`, `your-app.example`, `yourapp.duckdns.org` and `yourapp-turn.duckdns.org`.
+1. **The app is named "newcord" (D58, D92).** "newcord" replaces every placeholder in the guide: `your-app`, `yourapp`, `Your App`, `@your-app/shared`, `com.yourapp.desktop`, `your-app.example`, `yourapp.duckdns.org` and `yourapp-turn.duckdns.org`.
 2. This folder is the repository root. In M1 setup step 2, do not create a new folder: run `git init` here if it is not a repository yet, and create `apps/` and `packages/shared` here.
 3. Then follow `docs/guide/07-m1-setup.md` step by step, followed by `docs/guide/08-m1-build.md`.
 
@@ -114,5 +114,4 @@ These come from the decisions and the security checklist (`13-security-checklist
 
 ## Known pending items
 
-- Before M5 starts: choose the app's final name and replace "newcord" everywhere (D58).
 - Out of scope for version 1, so do not build them: webcam video, phone apps, macOS, editing or deleting messages, reactions, typing indicators, file sharing, deleting an account (D67) and removing a single lost device (D72), and Linux desktop builds (D73).
