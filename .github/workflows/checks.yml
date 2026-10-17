@@ -69,6 +69,10 @@ jobs:
           path: packages/mls/target
           key: mls-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('packages/mls/Cargo.lock') }}
           restore-keys: mls-build-${{ runner.os }}-${{ runner.arch }}-
+      # On Linux the desktop install rebuilds uiohook-napi's keyboard hook against X11 (D74).
+      - name: Install X11's development headers
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libx11-dev libxrandr-dev libxt-dev libxtst-dev
       - run: pnpm install --frozen-lockfile
       # Builds the MLS module, runs its Rust tests, then every package's Vitest tests.
       - run: pnpm test
