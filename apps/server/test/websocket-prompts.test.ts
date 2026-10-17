@@ -279,6 +279,39 @@ describe("leaving (D57)", () => {
     expect(reply).toMatchObject({ ok: true, epoch: 1 });
   });
 
+  it("delivers to the leaver only the commit that removes it", async () => {
+    const { groupId, aliceSocket, brunoSocket } = await threeMembers();
+    await commitAndWait(brunoSocket, {
+      type: "mls.proposal",
+      groupId,
+      proposal: opaque(),
+    });
+    await commitAndWait(aliceSocket, {
+      type: "mls.commit",
+      groupId,
+      epoch: 0,
+      added: [],
+      removed: [],
+      commit: opaque(),
+    });
+
+    await commitAndWait(aliceSocket, {
+      type: "mls.commit",
+      groupId,
+      epoch: 1,
+      added: [],
+      removed: [bruno.deviceId],
+      commit: opaque(),
+    });
+
+    const brunoSaw = (await settleRequests(brunoSocket)).filter(
+      (envelope) => (envelope as { type: string }).type === "mls.commit",
+    );
+    expect(brunoSaw).toEqual([
+      expect.objectContaining({ epoch: 1, removed: [bruno.deviceId] }),
+    ]);
+  });
+
   it("refuses a leave request from outside the Group", async () => {
     const groupId = shareGroup(server.database, [alice.deviceId]);
     const brunoSocket = await online(bruno.accessToken);

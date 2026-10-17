@@ -98,7 +98,7 @@ function applyCommit(
 ): AcceptedCommit {
   const groupId = groupIdBytes(envelope.groupId);
   const commitRecipients = members
-    .filter((member) => !member.leaving && member.deviceId !== sender.deviceId)
+    .filter((member) => receivesCommit(member, sender, envelope))
     .map((member) => member.deviceId);
   const seq = queueCommit(dependencies, sender, envelope, commitRecipients);
   dependencies.groupStore.applyChange(
@@ -124,6 +124,19 @@ function applyCommit(
         ]
       : [],
   };
+}
+
+/**
+ * Every Member Device but the sender gets the commit. A leaving Device gets nothing more (D57)
+ * except the commit that removes it, so all of the leaver's Devices learn they are out.
+ */
+function receivesCommit(
+  member: GroupMember,
+  sender: SocketOwner,
+  envelope: MlsCommitEnvelope,
+): boolean {
+  if (member.deviceId === sender.deviceId) return false;
+  return !member.leaving || envelope.removed.includes(member.deviceId);
 }
 
 function membershipChanged(envelope: MlsCommitEnvelope): boolean {
