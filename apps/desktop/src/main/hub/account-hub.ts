@@ -1,6 +1,12 @@
 import { PROTOCOL_VERSION } from "@newcord/shared";
 import type { GroupEvents } from "../groups/group-context";
-import { createBlockList, groupIdText } from "../groups/group-context";
+import { createCallService, type CallService } from "../calls/call-service";
+import { createCallState } from "../calls/call-state";
+import {
+  createBlockList,
+  groupIdText,
+  type GroupContext,
+} from "../groups/group-context";
 import { createGroupLanes } from "../groups/group-lanes";
 import { createGroupService, type GroupService } from "../groups/group-service";
 import type { LocalGroups } from "../local-store/local-groups";
@@ -44,6 +50,7 @@ export interface AccountHub {
   readonly mls: MlsSession;
   readonly requester: HubRequester;
   readonly groups: GroupService;
+  readonly calls: CallService;
   envelopeReceived(envelope: HubEnvelope): void;
   connectionChanged(ready: boolean): void;
 }
@@ -69,7 +76,7 @@ export function openAccountHub(
     clock: dependencies.clock,
   });
   const upkeep = keyPackageUpkeepFor(dependencies, mls);
-  const groups = createGroupService({
+  const context: GroupContext = {
     mls,
     requester,
     localGroups: dependencies.localGroups,
@@ -78,6 +85,7 @@ export function openAccountHub(
     verifiedMarks: dependencies.verifiedMarks,
     safetyHalves: createSafetyHalves(),
     lanes: createGroupLanes(),
+    calls: createCallState(),
     ownIdentity: credentialIdentity(account),
     sendAck: (groupId, seq) =>
       dependencies.liveSession.send({
@@ -89,12 +97,15 @@ export function openAccountHub(
     events: dependencies.groupEvents,
     reportError: dependencies.reportError,
     now: () => dependencies.clock.now(),
-  });
+  };
+  const groups = createGroupService(context);
+  const calls = createCallService(context);
   return {
     deviceId: account.deviceId,
     mls,
     requester,
     groups,
+    calls,
     envelopeReceived: createHubInbox({
       ...groups.inboxHandlers,
       reply: (reply) => requester.replyReceived(reply),

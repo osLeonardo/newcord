@@ -1,4 +1,5 @@
 import type { ApiErrorCode } from "@newcord/shared";
+import type { CallApiCalls, CallSummary, ReceivedCallSignal } from "./call-api";
 import type { GroupApiCalls, GroupLeftNotice } from "./group-api";
 
 /** A username and password as typed on the sign-up or login screen. */
@@ -87,7 +88,8 @@ export interface AccountApiCalls {
 }
 
 /** The desktop API's calls into the main process, each checked there for its sender and arguments. */
-export interface DesktopApiCalls extends AccountApiCalls, GroupApiCalls {}
+export interface DesktopApiCalls
+  extends AccountApiCalls, GroupApiCalls, CallApiCalls {}
 
 /** The changes the main process tells the interface about. */
 export interface DesktopApiSubscriptions {
@@ -106,6 +108,10 @@ export interface DesktopApiSubscriptions {
   onGroupLeft(listener: (notice: GroupLeftNotice) => void): Unsubscribe;
   /** Hears that the Account's block list changed; chats and member lists read again. */
   onBlocksChanged(listener: () => void): Unsubscribe;
+  /** Hears a Group's Call whenever someone joins or leaves it, this Device included. */
+  onCallChanged(listener: (call: CallSummary) => void): Unsubscribe;
+  /** Hears the WebRTC signals other Participants send this Device. */
+  onCallSignal(listener: (signal: ReceivedCallSignal) => void): Unsubscribe;
 }
 
 /** The named functions the preload gives the interface as `window.desktopApi`; keys and tokens never cross it. */
@@ -135,6 +141,11 @@ export const desktopApiChannels = {
   unblockAccount: "blocks:unblock",
   readSafetyNumber: "safety:read",
   markVerified: "safety:verify",
+  readCall: "calls:read",
+  joinCall: "calls:join",
+  leaveCall: "calls:leave",
+  sendCallSignal: "calls:send-signal",
+  dropCallParticipant: "calls:drop",
 } as const satisfies Record<keyof DesktopApiCalls, string>;
 
 /** The IPC channel the main process sends each change on. */
@@ -146,4 +157,6 @@ export const desktopApiEventChannels = {
   onMessagesChanged: "messages:changed",
   onGroupLeft: "groups:left",
   onBlocksChanged: "blocks:changed",
+  onCallChanged: "calls:changed",
+  onCallSignal: "calls:signal",
 } as const satisfies Record<keyof DesktopApiSubscriptions, string>;

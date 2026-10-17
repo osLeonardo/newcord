@@ -9,6 +9,8 @@ import {
 export interface DeviceHub {
   envelopeReceived(envelope: HubEnvelope): void;
   connectionChanged(ready: boolean): void;
+  /** Presence changed; Call Participants of Accounts gone offline are dropped. */
+  onlineAccountsChanged(usernames: readonly string[]): void;
   /** The current Account's hub, once a connection was accepted. */
   current(): AccountHub | undefined;
 }
@@ -36,6 +38,9 @@ export function createDeviceHub(
     connectionChanged: (ready): void => {
       const current = ready ? ensureHub() : hub;
       current?.connectionChanged(ready);
+    },
+    onlineAccountsChanged: (usernames): void => {
+      hub?.calls.onlineAccountsChanged(usernames);
     },
     current: (): AccountHub | undefined => hub,
   };

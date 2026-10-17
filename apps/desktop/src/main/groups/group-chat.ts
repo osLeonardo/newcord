@@ -13,18 +13,18 @@ import type {
   StoredChatEntry,
   StoredChatMessage,
 } from "../local-store/local-messages";
-import { parseCredentialIdentity } from "../mls/credential-identity";
-import type { IncomingMls } from "../mls/mls-engine";
+import {
+  parseCredentialIdentity,
+  type DeviceIdentity,
+} from "../mls/credential-identity";
 import {
   groupIdFromText,
   groupIdText,
-  payloadText,
   type GroupContext,
 } from "./group-context";
+import { sendGroupPayload } from "./group-payloads";
 
 const MESSAGE_ID_BYTES = 16;
-const encoder = new TextEncoder();
-const decoder = new TextDecoder();
 
 /**
  * Sends a text Chat message: encrypted in the Group's lane, the state saved before sending, and
@@ -59,16 +59,7 @@ async function encryptAndSend(
   groupId: Uint8Array,
   payload: ChatTextPayload,
 ): Promise<SendMessageResult> {
-  const plaintext = encoder.encode(JSON.stringify(payload));
-  const reply = await context.mls.runThenSend(
-    (engine) => engine.encrypt(groupId, plaintext),
-    (message) =>
-      context.requester.request({
-        type: "mls.message",
-        groupId: groupIdText(groupId),
-        message: payloadText(message),
-      }),
-  );
+  const reply = await sendGroupPayload(context, groupId, payload);
   if (!reply.ok) return { outcome: "refused", refusal: reply.code };
   if (reply.seq === undefined) {
     throw new Error(
@@ -92,23 +83,16 @@ async function encryptAndSend(
 
 /**
  * Keeps a received Chat message under the sender the MLS credential names (D70), not the one the
- * server reports. Payloads of other types (Calls, in M3) are left to their own features.
- * @example chatMessageReceived(context, groupId, delivery, incoming);
+ * server reports.
+ * @example chatMessageReceived(context, groupId, delivery, sender, payload);
  */
 export function chatMessageReceived(
   context: GroupContext,
   groupId: Uint8Array,
   delivery: MlsMessageDeliveryEnvelope,
-  message: Extract<IncomingMls, { kind: "message" }>,
+  sender: DeviceIdentity,
+  payload: ChatTextPayload,
 ): void {
-  const payload = parsePayload(message.plaintext);
-  if (payload === undefined) return;
-  const sender = parseCredentialIdentity(message.sender);
-  if (sender === undefined) {
-    throw new Error(
-      `A Chat message in Group ${delivery.groupId} came from the credential "${message.sender}"; expected <username>:<deviceId>`,
-    );
-  }
   context.localMessages.add({
     groupId,
     seq: delivery.seq,
@@ -147,15 +131,6 @@ function chatEntry(context: GroupContext, stored: StoredChatEntry): ChatEntry {
     seq: stored.seq,
     notice: stored.notice,
   };
-}
-
-function parsePayload(plaintext: Uint8Array): ChatTextPayload | undefined {
-  try {
-    const payload: unknown = JSON.parse(decoder.decode(plaintext));
-    return Value.Check(ChatTextPayload, payload) ? payload : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 function chatMessage(

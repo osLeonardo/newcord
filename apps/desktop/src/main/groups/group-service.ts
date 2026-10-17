@@ -1,8 +1,11 @@
 import { randomBytes } from "node:crypto";
 import {
+  CallPayload,
+  ChatTextPayload,
   GroupName,
   Username,
   type InviteAcceptedEnvelope,
+  type MlsMessageDeliveryEnvelope,
 } from "@newcord/shared";
 import { Value } from "typebox/value";
 import type {
@@ -19,9 +22,13 @@ import {
   listChatMessages,
   sendChatMessage,
 } from "./group-chat";
+import { callMessageReceived } from "../calls/call-service";
+import { parseCredentialIdentity } from "../mls/credential-identity";
+import type { IncomingMls } from "../mls/mls-engine";
 import { markVerified, readSafetyNumber } from "../safety/safety-numbers";
 import { recordReceivedCommit } from "./commit-notices";
 import { addAccount } from "./group-commits";
+import { readPayload } from "./group-payloads";
 import {
   leaveGroup,
   leaveRequested,
@@ -61,7 +68,7 @@ export function createGroupService(
   const addsUnderWay = new Set<string>();
   const hooks: DeliveryHooks = {
     messageReceived: (groupId, delivery, message) =>
-      chatMessageReceived(context, groupId, delivery, message),
+      payloadReceived(context, groupId, delivery, message),
     proposalReceived: (groupId, delivery, proposal) =>
       leaveRequested(context, groupId, delivery, proposal),
     commitApplied: (groupId, delivery, commit) =>
@@ -252,4 +259,28 @@ async function changeBlock(
     return { outcome: "refused", refusal: "INVALID_USERNAME" };
   }
   return actionResult(await context.requester.request({ type, username }));
+}
+
+/**
+ * Hands a decrypted payload to its feature by type, under the sender the MLS credential names
+ * (D70). Payloads of unknown types are acknowledged and dropped.
+ */
+function payloadReceived(
+  context: GroupContext,
+  groupId: Uint8Array,
+  delivery: MlsMessageDeliveryEnvelope,
+  message: Extract<IncomingMls, { kind: "message" }>,
+): void {
+  const payload = readPayload(message.plaintext);
+  const sender = parseCredentialIdentity(message.sender);
+  if (sender === undefined) {
+    throw new Error(
+      `A message in Group ${delivery.groupId} came from the credential "${message.sender}"; expected <username>:<deviceId>`,
+    );
+  }
+  if (Value.Check(ChatTextPayload, payload)) {
+    chatMessageReceived(context, groupId, delivery, sender, payload);
+  } else if (Value.Check(CallPayload, payload)) {
+    callMessageReceived(context, delivery.groupId, sender, payload);
+  }
 }

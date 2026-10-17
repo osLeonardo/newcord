@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, type Mock } from "vitest";
 import type { AccountActions } from "../src/main/account/account-actions";
 import type { DesktopApiCalls } from "../src/preload/desktop-api";
+import { fakeCallActions } from "./support/fake-call-actions";
 import { fakeGroupActions } from "./support/fake-group-actions";
 import { createAppIpcChannels } from "../src/main/ipc/app-ipc-channels";
 import {
@@ -73,6 +74,7 @@ function fakeActions(): FakeActions {
       Promise.resolve(recovered),
     ),
     ...fakeGroupActions(),
+    ...fakeCallActions(),
   };
 }
 

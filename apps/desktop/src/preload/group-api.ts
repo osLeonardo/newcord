@@ -32,7 +32,9 @@ export type GroupRefusal =
   | "NOT_IN_GROUP"
   | "UNAVAILABLE"
   | "CANNOT_VERIFY_SELF"
-  | "SAFETY_NUMBER_CHANGED";
+  | "SAFETY_NUMBER_CHANGED"
+  | "CALL_FULL"
+  | "NOT_IN_CALL";
 
 export type CreateGroupResult =
   | { readonly outcome: "created"; readonly group: GroupSummary }

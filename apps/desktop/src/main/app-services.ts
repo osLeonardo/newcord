@@ -5,6 +5,7 @@ import {
 } from "../preload/desktop-api";
 import { createAccountActions } from "./account/account-actions";
 import { sessionStateOf } from "./account/session-state";
+import { createCallActions } from "./calls/call-actions";
 import { createGroupActions } from "./groups/group-actions";
 import { createDeviceHub, type DeviceHub } from "./hub/device-hub";
 import {
@@ -75,6 +76,7 @@ export function startAppServices(
     calls: {
       ...accountActions,
       ...createGroupActions(() => holder.hub?.current()?.groups),
+      ...createCallActions(() => holder.hub?.current()?.calls),
     },
     store,
     liveSession,
@@ -97,8 +99,10 @@ function startLiveSession(
     events: {
       sessionEnded: () =>
         notify(desktopApiEventChannels.onSessionChanged, sessionStateOf(store)),
-      onlineAccountsChanged: (usernames) =>
-        notify(desktopApiEventChannels.onOnlineAccountsChanged, usernames),
+      onlineAccountsChanged: (usernames) => {
+        notify(desktopApiEventChannels.onOnlineAccountsChanged, usernames);
+        holder.hub?.onlineAccountsChanged(usernames);
+      },
       envelopeReceived: (envelope) => holder.hub?.envelopeReceived(envelope),
       connectionChanged: (ready) => holder.hub?.connectionChanged(ready),
     },
@@ -129,6 +133,10 @@ function createGroupHub(
       groupLeft: (notice) =>
         notify(desktopApiEventChannels.onGroupLeft, notice),
       blocksChanged: () => notify(desktopApiEventChannels.onBlocksChanged),
+      callChanged: (call) =>
+        notify(desktopApiEventChannels.onCallChanged, call),
+      callSignalReceived: (signal) =>
+        notify(desktopApiEventChannels.onCallSignal, signal),
     },
     createEngine,
     server: dependencies.server,

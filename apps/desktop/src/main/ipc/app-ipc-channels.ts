@@ -10,6 +10,7 @@ import {
 } from "../../preload/desktop-api";
 import type { DesktopApiCalls } from "../../preload/desktop-api";
 import type { AccountActions } from "../account/account-actions";
+import { createCallIpcChannels } from "./call-ipc-channels";
 import { createGroupIpcChannels } from "./group-ipc-channels";
 import { checkedChannel, type CheckedIpcChannel } from "./checked-ipc-handler";
 import { argumentsMatching } from "./typebox-arguments";
@@ -51,7 +52,11 @@ const CREDENTIALS_DESCRIPTION =
 export function createAppIpcChannels(
   actions: DesktopApiCalls,
 ): readonly CheckedIpcChannel[] {
-  return [...accountIpcChannels(actions), ...createGroupIpcChannels(actions)];
+  return [
+    ...accountIpcChannels(actions),
+    ...createGroupIpcChannels(actions),
+    ...createCallIpcChannels(actions),
+  ];
 }
 
 function accountIpcChannels(actions: AccountActions): CheckedIpcChannel[] {

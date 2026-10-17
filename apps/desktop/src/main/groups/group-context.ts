@@ -1,4 +1,6 @@
+import type { CallSummary, ReceivedCallSignal } from "../../preload/call-api";
 import type { GroupLeftNotice } from "../../preload/group-api";
+import { callSelfOf, callSummaryOf, type CallState } from "../calls/call-state";
 import type { HubRequester } from "../hub/hub-requester";
 import type { LocalGroups } from "../local-store/local-groups";
 import type { LocalMessages } from "../local-store/local-messages";
@@ -17,6 +19,10 @@ export interface GroupEvents {
   groupLeft(notice: GroupLeftNotice): void;
   /** The Account's block list changed. */
   blocksChanged(): void;
+  /** Someone joined or left a Group's Call, or this Device did. */
+  callChanged(call: CallSummary): void;
+  /** A Participant sent this Device a WebRTC offer, answer or candidate. */
+  callSignalReceived(signal: ReceivedCallSignal): void;
 }
 
 /** The Account's block list as the server last sent it (D57); kept in memory only. */
@@ -49,6 +55,7 @@ export interface GroupContext {
   readonly verifiedMarks: VerifiedMarks;
   readonly safetyHalves: SafetyHalves;
   readonly lanes: GroupLanes;
+  readonly calls: CallState;
   /** This Device's credential identity, `<username>:<deviceId>` (D70). */
   readonly ownIdentity: string;
   /** Confirms a delivery, so the server deletes this Device's copy (D9). */
@@ -74,6 +81,17 @@ export function forgetGroup(
       .find((group) => sameGroup(group.groupId, groupId))?.name ?? "";
   context.localGroups.remove(groupId);
   context.localMessages.removeGroup(groupId);
+  const groupIdOfCall = groupIdText(groupId);
+  if (context.calls.forgetGroup(groupIdOfCall)) {
+    // The window hangs up: this Device can no longer read the Call's messages.
+    context.events.callChanged(
+      callSummaryOf(
+        context.calls,
+        groupIdOfCall,
+        callSelfOf(context.ownIdentity),
+      ),
+    );
+  }
   context.events.groupsChanged();
   context.events.groupLeft({ groupId: groupIdText(groupId), name, reason });
 }
