@@ -353,7 +353,10 @@ function openInBrowser(url: string): void {
 // Set before anything opens the folder, the single-instance lock included (D95).
 app.setPath(
   "userData",
-  join(app.getPath("appData"), localDataFolderName(app.isPackaged)),
+  join(
+    app.getPath("appData"),
+    localDataFolderName(app.isPackaged, process.env["NEWCORD_DEV_PROFILE"]),
+  ),
 );
 
 // Launching the app again shows the running one's window (#9's spec).
