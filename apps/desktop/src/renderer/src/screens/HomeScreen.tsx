@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { APP_NAME } from "@newcord/shared";
 import type { DesktopApi } from "../../../preload/desktop-api";
 import type { GroupSummary } from "../../../preload/group-api";
 import type { AppView } from "../app-view";
@@ -11,6 +12,7 @@ import { OnlineNow } from "../components/home/OnlineNow";
 import { RemoteAudio } from "../components/home/RemoteAudio";
 import { SettingsScreen } from "../components/settings/SettingsScreen";
 import { screenStyles } from "../components/screen-styles";
+import logo from "../assets/logo.png";
 import { groupLeftMessage } from "../groups/group-text";
 
 interface HomeScreenProps {
@@ -134,9 +136,16 @@ export function HomeScreen(props: HomeScreenProps): React.JSX.Element {
               }}
             />
           ) : openGroup === undefined ? (
-            <p className={`${screenStyles.hint} p-6`}>
-              Open a Group, or create one to start.
-            </p>
+            <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+              <img src={logo} alt="" className="h-16 w-16" />
+              <p className="text-lg font-semibold text-zinc-200">
+                Welcome to {APP_NAME}
+              </p>
+              <p className={`${screenStyles.hint} max-w-sm`}>
+                Open a Group on the left, or create one and invite your friends
+                by username.
+              </p>
+            </div>
           ) : (
             <GroupPane
               desktopApi={props.desktopApi}
