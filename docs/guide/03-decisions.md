@@ -1,7 +1,7 @@
 # Decision log
 
 
-Every decision so far, D1 to D104, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
+Every decision so far, D1 to D105, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
 
 | Decision | Your choice |
 | --- | --- |
@@ -111,6 +111,7 @@ Every decision so far, D1 to D104, is made and summarized below. Each one record
 | D102 The first screen's note about starting with Windows | Removed; start at login stays on by default, and Settings still turns it off |
 | D103 Screen share quality | At most 4 Mbps per viewer, and a Text or Motion choice with each share |
 | D104 The server in each release | A ready-to-run bundle for Linux Arm, built and checked by GitHub Actions, next to the installer |
+| D105 Deploying the server | From GitHub after your approval, through a key that can only run the machine's update script, with automatic rollback |
 
 ## D1 — Architecture: who carries messages and calls?
 
@@ -1638,4 +1639,17 @@ Your choice: B (decided October 17, 2026). With it, a choice in the share picker
 Raised before the first release: you asked for each GitHub release to carry the server as well as the desktop installer. Until then the machine cloned the repository and installed the server's dependencies itself, which needs pnpm and compilers on the machine (14-server-deployment step 8).
 
 Your choice: include the server in each release (decided October 18, 2026). It ships as `newcord-server-<version>-linux-arm64.tar.gz`: the server and the shared package with their production dependencies installed, laid out like the repository so it extracts straight into `/opt/newcord`, where the systemd unit already runs it, with Node.js alone. A read-only job builds it on GitHub's Linux Arm runner, the Oracle machine's platform, and starts it to check `/health` before the publishing job attaches it to the draft release with its SHA-256 in the notes. Every pull request builds and starts it the same way. Cloning and installing on the machine still works.
+
+## D105 — Deploying the server
+
+Raised with the first release: you asked whether deployments made sense for the project. The desktop app already updates itself from Releases (D49); the server would otherwise be updated by hand over SSH after each release.
+
+| Option | How it works | Pros | Cons |
+| --- | --- | --- | --- |
+| A. GitHub deploys after your approval | Publishing a release starts a deploy job in a "production" environment that waits for your approval, then asks the machine over SSH to run `newcord-update <version>`, with a key whose only allowed command is that | One click per update; the repository's Deployments panel shows what is live; the key cannot do anything else, and the machine downloads and checks the bundle itself | The key lives in GitHub's environment secrets, and SSH must stay reachable from GitHub's runners |
+| B. Updates by hand | You SSH in and run `newcord-update <version>` after each release | No secret in GitHub, and nothing reaches the machine from outside | A manual step on every release |
+
+Recommendation: A.
+
+Your choice: A (decided October 18, 2026). Either way the machine has `newcord-update`: it checks the bundle against the release's `SHA256SUMS`, keeps the previous versions in `/opt/newcord-releases` with `/opt/newcord` pointing at the live one, copies the database first, and if the new version does not answer `/health` within 30 seconds, puts back the previous version and the database copy. The deploy user's key is forced to run `newcord-deploy-ssh`, which accepts only a version number and runs `newcord-update` through a sudo rule naming that one script. Every pull request runs the update script against a real bundle: an install, an update, a broken version rolled back, a bad checksum and a bad version. `deploy/MANUAL.md` sets it up.
 

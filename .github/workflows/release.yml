@@ -81,16 +81,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "$GITHUB_REF_NAME" newcord-server-*.tar.gz --repo "$GITHUB_REPOSITORY"
-      - name: Add each file's SHA-256 to the draft's notes
+      - name: Add each file's SHA-256 to the draft's notes and as SHA256SUMS
         shell: bash
         working-directory: apps/desktop/dist
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          sha256sum -- *.exe *.blockmap latest.yml newcord-server-*.tar.gz > SHA256SUMS
           {
             gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq .body
             printf '\n## SHA-256\n\n```\n'
-            sha256sum -- *.exe *.blockmap latest.yml newcord-server-*.tar.gz
+            cat SHA256SUMS
             printf '```\n'
           } > release-notes.md
           gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --notes-file release-notes.md
+          # newcord-update on the machine checks the server bundle against this file (D105).
+          gh release upload "$GITHUB_REF_NAME" SHA256SUMS --repo "$GITHUB_REPOSITORY"

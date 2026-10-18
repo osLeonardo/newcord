@@ -1,0 +1,55 @@
+# Deploys the server to the Oracle machine once you approve it in the production environment
+# (D105): when a release is published, or by hand for a chosen version, to roll back. GitHub only
+# asks the machine to run `newcord-update <version>` over SSH, with a key that can do nothing
+# else; the machine downloads and checks the bundle itself, and rolls back if it fails. Until the
+# DEPLOY_HOST variable is set, it does nothing.
+name: deploy
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "The version to deploy, for example 0.1.1"
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: vars.DEPLOY_HOST != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: https://newcord.duckdns.org/health
+    steps:
+      - name: Pick the version
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          version="${INPUT_VERSION:-${RELEASE_TAG#v}}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Not a version: $version" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Ask the machine to install it
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes "deploy@$DEPLOY_HOST" "$VERSION"
+      - name: Check the backend from outside
+        run: curl -fsS --retry 5 --retry-delay 3 https://newcord.duckdns.org/health

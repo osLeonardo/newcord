@@ -93,5 +93,8 @@ jobs:
         with:
           node-version: 26
           cache: pnpm
-      - run: bash deploy/scripts/build-server-bundle.sh check server-bundle
+      - run: bash deploy/scripts/build-server-bundle.sh 0.0.1 server-bundle
       - run: bash deploy/scripts/check-server-bundle.sh server-bundle/newcord-server-*.tar.gz
+      # newcord-update installs, updates and rolls back with this bundle (D105); it needs sqlite3.
+      - run: command -v sqlite3 > /dev/null || (sudo apt-get update && sudo apt-get install -y --no-install-recommends sqlite3)
+      - run: bash deploy/scripts/test-newcord-update.sh server-bundle/newcord-server-*.tar.gz

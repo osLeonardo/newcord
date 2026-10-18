@@ -4,7 +4,7 @@
 
 A small, security-focused Discord alternative. There are no Discord-style servers (guilds): only flat group chats of up to 10 people, each with one drop-in call for up to about 6 people (voice and screen sharing, peer-to-peer mesh). Desktop first, Windows only in version 1 (D73). License: AGPL-3.0-or-later.
 
-Status: the design is complete (decisions D1 to D82, all made by the user). Milestone M1 is in progress: the repository scaffold (#1) is built.
+Status: every milestone is built and merged, and version 0.1.0 is released on GitHub with the Windows installer and the server bundle. What remains is hands-on: the milestone gates, deploying the server (`deploy/MANUAL.md`, #14), the security review's sign-off (#15) and the development relay (#8). Decisions D1 to D105 were all made by the user.
 
 The full design lives in `docs/guide/`. `docs/README.md` explains which file to read for what.
 
@@ -41,7 +41,7 @@ Read only the files the current task needs; `03-decisions.md` is large.
 
 ## Stack (decided)
 
-- Monorepo with pnpm workspaces: `apps/desktop`, `apps/server`, `packages/shared`; later `packages/mls` (Rust).
+- Monorepo with pnpm workspaces: `apps/desktop`, `apps/server`, `packages/shared` and `packages/mls` (Rust).
 - Desktop: Electron, built with electron-vite and packaged with electron-builder; React interface styled with Tailwind CSS (D69); TypeScript.
 - Server: TypeScript on Node.js, Fastify with `@fastify/websocket`, SQLite through better-sqlite3, Argon2id password hashes, JWT (HS256, 15 minutes) plus refresh tokens stored as hashes.
 - Shared schemas: TypeBox (package `typebox`), validating both HTTP requests and WebSocket envelopes. Wire format: JSON, encrypted payloads in base64.
@@ -60,6 +60,7 @@ Run every command from the repository root:
 - `pnpm --filter desktop dev:second`, while `dev` runs, opens a second development copy with its own data in `%APPDATA%\newcord-dev-2`, for a second Account on the same computer (D95). Both copies share the microphone and the push-to-talk key, so use headphones and keep Hide my IP off while coturn is not running
 - `pnpm --filter server dev` runs the server in watch mode (http://localhost:3000/health should answer `{"ok":true}`). It reads `apps/server/.env` with Node's `--env-file-if-exists`: copy `apps/server/.env.example` to `apps/server/.env` (ignored by git) and set `JWT_SECRET` to the output of `openssl rand -base64 48`, because the server refuses to start without a secret of at least 32 bytes. Set `RELAY_SECRET` the same way (the secret shared with coturn, #8) and `RELAY_URLS` to the relay's `stun:`/`turn:` addresses separated by commas; the server refuses to start without them too. `DATABASE_PATH` names the SQLite file, `newcord.db` by default. In production only, `LISTEN_HOST=127.0.0.1` and `TRUST_PROXY=127.0.0.1` keep the server behind nginx (`deploy/`, #14)
 - `bash deploy/scripts/build-server-bundle.sh <version> <folder>` builds the server bundle each release carries, `newcord-server-<version>-<platform>.tar.gz`, with production dependencies installed, on Linux only; `deploy/scripts/check-server-bundle.sh <bundle>` extracts it, starts it and waits for `/health` (D104). GitHub Actions builds it on Linux Arm for every pull request and every release
+- `deploy/scripts/newcord-update.sh` is installed on the machine as `newcord-update <version>`: it installs a release's server bundle, checks `/health` and rolls back on failure (D105); `deploy/scripts/test-newcord-update.sh <bundle>` tests it on Linux. Publishing a release starts `.github/workflows/deploy.yml`, which deploys after approval in the `production` environment once `DEPLOY_HOST` and that environment's secrets are set (`deploy/MANUAL.md`, section 11)
 - `pnpm --filter desktop build:win` builds the per-user Windows installer, `apps/desktop/dist/newcord-<version>-setup.exe`, with electron-builder; its afterPack hook (`apps/desktop/build-hooks/after-pack.mjs`) switches the unused Electron fuses off, and it publishes nothing (#13). The installed app checks GitHub Releases for updates at start-up and every 6 hours; development runs never do
 - `pnpm --filter server start` runs the server as production does, through tsx without watching (D89); systemd sets its settings from `/etc/newcord/env` (`deploy/`)
 - `pnpm --filter @newcord/mls build` builds the MLS module (#4): the crate for `wasm32-unknown-unknown`, then wasm-bindgen's Node.js module in `packages/mls/pkg/` (not committed). It needs Rust's GNU toolchain (`stable-x86_64-pc-windows-gnu`) with the `wasm32-unknown-unknown` target, and `wasm-bindgen` plus `wasm-bindgen-test-runner` 0.2.129 from wasm-bindgen's GitHub release, all on PATH (`%USERPROFILE%\.cargo\bin`, D94); `pnpm --filter @newcord/mls test:rust` runs the crate's Rust tests as WebAssembly in Node
@@ -107,11 +108,11 @@ These come from the decisions and the security checklist (`13-security-checklist
 
 | Milestone | Steps | Status |
 | --- | --- | --- |
-| M1 · Backend and accounts | `07-m1-setup.md`, `08-m1-build.md` | In progress |
-| M2 · Encrypted group chat | `09-m2-build.md` | Not started |
-| M3 · Calls | `10-m3-build.md` | Not started |
-| M4 · Desktop polish | `11-m4-build.md` | Not started |
-| M5 · Security review and release, plus server deployment | `12-m5-build.md`, `14-server-deployment.md` | Not started |
+| M1 · Backend and accounts | `07-m1-setup.md`, `08-m1-build.md` | Built; gate on two computers pending |
+| M2 · Encrypted group chat | `09-m2-build.md` | Built; gate pending |
+| M3 · Calls | `10-m3-build.md` | Built; gate pending (needs the relay, #8) |
+| M4 · Desktop polish | `11-m4-build.md` | Built; gate pending |
+| M5 · Security review and release, plus server deployment | `12-m5-build.md`, `14-server-deployment.md` | Released 0.1.0; deployment (#14) and review sign-off (#15) pending |
 
 - Each milestone's "Tests" and "Done when" sections are its acceptance criteria. A milestone is finished only when its "Done when" check passes; then update this table.
 - Work in small steps, write tests alongside the code, and commit after each working step.
