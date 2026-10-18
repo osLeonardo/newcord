@@ -67,7 +67,8 @@ export function HomeScreen(props: HomeScreenProps): React.JSX.Element {
   );
 
   return (
-    <div className="flex h-screen w-full">
+    // The home fills the window and never scrolls as a page: its panes scroll inside themselves.
+    <div className="flex h-screen w-full overflow-hidden">
       <RemoteAudio streams={callSession.remoteStreams} />
       <nav
         aria-label="Groups and people"

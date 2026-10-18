@@ -31,7 +31,7 @@ app.on("second-instance", () => {
 
 ## Start at login
 
-4. Turn start-at-login on during the first run, and say so on the first screen along with where to turn it off (D46). Started at login, the app opens hidden in the tray.
+4. Turn start-at-login on during the first run (D46); Settings, under App, turns it off. Started at login, the app opens hidden in the tray. The first screen no longer mentions it (D102).
 
 - Windows: `app.setLoginItemSettings({ openAtLogin: true, args: ["--hidden"] })`
 

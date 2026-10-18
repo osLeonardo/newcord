@@ -5,9 +5,7 @@ export type AppFlag =
   /** Start at login was turned on by the first run (D46). */
   | "first-run-done"
   /** The "still running in the tray" notice was shown (D47). */
-  | "close-notice-shown"
-  /** The person read the first screen's note about starting with Windows (D46). */
-  | "startup-notice-dismissed";
+  | "close-notice-shown";
 
 export interface AppFlags {
   has(flag: AppFlag): boolean;

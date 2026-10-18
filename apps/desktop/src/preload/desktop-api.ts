@@ -180,8 +180,6 @@ export const desktopApiChannels = {
   listShareSources: "share:list-sources",
   chooseShareSource: "share:choose-source",
   measureCpu: "diagnostics:measure-cpu",
-  readStartupNotice: "shell:read-startup-notice",
-  dismissStartupNotice: "shell:dismiss-startup-notice",
   reportCallMedia: "shell:report-call-media",
   setViewedGroup: "shell:set-viewed-group",
   readUpdateOffer: "updates:read-offer",

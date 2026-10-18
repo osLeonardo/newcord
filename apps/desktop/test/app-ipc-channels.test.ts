@@ -75,8 +75,6 @@ function fakeActions(): FakeActions {
     ),
     ...fakeGroupActions(),
     ...fakeCallActions(),
-    readStartupNotice: vi.fn(() => Promise.resolve(false)),
-    dismissStartupNotice: vi.fn(() => Promise.resolve()),
     reportCallMedia: vi.fn(() => Promise.resolve()),
     setViewedGroup: vi.fn(() => Promise.resolve()),
     readUpdateOffer: vi.fn(() => Promise.resolve(false)),

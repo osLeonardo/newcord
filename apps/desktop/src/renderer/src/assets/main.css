@@ -1,1 +1,8 @@
 @import "tailwindcss";
+
+/* The page itself stays dark behind every screen, scrollbars included. */
+html,
+body {
+  background-color: var(--color-zinc-950);
+  color-scheme: dark;
+}

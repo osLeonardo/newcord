@@ -22,6 +22,7 @@ import {
   type ScreenShare,
 } from "./browser-call-media";
 import { createCallMesh, type CallMesh } from "./call-mesh";
+import { shareContentHint, type ShareMode } from "./share-settings";
 import {
   createLevelGate,
   DEFAULT_VOICE_SENSITIVITY,
@@ -54,8 +55,8 @@ export interface CallSession {
   leave(): void;
   /** Also toggled by the global mute hotkey (D44c). */
   toggleMute(): void;
-  /** Shares the source picked in the app's own picker, video only (D43). */
-  startSharing(sourceId: string): void;
+  /** Shares the source picked in the app's own picker, video only (D43), tuned for its mode (D103). */
+  startSharing(sourceId: string, mode: ShareMode): void;
   stopSharing(): void;
 }
 
@@ -213,11 +214,11 @@ export function useCallSession(desktopApi: DesktopApi): CallSession {
 
   const codec = settings?.codec ?? "H264";
   const startSharing = useCallback(
-    (sourceId: string): void => {
+    (sourceId: string, mode: ShareMode): void => {
       const media = refs.current.running?.media;
       if (media === undefined || media.screen.current !== undefined) return;
       setProblem(undefined);
-      shareScreen(desktopApi, sourceId, codec)
+      shareScreen(desktopApi, sourceId, codec, mode)
         .then((shared) => {
           if (shared.outcome === "refused") {
             setProblem(shared.problem);
@@ -292,6 +293,7 @@ async function shareScreen(
   desktopApi: DesktopApi,
   sourceId: string,
   codec: ScreenShare["codec"],
+  mode: ShareMode,
 ): Promise<SharedScreen> {
   if (!(await desktopApi.chooseShareSource(sourceId))) {
     return { outcome: "refused", problem: SOURCE_GONE_PROBLEM };
@@ -302,8 +304,8 @@ async function shareScreen(
     stopStream(stream);
     return { outcome: "refused", problem: SHARE_PROBLEM };
   }
-  // Text and code stay sharp; the frame rate drops first (10-m3-build Settings).
-  track.contentHint = "detail";
+  // Text keeps detail and drops frame rate first; motion keeps 30 fps and drops resolution (D103).
+  track.contentHint = shareContentHint(mode);
   return { outcome: "shared", screen: { stream, track, codec } };
 }
 

@@ -21,10 +21,6 @@ export function createShellApi(
       subscribe(desktopApiEventChannels.onOpenGroup, (payload) => {
         if (typeof payload === "string") listener(payload);
       }),
-    readStartupNotice: () =>
-      invoke(desktopApiChannels.readStartupNotice) as Promise<boolean>,
-    dismissStartupNotice: () =>
-      invoke(desktopApiChannels.dismissStartupNotice) as Promise<void>,
     reportCallMedia: (report) =>
       invoke(desktopApiChannels.reportCallMedia, report) as Promise<void>,
   };

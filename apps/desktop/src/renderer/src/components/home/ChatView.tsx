@@ -63,7 +63,8 @@ export function ChatView(props: ChatViewProps): React.JSX.Element {
   }, [messages]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    // At least 12rem, so the composer stays in view however tall the Call above it grows.
+    <div className="flex min-h-48 flex-1 flex-col">
       <ol
         aria-label="Messages"
         className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 py-4"

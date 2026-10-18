@@ -58,6 +58,10 @@ describe("grantCallPermissionsOnly (security checklist, M3)", () => {
     expect(decisionFor("media", { mediaTypes: [] })).toBe(true);
   });
 
+  it("grants full screen, for viewing a shared screen (D101)", () => {
+    expect(decisionFor("fullscreen")).toBe(true);
+  });
+
   it.each([
     ["the camera", { mediaTypes: ["video"] }],
     ["the microphone with the camera", { mediaTypes: ["audio", "video"] }],
@@ -81,6 +85,7 @@ describe("grantCallPermissionsOnly (security checklist, M3)", () => {
       decisionFor("media", { mediaTypes: ["audio"] }, OTHER_WEB_CONTENTS),
     ).toBe(false);
     expect(decisionFor("display-capture", {}, OTHER_WEB_CONTENTS)).toBe(false);
+    expect(decisionFor("fullscreen", {}, OTHER_WEB_CONTENTS)).toBe(false);
   });
 
   it("answers yes only to the app window's media checks", () => {
@@ -88,6 +93,10 @@ describe("grantCallPermissionsOnly (security checklist, M3)", () => {
 
     expect(session.checkHandler?.(APP_WEB_CONTENTS, "media")).toBe(true);
     expect(session.checkHandler?.(APP_WEB_CONTENTS, "geolocation")).toBe(false);
+    // Full screen only after a click: Electron's check for the automatic kind stays refused.
+    expect(
+      session.checkHandler?.(APP_WEB_CONTENTS, "automatic-fullscreen"),
+    ).toBe(false);
     expect(session.checkHandler?.(OTHER_WEB_CONTENTS, "media")).toBe(false);
     expect(session.checkHandler?.(null, "media")).toBe(false);
   });

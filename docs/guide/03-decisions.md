@@ -1,7 +1,7 @@
 # Decision log
 
 
-Every decision so far, D1 to D100, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
+Every decision so far, D1 to D103, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
 
 | Decision | Your choice |
 | --- | --- |
@@ -107,6 +107,9 @@ Every decision so far, D1 to D100, is made and summarized below. Each one record
 | D98 The installer's publisher and description | "newcord", and a one-line description of the app |
 | D99 Automatic checks on pull requests from M5 | Every check on each pull request and push to `main`, on Windows and on Linux Arm |
 | D100 The WebSocket heartbeat | A ping every 30 seconds; a socket that leaves one unanswered is ended |
+| D101 Full screen for a shared screen | The app's window may go full screen, through the browser's own Fullscreen API |
+| D102 The first screen's note about starting with Windows | Removed; start at login stays on by default, and Settings still turns it off |
+| D103 Screen share quality | At most 4 Mbps per viewer, and a Text or Motion choice with each share |
 
 ## D1 — Architecture: who carries messages and calls?
 
@@ -1595,4 +1598,37 @@ Raised as a follow-up from #2 (#17). The server noticed a socket was gone only w
 Recommendation: A.
 
 Your choice: A (decided October 17, 2026). Browsers, Electron and Node's built-in WebSocket answer pings on their own, so the desktop app needs no change; a terminated socket closes as usual, so presence sends "offline" and the app reconnects when it can.
+
+## D101 — Full screen for a shared screen
+
+Raised while trying two Accounts on one computer: you asked for a way to watch a shared screen full screen. Electron routes the browser's Fullscreen API through the permission handler, which granted only the microphone and screen capture (security checklist, M3); checked on Electron 44.7.2, a refused "fullscreen" request leaves the page unable to go full screen.
+
+| Option | How it works | Pros | Cons |
+| --- | --- | --- | --- |
+| A. Grant "fullscreen" to the app's window | A Full screen button, or a double-click, asks the browser to show that video full screen; Esc or a double-click leaves | The standard behaviour, in a few lines | One more permission, though it exposes no data or device |
+| B. Full screen run by the app | A checked IPC call makes the window full screen, and the share fills the window | No new permission | A new IPC channel and Esc handling to maintain, for the same result |
+
+Recommendation: A.
+
+Your choice: A (decided October 17, 2026). Only the app's own window gets it, and only after a click: Electron's check for automatic full screen stays refused.
+
+## D102 — The first screen's note about starting with Windows
+
+Raised while trying the app: you asked to remove the note D46 added to the first screen ("newcord starts with Windows, hidden in the tray… Got it").
+
+Your choice: remove it (decided October 17, 2026). Start at login stays on by default from the first run (D46), and Settings, under App, still turns it off; the one-time "still running in the tray" notification on the first close (D47) stays. The note's two IPC calls and its one-time flag are removed with it.
+
+## D103 — Screen share quality
+
+Raised while trying screen sharing on one computer: the share looked poor. M3's Settings capped each viewer at 1.5 Mbps and always kept detail, dropping frame rate first, which suits a page of text but turns motion choppy and blocky. In the mesh the sharer uploads one stream per viewer.
+
+| Option | How it works | Pros | Cons |
+| --- | --- | --- | --- |
+| A. A budget split among viewers | 8 Mbps of upload in total, at most 6 Mbps each | Small calls look much better, big calls stay within reach of home upload | The quality changes as people join |
+| B. A fixed 4 Mbps per viewer | Every viewer gets up to 4 Mbps | Good 1080p at 30 frames per second for everyone | 5 viewers need 20 Mbps of upload; WebRTC lowers it on weaker links |
+| C. Keep 1.5 Mbps | No change | Light on upload | Motion stays choppy |
+
+Recommendation: A.
+
+Your choice: B (decided October 17, 2026). With it, a choice in the share picker of what is being shared: Text and code keeps detail and drops frame rate first, as before; Video and games keeps the frame rate and drops resolution first (recommended and chosen the same day). Text is the default each time the picker opens.
 

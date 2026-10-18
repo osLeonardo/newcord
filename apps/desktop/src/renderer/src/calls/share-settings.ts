@@ -1,7 +1,7 @@
 import type { ShareCodec } from "../../../preload/settings-api";
 
-/** Each viewer's share is capped at 1.5 Mbps (10-m3-build Settings). */
-export const SCREEN_SHARE_MAX_BITRATE = 1_500_000;
+/** Each viewer's share is capped at 4 Mbps (D103, 10-m3-build Settings). */
+export const SCREEN_SHARE_MAX_BITRATE = 4_000_000;
 
 /** Up to 1080p at 30 frames per second (10-m3-build Settings). */
 export const SCREEN_SHARE_MAX_FRAMERATE = 30;
@@ -30,6 +30,18 @@ export function preferCodec<Codec extends { readonly mimeType: string }>(
   return [...first, ...codecs.filter((entry) => !first.includes(entry))];
 }
 
+/** What a share mostly shows, picked with each share: text and code, or video and games (D103). */
+export type ShareMode = "text" | "motion";
+
+/**
+ * The content hint WebRTC adapts a share with when bandwidth or CPU runs short: "detail" drops
+ * frame rate first, so text stays sharp; "motion" drops resolution first, so movement stays smooth.
+ * @example shareContentHint("motion") // "motion"
+ */
+export function shareContentHint(mode: ShareMode): "detail" | "motion" {
+  return mode === "text" ? "detail" : "motion";
+}
+
 /** The encoding a screen share sends to each viewer. */
 export interface ShareEncoding {
   readonly maxBitrate: number;
@@ -37,7 +49,7 @@ export interface ShareEncoding {
 }
 
 /**
- * The encoding every screen-share sender starts with: at most 1.5 Mbps and 30 frames per second.
+ * The encoding every screen-share sender starts with: at most 4 Mbps and 30 frames per second.
  * @example connection.addTransceiver(track, { sendEncodings: [screenShareEncoding()] })
  */
 export function screenShareEncoding(): ShareEncoding {

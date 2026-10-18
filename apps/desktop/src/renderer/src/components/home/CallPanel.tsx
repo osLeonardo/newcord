@@ -42,7 +42,7 @@ export function CallPanel(props: CallPanelProps): React.JSX.Element {
   return (
     <section
       aria-label="Call"
-      className="flex flex-wrap items-center gap-3 border-b border-zinc-800 px-6 py-2 text-sm"
+      className="flex min-h-0 flex-wrap items-center gap-3 overflow-y-auto border-b border-zinc-800 px-6 py-2 text-sm"
     >
       {participants.length === 0 ? (
         <span className="text-zinc-500">Nobody is in the Call.</span>
@@ -123,9 +123,9 @@ export function CallPanel(props: CallPanelProps): React.JSX.Element {
       {inThisCall && picking && (
         <SharePicker
           desktopApi={desktopApi}
-          pick={(sourceId) => {
+          pick={(sourceId, mode) => {
             setPicking(false);
-            callSession.startSharing(sourceId);
+            callSession.startSharing(sourceId, mode);
           }}
           cancel={() => {
             setPicking(false);

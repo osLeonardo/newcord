@@ -4,8 +4,6 @@ import type { ShellApiCalls } from "../../preload/shell-api";
 import { checkedChannel, type CheckedIpcChannel } from "./checked-ipc-handler";
 import { argumentsMatching } from "./typebox-arguments";
 
-const NoArguments = Type.Tuple([]);
-type NoArguments = Static<typeof NoArguments>;
 const CallMediaArguments = Type.Tuple([
   Type.Object(
     { muted: Type.Boolean(), sharing: Type.Boolean() },
@@ -26,18 +24,6 @@ export function createShellIpcChannels(
   actions: ShellApiCalls,
 ): CheckedIpcChannel[] {
   return [
-    checkedChannel<NoArguments, boolean>({
-      name: desktopApiChannels.readStartupNotice,
-      expectedArguments: "",
-      argumentsMatch: argumentsMatching(NoArguments),
-      handle: () => actions.readStartupNotice(),
-    }),
-    checkedChannel<NoArguments, void>({
-      name: desktopApiChannels.dismissStartupNotice,
-      expectedArguments: "",
-      argumentsMatch: argumentsMatching(NoArguments),
-      handle: () => actions.dismissStartupNotice(),
-    }),
     checkedChannel<CallMediaArguments, void>({
       name: desktopApiChannels.reportCallMedia,
       expectedArguments: "report: { muted: boolean, sharing: boolean }",

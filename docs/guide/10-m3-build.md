@@ -11,8 +11,8 @@ Proposed by me and accepted by you on October 14, 2026.
 | --- | --- | --- |
 | Call size | 6 people; a seventh sees "call full" | D2's mesh limit |
 | Voice processing | Chromium's echo cancellation, noise suppression and automatic gain, all on | Built into WebRTC; no extra code |
-| Screen share ceiling | 1080p, up to 30 frames per second, at most 1.5 Mbps per viewer | About 7.5 Mbps of upload with 5 viewers; WebRTC lowers it on weak links |
-| Screen share priority | Keep detail sharp and drop frame rate first | Text and code stay readable |
+| Screen share ceiling | 1080p, up to 30 frames per second, at most 4 Mbps per viewer (D103) | Good 1080p for each viewer; about 20 Mbps of upload with 5 viewers, which WebRTC lowers on weaker links |
+| Screen share priority | Picked with each share (D103): Text keeps detail sharp and drops frame rate first; Motion keeps the frame rate and drops resolution first | Text and code stay readable, and video and games stay smooth |
 | Relay ports | UDP 3478, plus TURN over TLS on port 443 | TLS on 443 gets through strict firewalls |
 | Relay passwords | Valid for 1 hour, issued by the backend using a secret shared with coturn | Only logged-in members can use the relay |
 | STUN server | Your own coturn, not a public one | No third party sees members' addresses |
@@ -77,7 +77,7 @@ session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
 });
 ```
 
-In the window, set the shared track's content hint to "detail", so WebRTC keeps text sharp and drops frame rate first.
+In the window, set the shared track's content hint from the mode picked with the share (D103): "detail" for text, so WebRTC keeps it sharp and drops frame rate first, or "motion" for video and games, so it keeps the frame rate and drops resolution first.
 
 8. Apply the codec from settings (D11b) and cap each viewer's bitrate:
 
@@ -87,7 +87,7 @@ const first = codecs.filter((c) => c.mimeType === preferredMimeType); // "video/
 transceiver.setCodecPreferences([...first, ...codecs.filter((c) => !first.includes(c))]);
 
 const params = transceiver.sender.getParameters();
-params.encodings[0].maxBitrate = 1_500_000;
+params.encodings[0].maxBitrate = 4_000_000;
 await transceiver.sender.setParameters(params);
 ```
 

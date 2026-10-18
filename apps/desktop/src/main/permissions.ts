@@ -28,8 +28,9 @@ export interface PermissionControlledSession {
 }
 
 /**
- * Grants the app's own windows the microphone and screen capture for Calls, and refuses every other
- * permission, request and check (security checklist, M3). A camera is never granted (D10).
+ * Grants the app's own windows the microphone and screen capture for Calls, and full screen for
+ * viewing a shared screen (D101); refuses every other permission, request and check (security
+ * checklist, M3). A camera is never granted (D10), and neither is full screen without a click.
  * @example grantCallPermissionsOnly(session.defaultSession, (id) => appWebContentsIds.has(id))
  */
 export function grantCallPermissionsOnly(
@@ -40,7 +41,7 @@ export function grantCallPermissionsOnly(
     (webContents, permission, decide, details) => {
       decide(
         isAppWebContents(webContents.id) &&
-          isCallPermission(permission, details),
+          isGrantedPermission(permission, details),
       );
     },
   );
@@ -58,11 +59,13 @@ export function grantCallPermissionsOnly(
  * Electron 44 asks for a screen capture as "media" with an empty `mediaTypes`, and the display-media
  * handler then answers only with the source picked in the app's own picker (10-m3-build step 7).
  */
-function isCallPermission(
+function isGrantedPermission(
   permission: string,
   details: PermissionRequestDetails,
 ): boolean {
-  if (permission === "display-capture") return true;
+  if (permission === "display-capture" || permission === "fullscreen") {
+    return true;
+  }
   if (permission !== "media" || details.mediaTypes === undefined) return false;
   return details.mediaTypes.every((type) => type === "audio");
 }
