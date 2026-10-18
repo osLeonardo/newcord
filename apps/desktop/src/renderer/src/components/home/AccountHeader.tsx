@@ -1,8 +1,8 @@
-import { APP_NAME } from "@newcord/shared";
 import { useState } from "react";
 import type { DesktopApi } from "../../../../preload/desktop-api";
 import { UNEXPECTED_FAILURE_MESSAGE } from "../../account/account-messages";
 import { viewForSessionState, type AppView } from "../../app-view";
+import { AppMark } from "../AppMark";
 import { screenStyles } from "../screen-styles";
 
 interface AccountHeaderProps {
@@ -30,9 +30,7 @@ export function AccountHeader(props: AccountHeaderProps): React.JSX.Element {
 
   return (
     <header className="flex flex-col gap-2 border-b border-zinc-800 p-4">
-      <p className="text-xs font-semibold tracking-widest text-zinc-500 uppercase">
-        {APP_NAME}
-      </p>
+      <AppMark />
       <p className="truncate font-medium">{props.username}</p>
       <div className="flex flex-wrap gap-3 text-sm">
         <button
