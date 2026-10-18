@@ -8,7 +8,7 @@ The original lives as a Claude Doc, exported on 2026-10-14. From now on, this co
 | --- | --- |
 | `guide/01-requirements.md` | The goals and how each was settled |
 | `guide/02-discord-analysis.md` | How Discord works, what changes peer-to-peer, similar projects worth studying |
-| `guide/03-decisions.md` | Decisions D1 to D74: a summary table, then each decision with its options, pros and cons, recommendation and final choice |
+| `guide/03-decisions.md` | Decisions D1 to D105: a summary table, then each decision with its options, pros and cons, recommendation and final choice |
 | `guide/04-architecture.md` | The client, the backend and the relay, and how messages and calls flow |
 | `guide/05-milestones.md` | The five milestones and the test that closes each |
 | `guide/06-message-formats.md` | Account requests, WebSocket envelopes and encrypted payloads |
@@ -21,4 +21,4 @@ The original lives as a Claude Doc, exported on 2026-10-14. From now on, this co
 | `guide/13-security-checklist.md` | Every security check by milestone, and the risks accepted on purpose |
 | `guide/14-server-deployment.md` | Running the backend and relay on Oracle Cloud Always Free with DuckDNS |
 
-Placeholders such as `your-app` and `yourapp.duckdns.org` stand for the app's name. Until M5 the working title "newcord" fills them; the final name is chosen before M5 starts (D58).
+Placeholders such as `your-app` and `yourapp.duckdns.org` stand for the app's name, "newcord" (D58, D92). To install the app or run the server, start from the repository's `README.md` and `deploy/MANUAL.md`.

@@ -1,5 +1,7 @@
 # Deployment files
 
+**To deploy, follow [`MANUAL.md`](MANUAL.md):** it walks through every step below on Oracle Cloud, from creating the machine to one-click updates from GitHub (D105). This page lists the files and which guide step uses each.
+
 The production machine's configuration as templates (#14, Step 01). None of them holds a secret: each secret is generated on the machine and kept in files only its service can read. The hostnames are `newcord.duckdns.org` and `newcord-turn.duckdns.org` (D92).
 
 Follow `docs/guide/14-server-deployment.md` in this order:
