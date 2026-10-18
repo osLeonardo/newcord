@@ -13,6 +13,7 @@
     "start": "electron-vite preview",
     "dev": "node ../../packages/mls/scripts/build.mjs --if-missing && electron-vite dev",
     "dev:second": "node scripts/dev-second-client.mjs",
+    "icons": "electron scripts/render-icons.mjs",
     "build": "node ../../packages/mls/scripts/build.mjs --if-missing && pnpm run typecheck && electron-vite build",
     "postinstall": "install-electron && electron-builder install-app-deps",
     "build:unpack": "pnpm run build && electron-builder --dir",

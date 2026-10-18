@@ -138,10 +138,10 @@ export function AudioSettings(props: AudioSettingsProps): React.JSX.Element {
         </button>
       </div>
       <label className="flex items-center gap-2">
-        <span className="text-zinc-300">Input device</span>
+        <span className="shrink-0 text-zinc-300">Input device</span>
         <select
           value={settings.inputDeviceId ?? ""}
-          className={screenStyles.textInput}
+          className={`${screenStyles.textInput} min-w-0 max-w-sm truncate`}
           onChange={(event) => {
             change({
               inputDeviceId:

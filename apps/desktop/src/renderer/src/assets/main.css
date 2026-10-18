@@ -1,8 +1,10 @@
 @import "tailwindcss";
 
-/* The page itself stays dark behind every screen, scrollbars included. */
+/* The page itself stays dark behind every screen, scrollbars included: Chromium's Windows
+   scrollbars do not always follow the color scheme, so their colors are set too (inherited). */
 html,
 body {
   background-color: var(--color-zinc-950);
   color-scheme: dark;
+  scrollbar-color: var(--color-zinc-700) transparent;
 }

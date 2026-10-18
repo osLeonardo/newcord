@@ -105,9 +105,12 @@ function createWindow(services: AppServices, startHidden: boolean): void {
   const window = new BrowserWindow({
     width: 900,
     height: 670,
+    // Below this, the sidebar and the chat no longer fit side by side.
+    minWidth: 720,
+    minHeight: 520,
     show: false,
     autoHideMenuBar: true,
-    ...(process.platform === "linux" ? { icon } : {}),
+    icon,
     webPreferences: hardenedWebPreferences(
       join(__dirname, "../preload/index.js"),
     ),

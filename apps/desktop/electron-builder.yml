@@ -10,6 +10,7 @@ files:
   - "!{.env,.env.*,.npmrc,pnpm-lock.yaml}"
   - "!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}"
   - "!{build-hooks,scripts,test}/**"
+  - "!build/icon.svg"
   # Windows only in version 1 (D73): the other systems' prebuilt native binaries stay out.
   - "!node_modules/{better-sqlite3,uiohook-napi}/prebuilds/{darwin,linux}*"
   - "!node_modules/{better-sqlite3,uiohook-napi}/prebuilds/{darwin,linux}*/**"

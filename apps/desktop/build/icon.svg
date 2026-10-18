@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- newcord's icon: a speech bubble holding an "n", on the app's indigo. Rendered to the
+       PNG and ICO files beside it by scripts/render-icons.cjs. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6366f1" />
+      <stop offset="1" stop-color="#4338ca" />
+    </linearGradient>
+  </defs>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#tile)" />
+  <path
+    d="M 352 216 H 672 A 160 160 0 0 1 832 376 V 568 A 160 160 0 0 1 672 728 H 456 L 296 840 L 320 728 A 160 160 0 0 1 192 568 V 376 A 160 160 0 0 1 352 216 Z"
+    fill="#ffffff"
+  />
+  <path
+    d="M 400 616 V 488 A 112 112 0 0 1 624 488 V 616"
+    fill="none"
+    stroke="#4338ca"
+    stroke-width="76"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>
