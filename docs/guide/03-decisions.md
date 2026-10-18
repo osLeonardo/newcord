@@ -1530,7 +1530,7 @@ Raised while packaging the app (#13). Electron names the per-user data folder af
 
 Recommendation: A.
 
-Your choice: A (decided October 17, 2026). The main process sets the folder before anything opens it, including the single-instance lock; the old `%APPDATA%\desktop` folder is not touched.
+Your choice: A (decided October 17, 2026). The main process sets the folder before anything opens it, including the single-instance lock; the old `%APPDATA%\desktop` folder is not touched. To try two Accounts on one computer, a development run given `NEWCORD_DEV_PROFILE` from 2 to 9 keeps its data in `%APPDATA%\newcord-dev-<n>`, which also gives it its own single-instance lock (`pnpm --filter desktop dev:second`, added October 17, 2026 at your request); the installed app ignores the variable.
 
 ## D96 — How a tagged release goes out
 

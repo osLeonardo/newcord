@@ -99,7 +99,7 @@ The other codecs stay listed after the chosen one, so a connection still works i
 
 - Unit tests for the negotiation logic and the call-full rule
 - Manual matrix: Windows to Windows, with 6 people and each codec
-- Strict firewall: block outgoing UDP on one computer and confirm it connects through port 443
+- Relay forced: with Hide my IP on, confirm the call connects through the development relay. The strict-firewall test (outgoing UDP blocked on one computer, connecting through port 443) runs in the server deployment (#14, Step 05), where the relay has TLS on 443
 - Hide my IP: confirm with getStats() that the connection's selected candidate pair uses the relay
 
 ## Done when
