@@ -61,6 +61,13 @@ jobs:
       # Builds the MLS module, then the app (D94).
       - run: pnpm --filter @newcord/mls build
       - run: pnpm --filter desktop build
+      # electron-builder uploads its files in parallel, and each upload made its own draft when none
+      # existed yet (v0.1.0 got two); with the draft created first, they all land in it.
+      - name: Create the draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "${GITHUB_REF_NAME#v}" --notes ""
       - run: pnpm --filter desktop exec electron-builder --win --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
