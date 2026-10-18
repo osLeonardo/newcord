@@ -151,8 +151,6 @@ export function startAppServices(
       ...createCallActions(() => holder.hub?.current()?.calls),
       ...deviceActions(dependencies, { deviceSettings, voiceControls }),
       ...createShellActions({
-        flags,
-        settings: deviceSettings,
         shell: dependencies.shell,
         view,
         groupViewed,
