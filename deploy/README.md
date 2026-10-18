@@ -11,7 +11,7 @@ Follow `docs/guide/14-server-deployment.md` in this order:
 | 5 | Add the http side; remove the default site | `nginx/newcord.conf` |
 | 6 | Get both certificates with certbot; the relay's has the deploy hook | `scripts/copy-turn-cert.sh` |
 | 7 | Install coturn's production configuration and fill in its two placeholders on the machine | `coturn/turnserver.conf` |
-| 8 | Install Node.js 26, pnpm 11, `build-essential` and `python3`; create the `newcord` user; clone to `/opt/newcord` and run `pnpm install --frozen-lockfile --prod --filter server...` (no build: the server runs through tsx, D89) | `env.example` (as `/etc/newcord/env`) |
+| 8 | Install Node.js 26 and create the `newcord` user. Download `newcord-server-<version>-linux-arm64.tar.gz` from the release, check its SHA-256 against the release notes, and extract it into `/opt/newcord` (`sudo tar -xzf … -C /opt/newcord`): its dependencies come installed for Linux Arm, so the machine needs no pnpm or compilers (D104). To build on the machine instead, install pnpm 11, `build-essential` and `python3`, clone to `/opt/newcord` and run `pnpm install --frozen-lockfile --prod --filter server...` (no build: the server runs through tsx, D89) | `env.example` (as `/etc/newcord/env`), `scripts/build-server-bundle.sh` |
 | 9 | Run the backend as a service, listening only on 127.0.0.1 and trusting nginx's client address | `systemd/newcord-backend.service` |
 | 10 | Install Oracle's CLI for the `newcord` user, then the nightly backup | `scripts/backup.sh`, `systemd/newcord-backup.service`, `systemd/newcord-backup.timer` |
 
