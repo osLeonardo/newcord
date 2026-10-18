@@ -3,6 +3,7 @@ import type { DesktopApi } from "../../../../preload/desktop-api";
 import type { GroupSummary } from "../../../../preload/group-api";
 import { UNEXPECTED_FAILURE_MESSAGE } from "../../account/account-messages";
 import { groupNameProblem, groupRefusalMessage } from "../../groups/group-text";
+import { useConnection } from "../../account/use-connection";
 import { screenStyles } from "../screen-styles";
 
 interface GroupListProps {
@@ -20,6 +21,8 @@ interface CreateGroupFormProps {
 export function GroupList(props: GroupListProps): React.JSX.Element {
   const { desktopApi, select, selectedGroupId } = props;
   const [groups, setGroups] = useState<readonly GroupSummary[]>([]);
+  // The Groups come through the connection: read them again whenever it comes up.
+  const connected = useConnection(desktopApi);
 
   useEffect(() => {
     let showsThisList = true;
@@ -37,7 +40,7 @@ export function GroupList(props: GroupListProps): React.JSX.Element {
       showsThisList = false;
       unsubscribe();
     };
-  }, [desktopApi]);
+  }, [desktopApi, connected]);
 
   useEffect(() => {
     if (selectedGroupId === undefined) return;
@@ -52,7 +55,9 @@ export function GroupList(props: GroupListProps): React.JSX.Element {
         Groups
       </h2>
       {groups.length === 0 && (
-        <p className={screenStyles.hint}>You are in no Group yet.</p>
+        <p className={screenStyles.hint}>
+          {connected === false ? "Connecting…" : "You are in no Group yet."}
+        </p>
       )}
       <ul className="flex flex-col gap-1">
         {groups.map((group) => (

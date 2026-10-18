@@ -1,7 +1,7 @@
 # Decision log
 
 
-Every decision so far, D1 to D105, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
+Every decision so far, D1 to D106, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
 
 | Decision | Your choice |
 | --- | --- |
@@ -112,6 +112,7 @@ Every decision so far, D1 to D105, is made and summarized below. Each one record
 | D103 Screen share quality | At most 4 Mbps per viewer, and a Text or Motion choice with each share |
 | D104 The server in each release | A ready-to-run bundle for Linux Arm, built and checked by GitHub Actions, next to the installer |
 | D105 Deploying the server | From GitHub after your approval, through a key that can only run the machine's update script, with automatic rollback |
+| D106 The window's title bar | The app draws its own, like Discord and VS Code, with Windows' buttons kept in the app's colors |
 
 ## D1 — Architecture: who carries messages and calls?
 
@@ -1652,4 +1653,17 @@ Raised with the first release: you asked whether deployments made sense for the 
 Recommendation: A.
 
 Your choice: A (decided October 18, 2026). Either way the machine has `newcord-update`: it checks the bundle against the release's `SHA256SUMS`, keeps the previous versions in `/opt/newcord-releases` with `/opt/newcord` pointing at the live one, copies the database first, and if the new version does not answer `/health` within 30 seconds, puts back the previous version and the database copy. The deploy user's key is forced to run `newcord-deploy-ssh`, which accepts only a version number and runs `newcord-update` through a sudo rule naming that one script. Every pull request runs the update script against a real bundle: an install, an update, a broken version rolled back, a bad checksum and a bad version. `deploy/MANUAL.md` sets it up.
+
+## D106 — The window's title bar
+
+Raised while polishing the app: you asked for the window's frame to be integrated, like Discord's and VS Code's, instead of Windows' white title bar above the app.
+
+| Option | How it works | Pros | Cons |
+| --- | --- | --- | --- |
+| A. The app's bar, with Windows' buttons | Windows' title bar is hidden; the app draws a 32-pixel bar with its logo and name, which drags the window, and Windows draws its minimize, maximize and close buttons over the bar's right end in the app's colors | Native buttons, Windows 11's snap layouts on the maximize button, and little code | The buttons look like Windows', not drawn by the app |
+| B. Everything drawn by the app | A frameless window, with the app's own buttons calling the main process | Full control of the buttons' look | Snap layouts are lost, and the buttons need IPC and their own states |
+
+Recommendation: A.
+
+Your choice: A (decided October 18, 2026), as the integrated look you asked for; B remains open if the buttons should look like Discord's.
 

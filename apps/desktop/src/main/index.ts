@@ -58,6 +58,7 @@ import {
   createUpdateService,
   type UpdateService,
 } from "./updates/update-service";
+import { TITLE_BAR_OVERLAY } from "./window-frame";
 import { hardenedWebPreferences } from "./window-preferences";
 
 const pageUrl = appPageUrl({
@@ -110,6 +111,9 @@ function createWindow(services: AppServices, startHidden: boolean): void {
     minHeight: 520,
     show: false,
     autoHideMenuBar: true,
+    // The app draws its own title bar; Windows keeps its buttons, in the app's colors (D106).
+    titleBarStyle: "hidden",
+    titleBarOverlay: TITLE_BAR_OVERLAY,
     icon,
     webPreferences: hardenedWebPreferences(
       join(__dirname, "../preload/index.js"),

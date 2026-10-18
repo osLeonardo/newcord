@@ -131,7 +131,8 @@ export function startAppServices(
       dependencies.notify(desktopApiEventChannels.onPushToTalk, held),
     reportError: dependencies.reportError,
   });
-  const liveSession = startLiveSession(dependencies, store, holder);
+  const connection: ConnectionState = { ready: false };
+  const liveSession = startLiveSession(dependencies, store, holder, connection);
   holder.hub = createGroupHub(dependencies, store, liveSession, {
     deviceSettings,
     voiceControls,
@@ -147,6 +148,7 @@ export function startAppServices(
   return {
     calls: {
       ...accountActions,
+      readConnection: () => Promise.resolve(connection.ready),
       ...createGroupActions(() => holder.hub?.current()?.groups),
       ...createCallActions(() => holder.hub?.current()?.calls),
       ...deviceActions(dependencies, { deviceSettings, voiceControls }),
@@ -175,10 +177,16 @@ export function startAppServices(
   };
 }
 
+/** Whether the server has accepted the live session's current connection. */
+interface ConnectionState {
+  ready: boolean;
+}
+
 function startLiveSession(
   dependencies: AppServicesDependencies,
   store: LocalStore,
   holder: HubHolder,
+  connection: ConnectionState,
 ): LiveSession {
   const { notify } = dependencies;
   const liveSession = createLiveSession({
@@ -194,7 +202,11 @@ function startLiveSession(
         holder.hub?.onlineAccountsChanged(usernames);
       },
       envelopeReceived: (envelope) => holder.hub?.envelopeReceived(envelope),
-      connectionChanged: (ready) => holder.hub?.connectionChanged(ready),
+      connectionChanged: (ready) => {
+        connection.ready = ready;
+        holder.hub?.connectionChanged(ready);
+        notify(desktopApiEventChannels.onConnectionChanged, ready);
+      },
     },
   });
   if (sessionStateOf(store).status === "logged-in") liveSession.start();

@@ -143,6 +143,15 @@ describe("createDesktopApi", () => {
         listener: (payload: unknown) => void,
       ): Unsubscribe => api.onOnlineAccountsChanged(listener),
     },
+    {
+      functionName: "onConnectionChanged",
+      channel: desktopApiEventChannels.onConnectionChanged,
+      payload: true,
+      listen: (
+        api: DesktopApi,
+        listener: (payload: unknown) => void,
+      ): Unsubscribe => api.onConnectionChanged(listener),
+    },
   ])(
     "$functionName hands each payload on $channel to the listener until it unsubscribes",
     ({ channel, payload, listen }) => {
