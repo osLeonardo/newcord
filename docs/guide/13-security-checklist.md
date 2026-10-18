@@ -16,7 +16,7 @@ Based on Electron's official security recommendations ([source](https://www.elec
 | The preload exposes a few named functions, never ipcRenderer itself; the main process checks the sender and arguments of every call | M1 | `d5ba0fb` (#3) |
 | Windows never load remote pages; navigation and new windows are blocked, and links open in the default browser only if they are http or https | M1 | `d5ba0fb` (#3) |
 | Chat messages are shown as text, never as HTML, so a message cannot run code | M2 | `994aaee` (#6) |
-| Only microphone, screen capture and notification permissions are granted; everything else is refused | M3 | `947a906` (#9); `9728e99` (#9) grants screen capture as Electron 44 asks for it |
+| Only microphone, screen capture, full screen (D101) and notification permissions are granted; everything else is refused | M3 | `947a906` (#9); `9728e99` (#9) grants screen capture as Electron 44 asks for it |
 | A visible "you are sharing" indicator with a stop button whenever the screen is shared | M3 | `1dadb08` (#9) |
 | Unused Electron fuses switched off during packaging ([source](https://www.electronjs.org/docs/latest/tutorial/fuses)) | M5 | `6b22c7a` (#13), read back with `@electron/fuses` |
 | Electron kept on a supported version, since security fixes arrive through new releases | Ongoing | Ongoing: Electron 44.7.2, pinned in `apps/desktop/package.json`; check before each release |
