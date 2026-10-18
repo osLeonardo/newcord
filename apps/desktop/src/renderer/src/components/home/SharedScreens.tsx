@@ -56,7 +56,7 @@ function ScreenView(props: {
         muted
         playsInline
         title="Double-click for full screen"
-        className="max-h-[60vh] w-full rounded bg-black object-contain"
+        className="max-h-[45vh] w-full rounded bg-black object-contain"
         onDoubleClick={toggleFullScreen}
         ref={(element) => {
           video.current = element;

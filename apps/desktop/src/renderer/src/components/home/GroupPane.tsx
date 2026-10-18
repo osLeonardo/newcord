@@ -45,8 +45,11 @@ export function GroupPane(props: GroupPaneProps): React.JSX.Element {
   };
 
   return (
-    <section aria-labelledby="group-name" className="flex h-full flex-col">
-      <header className="flex items-center justify-between gap-4 border-b border-zinc-800 px-6 py-4">
+    <section
+      aria-labelledby="group-name"
+      className="flex h-full min-h-0 flex-col"
+    >
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-zinc-800 px-6 py-4">
         <h1 id="group-name" className="truncate text-lg font-semibold">
           {props.group.name}
         </h1>
@@ -74,7 +77,7 @@ export function GroupPane(props: GroupPaneProps): React.JSX.Element {
         callSession={props.callSession}
       />
       {panel !== undefined && (
-        <div className="border-b border-zinc-800 px-6 py-4">
+        <div className="min-h-0 overflow-y-auto border-b border-zinc-800 px-6 py-4">
           {panel === "invite" ? (
             <InviteForm
               key={groupId}
