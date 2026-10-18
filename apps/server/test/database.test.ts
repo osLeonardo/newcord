@@ -1,6 +1,10 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import BetterSqlite3 from "better-sqlite3";
 import type Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { openDatabase } from "../src/database/open-database.js";
+import { openDatabase, SCHEMA_VERSION } from "../src/database/open-database.js";
 import { createTables } from "../src/database/schema.js";
 
 let database: Database.Database;
@@ -200,5 +204,32 @@ describe("openDatabase", () => {
     expect(
       database.prepare("SELECT username FROM users").pluck().all(),
     ).toEqual(["alice"]);
+  });
+});
+
+describe("the schema version", () => {
+  it("is written into a new database", () => {
+    expect(database.pragma("user_version", { simple: true })).toBe(
+      SCHEMA_VERSION,
+    );
+  });
+
+  it("refuses a database written by a newer server, leaving it untouched", () => {
+    const folder = mkdtempSync(path.join(tmpdir(), "newcord-schema-"));
+    const file = path.join(folder, "newer.db");
+    const newer = new BetterSqlite3(file);
+    newer.pragma(`user_version = ${SCHEMA_VERSION + 1}`);
+    newer.close();
+
+    expect(() => openDatabase(file)).toThrow(/newer newcord server/);
+    const reopened = new BetterSqlite3(file);
+    expect(reopened.pragma("user_version", { simple: true })).toBe(
+      SCHEMA_VERSION + 1,
+    );
+    expect(
+      reopened.prepare("SELECT count(*) FROM sqlite_master").pluck().get(),
+    ).toBe(0);
+    reopened.close();
+    rmSync(folder, { recursive: true, force: true });
   });
 });
