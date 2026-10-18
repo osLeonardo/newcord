@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { DesktopApi } from "../../../../preload/desktop-api";
+import { useConnection } from "../../account/use-connection";
 import { screenStyles } from "../screen-styles";
 
 interface OnlineNowProps {
@@ -9,6 +10,7 @@ interface OnlineNowProps {
 /** The other Accounts online now, among those sharing a Group, kept up to date by the main process. */
 export function OnlineNow({ desktopApi }: OnlineNowProps): React.JSX.Element {
   const [usernames, setUsernames] = useState<readonly string[]>([]);
+  const connected = useConnection(desktopApi);
 
   useEffect(() => {
     let showsThisList = true;
@@ -31,7 +33,9 @@ export function OnlineNow({ desktopApi }: OnlineNowProps): React.JSX.Element {
         Online now
       </h2>
       {usernames.length === 0 ? (
-        <p className={screenStyles.hint}>Nobody else is online.</p>
+        <p className={screenStyles.hint}>
+          {connected === false ? "Connecting…" : "Nobody else is online."}
+        </p>
       ) : (
         <ul className="flex flex-col gap-1 text-sm">
           {usernames.map((username) => (

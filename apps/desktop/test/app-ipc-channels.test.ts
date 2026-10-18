@@ -73,6 +73,7 @@ function fakeActions(): FakeActions {
     recoverPassword: vi.fn<AccountActions["recoverPassword"]>(() =>
       Promise.resolve(recovered),
     ),
+    readConnection: vi.fn(() => Promise.resolve(true)),
     ...fakeGroupActions(),
     ...fakeCallActions(),
     reportCallMedia: vi.fn(() => Promise.resolve()),

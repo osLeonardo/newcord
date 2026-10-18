@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import type { DesktopApi } from "../../preload/desktop-api";
+import { useConnection } from "./account/use-connection";
 import { viewForSessionState, type AppView } from "./app-view";
+import { TitleBar } from "./components/TitleBar";
 import { UpdateOffer } from "./components/UpdateOffer";
 import { AccountSwitchScreen } from "./screens/AccountSwitchScreen";
 import { HomeScreen } from "./screens/HomeScreen";
@@ -22,6 +24,7 @@ interface CurrentScreenProps extends AppProps {
 /** The window's content: one screen at a time, starting from the stored session state. */
 function App({ desktopApi }: AppProps): React.JSX.Element {
   const [view, setView] = useState<AppView>({ screen: "starting" });
+  const connected = useConnection(desktopApi);
 
   useEffect(() => {
     let showsThisWindow = true;
@@ -46,16 +49,31 @@ function App({ desktopApi }: AppProps): React.JSX.Element {
     [desktopApi],
   );
 
+  // The window is the title bar plus the screen below it, which never scrolls past the window.
   return (
-    <div
-      className={
-        view.screen === "home"
-          ? "min-h-screen bg-zinc-950 text-zinc-100"
-          : "flex min-h-screen items-center justify-center bg-zinc-950 p-6 text-zinc-100"
-      }
-    >
+    <div className="flex h-screen flex-col bg-zinc-950 text-zinc-100">
+      <TitleBar />
       <UpdateOffer desktopApi={desktopApi} />
-      <CurrentScreen view={view} desktopApi={desktopApi} show={setView} />
+      {view.screen === "home" && connected === false && (
+        <p
+          role="status"
+          className="shrink-0 bg-amber-900/60 px-4 py-1 text-center text-xs text-amber-100"
+        >
+          Connecting to the server… Messages and Calls resume once it answers.
+        </p>
+      )}
+      {view.screen === "home" ? (
+        <div className="min-h-0 flex-1">
+          <CurrentScreen view={view} desktopApi={desktopApi} show={setView} />
+        </div>
+      ) : (
+        // m-auto centres the card, and still lets a tall one scroll from its top.
+        <div className="flex min-h-0 flex-1 overflow-y-auto p-6">
+          <div className="m-auto flex w-full justify-center">
+            <CurrentScreen view={view} desktopApi={desktopApi} show={setView} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

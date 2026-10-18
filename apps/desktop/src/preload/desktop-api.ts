@@ -96,10 +96,17 @@ export interface AccountApiCalls {
   recoverPassword(recovery: PasswordRecovery): Promise<PasswordRecoveryResult>;
 }
 
+/** The live connection to the server, as the window shows it. */
+export interface ConnectionApiCalls {
+  /** Whether the server accepted this Device's connection; false while connecting or offline. */
+  readConnection(): Promise<boolean>;
+}
+
 /** The desktop API's calls into the main process, each checked there for its sender and arguments. */
 export interface DesktopApiCalls
   extends
     AccountApiCalls,
+    ConnectionApiCalls,
     GroupApiCalls,
     CallApiCalls,
     SettingsApiCalls,
@@ -112,6 +119,8 @@ export interface DesktopApiCalls
 export interface DesktopApiSubscriptions {
   /** Hears the session state whenever the server ends the session (D62, D66). */
   onSessionChanged(listener: (session: SessionState) => void): Unsubscribe;
+  /** Hears the server accepting this Device's connection (true), or losing it (false). */
+  onConnectionChanged(listener: (connected: boolean) => void): Unsubscribe;
   onOnlineAccountsChanged(
     listener: (usernames: readonly string[]) => void,
   ): Unsubscribe;
@@ -147,6 +156,7 @@ export interface DesktopApi extends DesktopApiCalls, DesktopApiSubscriptions {}
 /** The IPC channel behind each call of the desktop API. */
 export const desktopApiChannels = {
   readSessionState: "session:read-state",
+  readConnection: "session:read-connection",
   signUp: "account:sign-up",
   logIn: "account:log-in",
   logOut: "session:log-out",
@@ -189,6 +199,7 @@ export const desktopApiChannels = {
 /** The IPC channel the main process sends each change on. */
 export const desktopApiEventChannels = {
   onSessionChanged: "session:changed",
+  onConnectionChanged: "session:connection-changed",
   onOnlineAccountsChanged: "presence:changed",
   onGroupsChanged: "groups:changed",
   onInvitationsChanged: "invitations:changed",

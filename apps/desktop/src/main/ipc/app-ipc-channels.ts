@@ -8,7 +8,10 @@ import {
   type SessionState,
   type SignUpResult,
 } from "../../preload/desktop-api";
-import type { DesktopApiCalls } from "../../preload/desktop-api";
+import type {
+  ConnectionApiCalls,
+  DesktopApiCalls,
+} from "../../preload/desktop-api";
 import type { AccountActions } from "../account/account-actions";
 import { createCallIpcChannels } from "./call-ipc-channels";
 import { createGroupIpcChannels } from "./group-ipc-channels";
@@ -56,10 +59,24 @@ export function createAppIpcChannels(
 ): readonly CheckedIpcChannel[] {
   return [
     ...accountIpcChannels(actions),
+    ...connectionIpcChannels(actions),
     ...createGroupIpcChannels(actions),
     ...createCallIpcChannels(actions),
     ...createShellIpcChannels(actions),
     ...createUpdateIpcChannels(actions),
+  ];
+}
+
+function connectionIpcChannels(
+  actions: ConnectionApiCalls,
+): CheckedIpcChannel[] {
+  return [
+    checkedChannel<NoArguments, boolean>({
+      name: desktopApiChannels.readConnection,
+      expectedArguments: "",
+      argumentsMatch: argumentsMatching(NoArguments),
+      handle: () => actions.readConnection(),
+    }),
   ];
 }
 

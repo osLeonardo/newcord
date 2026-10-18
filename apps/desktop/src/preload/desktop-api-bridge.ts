@@ -51,6 +51,12 @@ export function createDesktopApi(
     ...createUpdateApi(invoke, subscribe),
     readSessionState: () =>
       invoke(desktopApiChannels.readSessionState) as Promise<SessionState>,
+    readConnection: () =>
+      invoke(desktopApiChannels.readConnection) as Promise<boolean>,
+    onConnectionChanged: (listener) =>
+      subscribe(desktopApiEventChannels.onConnectionChanged, (payload) => {
+        if (typeof payload === "boolean") listener(payload);
+      }),
     signUp: (credentials, choice) =>
       invoke(
         desktopApiChannels.signUp,
