@@ -1,7 +1,7 @@
 # Decision log
 
 
-Every decision so far, D1 to D103, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
+Every decision so far, D1 to D104, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
 
 | Decision | Your choice |
 | --- | --- |
@@ -110,6 +110,7 @@ Every decision so far, D1 to D103, is made and summarized below. Each one record
 | D101 Full screen for a shared screen | The app's window may go full screen, through the browser's own Fullscreen API |
 | D102 The first screen's note about starting with Windows | Removed; start at login stays on by default, and Settings still turns it off |
 | D103 Screen share quality | At most 4 Mbps per viewer, and a Text or Motion choice with each share |
+| D104 The server in each release | A ready-to-run bundle for Linux Arm, built and checked by GitHub Actions, next to the installer |
 
 ## D1 — Architecture: who carries messages and calls?
 
@@ -1631,4 +1632,10 @@ Raised while trying screen sharing on one computer: the share looked poor. M3's 
 Recommendation: A.
 
 Your choice: B (decided October 17, 2026). With it, a choice in the share picker of what is being shared: Text and code keeps detail and drops frame rate first, as before; Video and games keeps the frame rate and drops resolution first (recommended and chosen the same day). Text is the default each time the picker opens.
+
+## D104 — The server in each release
+
+Raised before the first release: you asked for each GitHub release to carry the server as well as the desktop installer. Until then the machine cloned the repository and installed the server's dependencies itself, which needs pnpm and compilers on the machine (14-server-deployment step 8).
+
+Your choice: include the server in each release (decided October 18, 2026). It ships as `newcord-server-<version>-linux-arm64.tar.gz`: the server and the shared package with their production dependencies installed, laid out like the repository so it extracts straight into `/opt/newcord`, where the systemd unit already runs it, with Node.js alone. A read-only job builds it on GitHub's Linux Arm runner, the Oracle machine's platform, and starts it to check `/health` before the publishing job attaches it to the draft release with its SHA-256 in the notes. Every pull request builds and starts it the same way. Cloning and installing on the machine still works.
 
