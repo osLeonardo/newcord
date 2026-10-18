@@ -1,7 +1,9 @@
 import { WebSocketCloseCode } from "@newcord/shared";
 import type { HubContext } from "../hub/hub-messenger.js";
 import { parseHubRequest, type HubEndpoints } from "../hub/hub-requests.js";
+import type { RepeatingTask } from "../repeating-task.js";
 import { authenticateHello, type HelloDependencies } from "./hello.js";
+import { startHeartbeat } from "./heartbeat.js";
 import { closeHubSocket, type IncomingSocket } from "./hub-socket.js";
 import type { Presence } from "./presence.js";
 import { leaveAndClose } from "./session-sockets.js";
@@ -12,6 +14,8 @@ export const HELLO_DEADLINE_MS = 5000;
 export interface HubConnectionDependencies extends HelloDependencies {
   presence: Presence;
   hub: HubEndpoints;
+  /** How often each authenticated socket is pinged (D100). */
+  heartbeatIntervalMs: number;
 }
 
 type ConnectionPhase = "awaiting-hello" | "authenticated" | "closed";
@@ -23,11 +27,14 @@ interface HubConnection {
   dependencies: HubConnectionDependencies;
   /** Set once `hello` is accepted. */
   context?: HubContext;
+  /** Pings the socket from `hello` on, ending it once a ping goes unanswered (D100). */
+  heartbeat?: RepeatingTask;
 }
 
 /**
- * Runs one `/ws` connection: waits up to 5 seconds for a valid `hello`, then joins presence and
- * hands every later request Envelope to the hub. A message breaking every schema closes the socket.
+ * Runs one `/ws` connection: waits up to 5 seconds for a valid `hello`, then joins presence, pings
+ * the socket every 30 seconds and hands every later request Envelope to the hub. A message
+ * breaking every schema closes the socket, and so does a ping left unanswered (D100).
  * Example: `app.get("/ws", { websocket: true }, (socket) => openHubConnection(socket, dependencies));`
  */
 export function openHubConnection(
@@ -90,6 +97,10 @@ function receiveHello(
   }
   connection.phase = "authenticated";
   connection.context = { socket: connection.socket, owner };
+  connection.heartbeat = startHeartbeat(
+    connection.socket,
+    connection.dependencies.heartbeatIntervalMs,
+  );
   connection.dependencies.presence.join(connection.socket, owner);
   connection.dependencies.hub.opened(connection.context);
 }
@@ -111,6 +122,7 @@ function rejectEnvelope(connection: HubConnection): void {
 
 function forgetConnection(connection: HubConnection): void {
   clearTimeout(connection.helloDeadline);
+  connection.heartbeat?.stop();
   connection.phase = "closed";
   connection.dependencies.presence.leave(connection.socket);
 }

@@ -10,6 +10,7 @@ import {
 import {
   fastFakeHasher,
   shareGroup,
+  SLOW_HEARTBEAT_MS,
   startTestServer,
   type TestServer,
 } from "./support/server-test-kit.js";
@@ -36,6 +37,7 @@ beforeEach(async () => {
   server = await startTestServer({
     passwordHasher: fastFakeHasher,
     clock: () => now,
+    heartbeatIntervalMs: SLOW_HEARTBEAT_MS,
   });
   alice = await signUpAs(server.app, "alice");
   bruno = await signUpAs(server.app, "bruno");
