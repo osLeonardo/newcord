@@ -1,7 +1,7 @@
 # Decision log
 
 
-Every decision so far, D1 to D102, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
+Every decision so far, D1 to D103, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
 
 | Decision | Your choice |
 | --- | --- |
@@ -109,6 +109,7 @@ Every decision so far, D1 to D102, is made and summarized below. Each one record
 | D100 The WebSocket heartbeat | A ping every 30 seconds; a socket that leaves one unanswered is ended |
 | D101 Full screen for a shared screen | The app's window may go full screen, through the browser's own Fullscreen API |
 | D102 The first screen's note about starting with Windows | Removed; start at login stays on by default, and Settings still turns it off |
+| D103 Screen share quality | At most 4 Mbps per viewer, and a Text or Motion choice with each share |
 
 ## D1 — Architecture: who carries messages and calls?
 
@@ -1616,4 +1617,18 @@ Your choice: A (decided October 17, 2026). Only the app's own window gets it, an
 Raised while trying the app: you asked to remove the note D46 added to the first screen ("newcord starts with Windows, hidden in the tray… Got it").
 
 Your choice: remove it (decided October 17, 2026). Start at login stays on by default from the first run (D46), and Settings, under App, still turns it off; the one-time "still running in the tray" notification on the first close (D47) stays. The note's two IPC calls and its one-time flag are removed with it.
+
+## D103 — Screen share quality
+
+Raised while trying screen sharing on one computer: the share looked poor. M3's Settings capped each viewer at 1.5 Mbps and always kept detail, dropping frame rate first, which suits a page of text but turns motion choppy and blocky. In the mesh the sharer uploads one stream per viewer.
+
+| Option | How it works | Pros | Cons |
+| --- | --- | --- | --- |
+| A. A budget split among viewers | 8 Mbps of upload in total, at most 6 Mbps each | Small calls look much better, big calls stay within reach of home upload | The quality changes as people join |
+| B. A fixed 4 Mbps per viewer | Every viewer gets up to 4 Mbps | Good 1080p at 30 frames per second for everyone | 5 viewers need 20 Mbps of upload; WebRTC lowers it on weaker links |
+| C. Keep 1.5 Mbps | No change | Light on upload | Motion stays choppy |
+
+Recommendation: A.
+
+Your choice: B (decided October 17, 2026). With it, a choice in the share picker of what is being shared: Text and code keeps detail and drops frame rate first, as before; Video and games keeps the frame rate and drops resolution first (recommended and chosen the same day). Text is the default each time the picker opens.
 

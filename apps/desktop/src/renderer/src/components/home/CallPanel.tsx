@@ -123,9 +123,9 @@ export function CallPanel(props: CallPanelProps): React.JSX.Element {
       {inThisCall && picking && (
         <SharePicker
           desktopApi={desktopApi}
-          pick={(sourceId) => {
+          pick={(sourceId, mode) => {
             setPicking(false);
-            callSession.startSharing(sourceId);
+            callSession.startSharing(sourceId, mode);
           }}
           cancel={() => {
             setPicking(false);

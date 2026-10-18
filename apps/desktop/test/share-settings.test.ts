@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   preferCodec,
   screenShareEncoding,
+  shareContentHint,
 } from "../src/renderer/src/calls/share-settings";
 
 const codecs = [
@@ -53,11 +54,21 @@ describe("preferCodec (D11b, 10-m3-build step 8)", () => {
   });
 });
 
-describe("screenShareEncoding (10-m3-build Settings)", () => {
-  it("caps each viewer at 1.5 Mbps and 30 frames per second", () => {
+describe("screenShareEncoding (10-m3-build Settings, D103)", () => {
+  it("caps each viewer at 4 Mbps and 30 frames per second", () => {
     expect(screenShareEncoding()).toEqual({
-      maxBitrate: 1_500_000,
+      maxBitrate: 4_000_000,
       maxFramerate: 30,
     });
+  });
+});
+
+describe("shareContentHint (D103)", () => {
+  it("keeps text sharp, dropping frame rate first", () => {
+    expect(shareContentHint("text")).toBe("detail");
+  });
+
+  it("keeps motion smooth, dropping resolution first", () => {
+    expect(shareContentHint("motion")).toBe("motion");
   });
 });

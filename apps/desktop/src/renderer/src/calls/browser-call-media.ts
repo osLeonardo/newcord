@@ -147,7 +147,7 @@ export function captureScreen(): Promise<MediaStream> {
 
 /**
  * Sends the share on a connection: the chosen codec first with the others kept after it (D11b),
- * and at most 1.5 Mbps to this viewer (10-m3-build step 8).
+ * and at most 4 Mbps to this viewer (D103, 10-m3-build step 8).
  * @example sendScreen(connection, share);
  */
 export function sendScreen(
