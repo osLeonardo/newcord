@@ -16,6 +16,7 @@ import {
   refreshTokenRow,
   shareGroup,
   signUp,
+  SLOW_HEARTBEAT_MS,
   startTestServer,
   type TestServer,
 } from "./support/server-test-kit.js";
@@ -45,6 +46,7 @@ beforeEach(async () => {
   server = await startTestServer({
     passwordHasher: fastFakeHasher,
     clock: () => now,
+    heartbeatIntervalMs: SLOW_HEARTBEAT_MS,
   });
   sharedGroupId = Buffer.from(shareGroup(server.database, []), "base64url");
 });

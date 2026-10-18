@@ -54,8 +54,10 @@ interface RawTestClient {
     listener: (data: Buffer, isBinary: boolean) => void,
   ): unknown;
   on(event: "close", listener: (code: number, reason: Buffer) => void): unknown;
+  on(event: "ping", listener: (data: Buffer) => void): unknown;
   send(data: string | Buffer): void;
   terminate(): void;
+  pong(data: Buffer): void;
   readonly readyState: number;
 }
 
@@ -73,6 +75,8 @@ export interface TestSocketClient {
   readonly closed: Promise<SocketClosure>;
   isOpen(): boolean;
   terminate(): void;
+  /** Leaves every later ping unanswered, as a Device that lost its network would. */
+  stopAnsweringPings(): void;
 }
 
 interface EnvelopeInbox {
@@ -137,6 +141,11 @@ export async function connectWithHello(
 
 function watchTestClient(raw: RawTestClient): TestSocketClient {
   const inbox = createEnvelopeInbox();
+  // injectWS's client leaves pings unanswered; browsers, Electron and Node answer each one.
+  let answersPings = true;
+  raw.on("ping", (data) => {
+    if (answersPings) raw.pong(data);
+  });
   raw.on("message", (data) => inbox.push(JSON.parse(data.toString())));
   const closed = new Promise<SocketClosure>((resolve) => {
     raw.on("close", (code, reason) =>
@@ -151,6 +160,9 @@ function watchTestClient(raw: RawTestClient): TestSocketClient {
     closed,
     isOpen: (): boolean => raw.readyState === WEBSOCKET_OPEN,
     terminate: (): void => raw.terminate(),
+    stopAnsweringPings: (): void => {
+      answersPings = false;
+    },
   };
 }
 

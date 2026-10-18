@@ -17,6 +17,7 @@ Proposed by me and accepted by you on October 14, 2026.
 | Login rate limit | 5 attempts per minute, per username and per IP address | Slows down password guessing |
 | Local database in the app | better-sqlite3, as on the server (D34) | One library to learn; it must be rebuilt for Electron's Node.js version |
 | WebSocket hello deadline | 5 seconds | Enough for a real app on a slow link; short enough that idle sockets cannot pile up |
+| WebSocket heartbeat | A ping every 30 seconds; a socket that leaves one unanswered by the next is closed (D100) | A sleeping or disconnected laptop goes offline for the others within about a minute |
 | Sign-up rate limit | 5 per hour per IP address | Each sign-up costs an Argon2id hash; limits resource use and mass account creation |
 | Refresh rate limit | 20 per minute per IP address | A healthy device refreshes about every 14 minutes; tokens cannot be guessed, so this only stops floods, with room for shared addresses |
 | Password recovery rate limit | 5 per hour, per username and per IP address | Recovery codes cannot be guessed, but each attempt costs an Argon2id check |
