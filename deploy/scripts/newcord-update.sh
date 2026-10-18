@@ -78,16 +78,22 @@ if [ -f "$database" ]; then
   sqlite3 "$database" ".backup '$database_copy'"
 fi
 
+# Older versions and database copies go, beyond the newest few and the one before this. Finding
+# none to remove is fine: tidying up never fails an update that worked.
+prune() {
+  local old
+  for old in $(ls -1dt "$releases_dir"/*/ 2> /dev/null | tail -n +$((keep + 1))); do
+    old="${old%/}"
+    if [ "$old" != "$target" ] && [ "$old" != "$previous" ]; then rm -rf "$old"; fi
+  done
+  ls -1t "$backup_dir"/pre-deploy-*.db 2> /dev/null | tail -n +$((keep + 1)) | xargs -r rm -f || true
+}
+
 switch_to "$target"
 start_backend
 if healthy; then
   echo "newcord server $version is live"
-  # Older versions and database copies go, beyond the newest few and the one before this.
-  ls -1dt "$releases_dir"/*/ 2> /dev/null | tail -n +$((keep + 1)) | while read -r old; do
-    old="${old%/}"
-    if [ "$old" != "$target" ] && [ "$old" != "$previous" ]; then rm -rf "$old"; fi
-  done
-  ls -1t "$backup_dir"/pre-deploy-*.db 2> /dev/null | tail -n +$((keep + 1)) | xargs -r rm -f
+  prune
   exit 0
 fi
 
