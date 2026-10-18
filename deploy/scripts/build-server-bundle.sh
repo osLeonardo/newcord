@@ -17,8 +17,11 @@ out="$2"
 platform="$(node -p 'process.platform + "-" + process.arch')"
 name="newcord-server-${version}-${platform}"
 
-# A checkout that had a full install gets purged to production dependencies without asking.
-pnpm install --frozen-lockfile --prod --filter "server..." --config.confirmModulesPurge=false
+# The repository's hoisted layout, which electron-builder needs, would install every workspace
+# project's dependencies whatever the filter; the isolated one installs the server's alone. A
+# checkout that had a full install gets purged without asking.
+pnpm install --frozen-lockfile --prod --filter "server..." \
+  --config.node-linker=isolated --config.confirmModulesPurge=false
 
 # The bundle must work wherever it is extracted, so any absolute link to a workspace package is
 # made relative.
