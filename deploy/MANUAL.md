@@ -154,12 +154,12 @@ sudo ln -sf /etc/nginx/sites-available/newcord-acme.conf /etc/nginx/sites-enable
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Get both certificates. The relay's comes with a hook that copies it where coturn can read it, on every renewal too:
+Get both certificates, each with a hook that runs on every renewal too. The backend's reloads nginx, which otherwise keeps serving the old certificate until it expires; the relay's copies it where coturn can read it:
 
 ```bash
 sudo install -m 755 /opt/newcord/deploy/scripts/copy-turn-cert.sh /etc/newcord/copy-turn-cert.sh
 sudo certbot certonly --webroot -w /var/www/acme -d newcord.duckdns.org \
-  --agree-tos --no-eff-email -m <your email>
+  --agree-tos --no-eff-email -m <your email> --deploy-hook "systemctl reload nginx"
 sudo certbot certonly --webroot -w /var/www/acme -d newcord-turn.duckdns.org \
   --deploy-hook /etc/newcord/copy-turn-cert.sh
 sudo certbot renew --dry-run

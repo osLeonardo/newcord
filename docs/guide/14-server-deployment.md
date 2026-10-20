@@ -88,10 +88,11 @@ In the backend, create Fastify with `trustProxy: "127.0.0.1"`, so it reads the r
 
 ## Certificates
 
-6. Get one certificate per name, with a deploy hook that copies the relay's certificate where coturn can read it and restarts coturn on every renewal:
+6. Get one certificate per name, each with a deploy hook that runs on every renewal: the backend's reloads nginx, which otherwise keeps serving the old certificate, and the relay's copies its certificate where coturn can read it and restarts coturn:
 
 ```bash
-sudo certbot certonly --webroot -w /var/www/acme -d yourapp.duckdns.org
+sudo certbot certonly --webroot -w /var/www/acme -d yourapp.duckdns.org \
+  --deploy-hook "systemctl reload nginx"
 sudo certbot certonly --webroot -w /var/www/acme -d yourapp-turn.duckdns.org \
   --deploy-hook /etc/yourapp/copy-turn-cert.sh
 sudo certbot renew --dry-run
