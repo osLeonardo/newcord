@@ -11,6 +11,8 @@ You end up with one Always Free Arm machine running:
 
 Commands in `PowerShell` blocks run on your Windows PC; all others run on the machine over SSH.
 
+To use an Arch Linux machine with an x86_64 processor instead, keep this manual and follow [`ARCH-LINUX.md`](ARCH-LINUX.md) beside it: it says what changes in each section (D107).
+
 ## Before you start
 
 - An Oracle Cloud account (Always Free is enough).

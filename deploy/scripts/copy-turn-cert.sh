@@ -10,4 +10,5 @@ CERTS=/etc/coturn/certs
 install -d -m 750 -o root -g turnserver "$CERTS"
 install -m 644 -o root -g turnserver "$LIVE/fullchain.pem" "$CERTS/fullchain.pem"
 install -m 640 -o root -g turnserver "$LIVE/privkey.pem" "$CERTS/privkey.pem"
-systemctl restart coturn
+# Ubuntu names coturn's service coturn; Arch Linux names it turnserver (D107).
+if [ -f /etc/arch-release ]; then systemctl restart turnserver; else systemctl restart coturn; fi

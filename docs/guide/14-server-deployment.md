@@ -112,7 +112,7 @@ pkey=/etc/coturn/certs/privkey.pem
 
 ## Backend service
 
-8. Install Node.js 26 (see the Settings in `07-m1-setup.md`). Each release carries the server as `newcord-server-<version>-linux-arm64.tar.gz`, built on Linux Arm with its dependencies installed (D104): check its SHA-256 against the release notes and extract it into `/opt/newcord`, so the machine needs no pnpm or compilers. (To build on the machine instead, install pnpm 11 plus the compilers that better-sqlite3 and argon2 may need on Arm, `build-essential` and `python3`.) Create a dedicated user, and keep secrets in a file only that user can read. Generate each secret with `openssl rand -base64 48`.
+8. Install Node.js 26 (see the Settings in `07-m1-setup.md`). Each release carries the server as `newcord-server-<version>-linux-arm64.tar.gz`, built on Linux Arm with its dependencies installed (D104), and as `newcord-server-<version>-linux-x64.tar.gz` for an Arch Linux x86_64 machine (D107, `deploy/ARCH-LINUX.md`): check its SHA-256 against the release notes and extract it into `/opt/newcord`, so the machine needs no pnpm or compilers. (To build on the machine instead, install pnpm 11 plus the compilers that better-sqlite3 and argon2 may need on Arm, `build-essential` and `python3`.) Create a dedicated user, and keep secrets in a file only that user can read. Generate each secret with `openssl rand -base64 48`.
 9. Run the backend as a systemd service:
 
 ```ini
