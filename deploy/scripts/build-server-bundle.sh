@@ -2,8 +2,8 @@
 # Builds the server bundle each release carries (D104): the server and the shared package with
 # their production dependencies already installed, laid out like the repository, so it runs from
 # /opt/newcord with Node.js alone, plus the deployment files for the same version (deploy/).
-# Native modules are installed for the platform this runs on, so releases build it on Linux Arm,
-# like the Oracle machine.
+# Native modules are installed for the platform this runs on, so releases build it once on Linux
+# Arm, like the Oracle machine, and once on Linux x86_64, for an Arch Linux machine (D107).
 #
 #   deploy/scripts/build-server-bundle.sh <version> <output folder>
 set -euo pipefail

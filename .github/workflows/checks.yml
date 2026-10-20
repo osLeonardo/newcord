@@ -1,6 +1,7 @@
 # Runs every check on each pull request to main and each push to main (D68, D99): on Windows,
-# where the app runs (D73), and on Linux Arm, like the Oracle server (#14). Every action is
-# pinned to a full commit hash, and the workflow can only read the repository.
+# where the app runs (D73), and on Linux Arm, like the Oracle server (#14); the server bundles are
+# also built and started on Linux x86_64 (D107). Every action is pinned to a full commit hash,
+# and the workflow can only read the repository.
 name: checks
 on:
   pull_request:
@@ -81,8 +82,13 @@ jobs:
       - run: pnpm exec prettier --check .
       - run: pnpm --filter desktop build
   server-bundle:
-    # The server bundle each release carries, built and started the way the machine runs it (D104).
-    runs-on: ubuntu-24.04-arm
+    # The server bundles each release carries, built and started the way the machine runs them,
+    # on Linux Arm and Linux x86_64 (D104, D107).
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04-arm, ubuntu-24.04]
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

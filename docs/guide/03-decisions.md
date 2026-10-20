@@ -1,7 +1,7 @@
 # Decision log
 
 
-Every decision so far, D1 to D106, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
+Every decision so far, D1 to D107, is made and summarized below. Each one records the options, a recommendation with its reason, and your final choice.
 
 | Decision | Your choice |
 | --- | --- |
@@ -113,6 +113,7 @@ Every decision so far, D1 to D106, is made and summarized below. Each one record
 | D104 The server in each release | A ready-to-run bundle for Linux Arm, built and checked by GitHub Actions, next to the installer |
 | D105 Deploying the server | From GitHub after your approval, through a key that can only run the machine's update script, with automatic rollback |
 | D106 The window's title bar | The app draws its own, like Discord and VS Code, with Windows' buttons kept in the app's colors |
+| D107 The server on Arch Linux (x86_64) | A second ready-to-run bundle in each release, for Linux x86_64; `newcord-update` picks the one for the machine's processor |
 
 ## D1 — Architecture: who carries messages and calls?
 
@@ -1667,3 +1668,8 @@ Recommendation: A.
 
 Your choice: A (decided October 18, 2026), as the integrated look you asked for; B remains open if the buttons should look like Discord's.
 
+## D107 — The server on Arch Linux (x86_64)
+
+Raised after the 0.1.2 release: you asked for the server to run on an Arch Linux machine with an x86_64 processor too, with a release file for it. Until then each release carried only the Linux Arm bundle for the Oracle machine (D104), and `newcord-update` downloaded only that one (D105).
+
+Your choice: a second server bundle in each release (decided October 19, 2026). It ships as `newcord-server-<version>-linux-x64.tar.gz` next to the Arm one, built the same way on GitHub's Linux x86_64 runner (Ubuntu 24.04, whose glibc is older than Arch's, so its native modules load on Arch) and started to check `/health` before the publishing job attaches it; `SHA256SUMS` lists both. Every pull request builds and starts both bundles and runs `newcord-update`'s tests with each. `newcord-update` picks the bundle for the machine's processor (`uname -m`: `aarch64` or `x86_64`) and refuses any other, so the deploy workflow works whichever machine `DEPLOY_HOST` names. `deploy/ARCH-LINUX.md` lists what changes on Arch against `deploy/MANUAL.md`: the packages from pacman, nginx's layout (`deploy/nginx/arch-nginx.conf`) with `nginx-mod-stream`, certbot's renewal timer, and coturn's file and service names (the certificate hook restarts `turnserver` on Arch). The Oracle machine stays as D52 chose, and Linux desktop builds stay out of version 1 (D73).

@@ -1,21 +1,24 @@
 #!/usr/bin/env bash
 # Tests newcord-update against a real server bundle in a scratch folder (D105): a first install,
 # an update, a broken version that must roll back to the one before with its database copy, a
-# bundle whose checksum does not match, and a bad version. Runs on Linux, without root.
+# bundle whose checksum does not match, a bad version, and a machine whose processor no bundle is
+# built for. Runs on Linux Arm or x86_64, without root.
 #
-#   deploy/scripts/test-newcord-update.sh <newcord-server-*-linux-arm64.tar.gz>
+#   deploy/scripts/test-newcord-update.sh <newcord-server-*-linux-<arch>.tar.gz>
 set -euo pipefail
 
 bundle="$(realpath "$1")"
 update="$(cd "$(dirname "$0")" && pwd)/newcord-update.sh"
 root="$(mktemp -d)"
+# Named as build-server-bundle.sh names it on this machine, so newcord-update must pick the same.
+platform="$(node -p 'process.platform + "-" + process.arch')"
 trap 'bash "$root/stop.sh" 2> /dev/null || true; rm -rf "$root"' EXIT
 
 # A download site on disk, laid out like GitHub's: v<version>/<bundle> and SHA256SUMS.
 release() {
   local version="$1" source="$2" folder="$root/site/v$1"
   mkdir -p "$folder"
-  cp "$source" "$folder/newcord-server-$version-linux-arm64.tar.gz"
+  cp "$source" "$folder/newcord-server-$version-$platform.tar.gz"
   (cd "$folder" && sha256sum -- *.tar.gz > SHA256SUMS)
 }
 
@@ -61,7 +64,7 @@ release 0.0.1 "$bundle"
 release 0.0.2 "$bundle"
 release 0.0.3 "$root/broken.tar.gz"
 release 0.0.4 "$bundle"
-echo "0000000000000000000000000000000000000000000000000000000000000000  newcord-server-0.0.4-linux-arm64.tar.gz" > "$root/site/v0.0.4/SHA256SUMS"
+echo "0000000000000000000000000000000000000000000000000000000000000000  newcord-server-0.0.4-$platform.tar.gz" > "$root/site/v0.0.4/SHA256SUMS"
 
 echo "== a first install"
 bash "$update" 0.0.1 || fail "the first install did not succeed"
@@ -86,5 +89,9 @@ echo "== a bad version"
 status=0
 bash "$update" "0.1; reboot" || status=$?
 [ "$status" -eq 2 ] || fail "a bad version was not refused with status 2"
+
+echo "== a machine no bundle is built for"
+if NEWCORD_MACHINE=riscv64 bash "$update" 0.0.1; then fail "an update ran on a machine without a bundle"; fi
+live 0.0.2 || fail "a machine without a bundle changed the live version"
 
 echo "newcord-update passed every case"

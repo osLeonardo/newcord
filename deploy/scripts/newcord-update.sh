@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Installs a released server version and switches the backend to it (D105). It downloads
-# newcord-server-<version>-linux-arm64.tar.gz and the release's SHA256SUMS from GitHub, checks
-# the bundle against them, extracts it beside the earlier versions, copies the database, points
-# /opt/newcord at the new version and restarts the backend. If the backend does not answer
+# Installs a released server version and switches the backend to it (D105). It downloads the
+# bundle for this machine's processor, newcord-server-<version>-linux-arm64.tar.gz or
+# newcord-server-<version>-linux-x64.tar.gz (D107), and the release's SHA256SUMS from GitHub,
+# checks the bundle against them, extracts it beside the earlier versions, copies the database,
+# points /opt/newcord at the new version and restarts the backend. If the backend does not answer
 # /health within 30 seconds, it puts back the previous version and the database copy, and fails.
 # The 3 newest versions and database copies are kept.
 #
@@ -23,7 +24,17 @@ current="${NEWCORD_CURRENT:-/opt/newcord}"
 database="${NEWCORD_DATABASE:-/var/lib/newcord/newcord.db}"
 backup_dir="${NEWCORD_BACKUP_DIR:-/var/backups/newcord}"
 health_url="${NEWCORD_HEALTH_URL:-http://127.0.0.1:3000/health}"
+machine="${NEWCORD_MACHINE:-$(uname -m)}"
 keep=3
+
+# The names build-server-bundle.sh gives, after Node.js's process.arch.
+bundle_platform() {
+  case "$1" in
+    aarch64) echo linux-arm64 ;;
+    x86_64) echo linux-x64 ;;
+    *) return 1 ;;
+  esac
+}
 
 start_backend() {
   if [ -n "${NEWCORD_RESTART:-}" ]; then bash -c "$NEWCORD_RESTART"; else systemctl restart newcord-backend; fi
@@ -47,9 +58,13 @@ if [ -e "$current" ] && [ ! -L "$current" ]; then
   echo "$current is a folder, not a link to a version; move it into $releases_dir first" >&2
   exit 1
 fi
+if ! platform="$(bundle_platform "$machine")"; then
+  echo "Releases carry no server bundle for a $machine machine, only for aarch64 and x86_64" >&2
+  exit 1
+fi
 previous="$(readlink -f "$current" 2> /dev/null || true)"
 target="$releases_dir/$version"
-name="newcord-server-${version}-linux-arm64.tar.gz"
+name="newcord-server-${version}-${platform}.tar.gz"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
